@@ -17,7 +17,9 @@ setup(
     install_requires=[
         'ruamel.yaml',
         "click",
-        "jsonlines"
+        "jsonlines",
+        'rich',
+        'requests'
     ],
     extras_require={
         'dev': [
@@ -32,6 +34,9 @@ setup(
             "sphinx-copybutton",
             "twine"
         ],
+    },
+    entry_points={
+        'console_scripts': ['nomic=nomic.cli:cli'],
     },
     include_package_data=True
 )
