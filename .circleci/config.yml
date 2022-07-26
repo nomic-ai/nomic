@@ -19,7 +19,7 @@ commands:
     test:
       steps:
         - run:
-            name: Create Atlas Environment
+            name: Create Atlas Client Environment
             command: make dev
 #        - run:
 #            name: Run Isort
@@ -41,7 +41,7 @@ commands:
             command: make documentation | cat
         - run:
             name: Push documentation
-            command: aws s3 cp build/html s3://docs.nomic.ai/ --recursive | cat
+            command: aws s3 cp docs/build/html s3://docs.nomic.ai/ --recursive | cat
 
 
 jobs:
