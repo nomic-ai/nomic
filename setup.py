@@ -20,7 +20,10 @@ setup(
         "jsonlines",
         'rich',
         'requests',
-        'numpy'
+        'numpy',
+        'pydantic',
+        'wonderwords',
+        'tqdm'
     ],
     extras_require={
         'dev': [

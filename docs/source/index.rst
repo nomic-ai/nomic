@@ -16,9 +16,23 @@ Install the Nomic client with:
 
    pip install nomic
 
-The following code snippet provides an example interaction with Atlas.
-Try it out in either a Python script or Jupyter cell.
+Login/create your Nomic account:
 
-.. literalinclude:: ../../examples/interactive_session.py
+.. code-block:: bash
+
+   nomic login
+
+Follow the instructions to obtain your access token. Enter your access token with:
+
+.. code-block:: bash
+
+   nomic login [token]
+
+You are ready to interact with Nomic services.
+
+The following code snippet provides an example interaction with Atlas - Nomic's neural database.
+Upload 10,000 embeddings and see them instantly organized on an interactive map.
+
+.. literalinclude:: ../../examples/map_embeddings.py
     :language: python
 

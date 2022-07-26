@@ -7,18 +7,21 @@ num_embeddings = 10000
 embeddings = np.random.rand(num_embeddings, 256)
 data = [{'id': i} for i in range(len(embeddings))]
 
-project_name = 'test'
-index_name = 'test'
+project_name = 'My Project'
+index_name = 'My Index'
 
-atlas.create_project(project_name=project_name,
+project_id = atlas.create_project(project_name=project_name,
                      description=project_name,
                      unique_id_field='id',
                      modality='embedding')
 
-print("Adding Data")
-atlas.add_embeddings(project_name=project_name,
+print(f"Adding embeddings to project: {project_id}")
+atlas.add_embeddings(project_id=project_id,
                      embeddings=embeddings,
                      data=data)
 
-print("Organizing Data")
-atlas.create_index(project_name=project_name, index_name=index_name)
+print(f"Organizing embeddings in project: {project_id}")
+response = atlas.create_index(project_id=project_id, index_name=index_name)
+print(response)
+
+print(atlas._get_index_job(job_id=response.job_id))
