@@ -5,7 +5,7 @@ atlas = AtlasClient()
 
 num_embeddings = 10000
 embeddings = np.random.rand(num_embeddings, 256)
-data = [{'id': i, 'text': str(uuid.uuid4())} for i in range(len(embeddings))]
+data = [{'id': i} for i in range(len(embeddings))]
 
 project_name = 'test'
 index_name = 'test'
