@@ -1,10 +1,10 @@
-Atlas Client
+Python Clients
 ========================================
 
 .. toctree::
    :hidden:
    :maxdepth: 4
 
-   atlas_client
+   nomic
 
-AtlasClient provides an API for common Atlas interactions.
+Interact with the Nomic ecosystem in Python.

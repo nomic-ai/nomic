@@ -3,7 +3,7 @@ from nomic import AtlasClient
 atlas = AtlasClient()
 
 
-print(atlas.get_user())
+print(atlas._get_user())
 
 # projects = atlas.get_projects()
 #

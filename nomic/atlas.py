@@ -2,7 +2,7 @@
 The Official Nomic Python Client for Atlas
 
 This class allows for programmatic interactions with Atlas. Initialize AtlasClient in any Python context such as a script
-or in a Jupyter Notebook in order to retrieve documents, annotations and tags made in the Atlas front-end application.
+or in a Jupyter Notebook to organize your data.
 """
 import json
 import os
@@ -16,7 +16,7 @@ from .cli import get_api_token
 class AtlasClient:
     """The Atlas Client"""
 
-    def __init__(self, hostname: str = 'staging-api-atlas.nomic.ai', port: str = '80'):
+    def __init__(self, hostname: str = 'staging-api-atlas.nomic.ai'):
         '''
         Initializes the Atlas client.
 
@@ -41,7 +41,7 @@ class AtlasClient:
                 "Could not find an authorization token. Run `nomic login` to authorize this client with the Nomic API."
             )
 
-    def get_user(self):
+    def _get_user(self):
         response = requests.get(
             self.atlas_api_path + "/v1/user",
             headers=self.header,
@@ -51,13 +51,14 @@ class AtlasClient:
             exit()
         return response.json()
 
-    def create_project(self, project_name, description, unique_id_field, modality, is_public=True):
+    def create_project(self, project_name: str, description: str, unique_id_field: str, modality: str, is_public: bool = True):
         '''
         Creates an Atlas project. Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
+
         Args:
             project_name: The name of the project.
             description: A description for the project.
-            unique_id_field: The field that unique identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
+            unique_id_field: The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
             modality: The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
             is_public: Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
 
@@ -66,7 +67,7 @@ class AtlasClient:
 
         '''
 
-        user = self.get_user()
+        user = self._get_user()
         if len(user['organizations']) > 1:
             raise NotImplementedError("This client does not support users in more than one organization yet.")
 
@@ -98,12 +99,12 @@ class AtlasClient:
                        data: List[Dict]
                        ):
         '''
-        Adds embeddings to an embedding project.
+        Adds embeddings to an embedding project. Pair each embedding with meta-data to explore your embeddings.
 
         Args:
             project: The name of the project.
             embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
-            data: An [N,] element list containing metadata for each embedding.
+            data: An [N,] element list of dictionaries containing metadata for each embedding.
 
         Returns:
             True on success.
@@ -111,26 +112,41 @@ class AtlasClient:
         pass
 
 
-    def create_index(self):
+    def add_text(self, project: str, data: List[Dict]):
+        '''
+        Adds text to an Atlas text project. Each text datum consists of a keyed dictionary.
+        Args:
+            project: The name of the project.
+            data: A [N,] element list of dictionaries containing your datums.
+
+        Returns:
+            True if success.
+
+        '''
         pass
 
-    def map(self):
-        """
-        Makes a map of embeddings
+    def map_embeddings(self, embeddings: np.array, data: List[Dict]):
+        '''
+        Generates a map of the given embeddings.
+
+        Args:
+            embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
+            data: An [N,] element list of dictionaries containing metadata for each embedding.
+
         Returns:
 
-        """
+        '''
         pass
 
-    def get_projects(self) -> List:
-        '''
-        Retrieves all projects available in Atlas.
-
-        Returns: A list of accessible projects.
-        '''
-        response = requests.get(f"{self.atlas_backend_path}/v1/project/titles")
-
-        return response.json()['titles']
+    # def get_projects(self) -> List:
+    #     '''
+    #     Retrieves all projects available in Atlas.
+    #
+    #     Returns: A list of accessible projects.
+    #     '''
+    #     response = requests.get(f"{self.atlas_backend_path}/v1/project/titles")
+    #
+    #     return response.json()['titles']
 
     # def get_documents_by_tags(self, project: str) -> Dict:
     #     '''
