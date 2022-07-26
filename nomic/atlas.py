@@ -5,14 +5,18 @@ This class allows for programmatic interactions with Atlas. Initialize AtlasClie
 or in a Jupyter Notebook in order to retrieve documents, annotations and tags made in the Atlas front-end application.
 """
 import json
+import os
 from typing import Dict, List
-
+import numpy as np
 import requests
+
+from .cli import get_api_token
+
 
 class AtlasClient:
     """The Atlas Client"""
 
-    def __init__(self, hostname: str = 'localhost', port: str = '80'):
+    def __init__(self, hostname: str = 'staging-api-atlas.nomic.ai', port: str = '80'):
         '''
         Initializes the Atlas client.
 
@@ -21,10 +25,91 @@ class AtlasClient:
             port: the port where the Atlsa back-end is running.
 
         '''
-        self.atlas_api_path = f"https://{hostname}:{port}"
+        self.atlas_api_path = f"https://{hostname}"
+        self.token = str(get_api_token()).strip()
+        self.header = {"Authorization": f"Bearer {self.token}"}
 
-    def create_project(self):
+        if self.token:
+            response = requests.get(
+                self.atlas_api_path + "/v1/user",
+                headers=self.header,
+            )
+            if not response.status_code == 200:
+                print("Your authorization token is no longer valid.")
+        else:
+            raise ValueError(
+                "Could not find an authorization token. Run `nomic login` to authorize this client with the Nomic API."
+            )
+
+    def get_user(self):
+        response = requests.get(
+            self.atlas_api_path + "/v1/user",
+            headers=self.header,
+        )
+        if not response.status_code == 200:
+            print("Your authorization token is no longer valid.")
+            exit()
+        return response.json()
+
+    def create_project(self, project_name, description, unique_id_field, modality, is_public=True):
+        '''
+        Creates an Atlas project. Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
+        Args:
+            project_name: The name of the project.
+            description: A description for the project.
+            unique_id_field: The field that unique identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
+            modality: The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
+            is_public: Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
+
+        Returns:
+            True on success
+
+        '''
+
+        user = self.get_user()
+        if len(user['organizations']) > 1:
+            raise NotImplementedError("This client does not support users in more than one organization yet.")
+
+        organization_id = user['organizations'][0]['organization_id']
+
+        if modality not in ['text', 'embedding']:
+            raise ValueError("Atlas currently only supports 'text' and 'embedding' projects.")
+
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/create",
+            headers=self.header,
+            json={
+                'organization_id': organization_id,
+                'project_name': project_name,
+                'description': description,
+                'unique_id_field': unique_id_field,
+                'modality': modality,
+                'is_public': is_public
+            },
+        )
+        if response.status_code != 201:
+            raise Exception(f"Failed to create project: {response.json()}")
+        return True
+
+
+    def add_embeddings(self,
+                       project: str,
+                       embeddings: np.array,
+                       data: List[Dict]
+                       ):
+        '''
+        Adds embeddings to an embedding project.
+
+        Args:
+            project: The name of the project.
+            embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
+            data: An [N,] element list containing metadata for each embedding.
+
+        Returns:
+            True on success.
+        '''
         pass
+
 
     def create_index(self):
         pass
@@ -43,9 +128,7 @@ class AtlasClient:
 
         Returns: A list of accessible projects.
         '''
-        response = requests.get(
-            f"{self.atlas_backend_path}/v1/project/titles"
-        )
+        response = requests.get(f"{self.atlas_backend_path}/v1/project/titles")
 
         return response.json()['titles']
 

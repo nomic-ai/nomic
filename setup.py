@@ -19,7 +19,8 @@ setup(
         "click",
         "jsonlines",
         'rich',
-        'requests'
+        'requests',
+        'numpy'
     ],
     extras_require={
         'dev': [
