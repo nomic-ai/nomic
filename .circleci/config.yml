@@ -1,0 +1,103 @@
+version: 2.1
+
+commands:
+    prep:
+      steps:
+        - checkout
+        - run:
+            name: Install python3 and pip3
+            command: sudo apt-get update && sudo apt-get -y install python3 python3-pip
+        - run:
+            name: Install AWS CLI
+            command: sudo pip3 install awscli --upgrade
+    build:
+      steps:
+        - run:
+            name: Build Dev installation
+            command: make dev
+
+    test:
+      steps:
+        - run:
+            name: Create Atlas Environment
+            command: make dev
+#        - run:
+#            name: Run Isort
+#            command: make isort_ci | cat
+#        - run:
+#            name: Run Black
+#            command: make black_ci | cat
+#        - run:
+#            name: Run Unit Tests
+#            command: make test | cat
+#        - run:
+#            name: Run Integration Tests
+#            command: make mock | cat
+
+    deploy:
+      steps:
+        - run:
+            name: Build documentation.
+            command: make documentation | cat
+        - run:
+            name: Push documentation
+            command: aws s3 cp build/html s3://docs.nomic.ai/ --recursive | cat
+
+
+jobs:
+    build_test:
+      machine:
+        image: ubuntu-2004:202010-01 # recommended linux image
+      resource_class: large
+      steps:
+        - prep
+        - test
+
+    build_test_deploy:
+      machine:
+        image: ubuntu-2004:202010-01 # recommended linux image
+      resource_class: large
+      steps:
+        - prep
+        - build
+#        - test
+        - deploy
+
+
+workflows:
+  version: 2
+
+  commit:
+    jobs:
+      - build_test:
+          filters:
+            branches:
+              ignore:
+                - main
+                - prod
+
+  deploy_dev:
+    jobs:
+      - build_test_deploy:
+          filters:
+            branches:
+              only: main
+
+  deploy_prod:
+    jobs:
+      - build_test_deploy:
+          filters:
+            branches:
+              only: prod
+#
+#  daily:
+#    jobs:
+#      - build_test_deploy
+#    triggers:
+#      - schedule:
+#          # Build at UTC 11:30pm.
+#          cron: "30 23 * * *"
+#          filters:
+#            branches:
+#              only:
+#                - master
