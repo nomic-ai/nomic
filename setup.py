@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 description = 'The offical Nomic python client.'
 setup(
     name='nomic',
-    version='0.0.1',
+    version='1.0.0',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
@@ -20,7 +20,10 @@ setup(
         "jsonlines",
         'rich',
         'requests',
-        'numpy'
+        'numpy',
+        'pydantic',
+        'wonderwords',
+        'tqdm'
     ],
     extras_require={
         'dev': [
