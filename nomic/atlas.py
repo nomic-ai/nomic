@@ -311,7 +311,7 @@ class AtlasClient:
         '''
         raise NotImplementedError("Building indices for text based projects is not yet implemented in this client.")
 
-    def map_embeddings(self, embeddings: np.array, data: List[Dict], unique_id_field='id', is_public=True):
+    def map_embeddings(self, embeddings: np.array, data: List[Dict], unique_id_field='id', is_public=True, num_workers=10):
         '''
         Generates a map of the given embeddings.
 
@@ -320,6 +320,7 @@ class AtlasClient:
             data: An [N,] element list of dictionaries containing metadata for each embedding.
             unique_id_field: Each datums unique id field.
             is_public: Should this embedding map be public or require organizational sign-in to view?
+            num_workers: number of workers to use when sending data.
 
         Returns:
             CreateIndexResponse
@@ -341,7 +342,11 @@ class AtlasClient:
             is_public=is_public,
         )
 
-        self.add_embeddings(project_id=project_id, embeddings=embeddings, data=data)
+        shard_size = 1000
+        if embeddings.shape[0] > 10000:
+            shard_size = 5000
+
+        self.add_embeddings(project_id=project_id, embeddings=embeddings, data=data, shard_size=shard_size, num_workers=num_workers)
 
         response = self.create_index(project_id=project_id, index_name=index_name)
 

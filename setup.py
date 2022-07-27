@@ -23,7 +23,9 @@ setup(
         'numpy',
         'pydantic',
         'wonderwords',
-        'tqdm'
+        'tqdm',
+        'cohere',
+        'datasets'
     ],
     extras_require={
         'dev': [
