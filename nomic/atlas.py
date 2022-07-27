@@ -1,8 +1,6 @@
 """
-The Official Nomic Python Client for Atlas
-
-This class allows for programmatic interactions with Atlas. Initialize AtlasClient in any Python context such as a script
-or in a Jupyter Notebook to organize your data.
+This class allows for programmatic interactions with Atlas - Nomics neural database. Initialize AtlasClient in any Python context such as a script
+or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 import concurrent.futures
 import json
@@ -20,7 +18,7 @@ from .cli import get_api_token
 
 
 class CreateIndexResponse(BaseModel):
-    scatter: Optional[str] = Field(
+    map: Optional[str] = Field(
         None, description="A link to the map this index creates. May take some time to be ready so check the job state."
     )
     job_id: str = Field(..., description="The job_id to track the progress of the index build.")
@@ -294,7 +292,7 @@ class AtlasClient:
         if not projection_id:
             print("Could not find a projection being built for this index.")
         else:
-            to_return['scatter'] = f"https://atlas.nomic.ai/scatter/{project['id']}/{projection_id}"
+            to_return['map'] = f"https://atlas.nomic.ai/scatter/{project['id']}/{projection_id}"
 
         return CreateIndexResponse(**to_return)
 
