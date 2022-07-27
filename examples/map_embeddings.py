@@ -7,7 +7,10 @@ num_embeddings = 10000
 embeddings = np.random.rand(num_embeddings, 256)
 data = [{'id': i} for i in range(len(embeddings))]
 
-response = atlas.map_embeddings(embeddings=embeddings, data=data, unique_id_field='id', is_public=True)
+response = atlas.map_embeddings(embeddings=embeddings,
+                                data=data,
+                                id_field='id',
+                                is_public=True)
 print(response)
 
 """

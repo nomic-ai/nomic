@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath('../../'))
 project = 'nomic'
 copyright = '2022, nomic'
 author = 'nomic'
-release = '0.0.3'
+release = '1.0.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -48,6 +48,7 @@ exclude_patterns = []
 html_theme = 'furo'
 html_logo = "nomic.png"
 html_title = "The Nomic Client"
+html_favicon = 'favicon.ico'
 
 html_theme_options = {
     "sidebar_hide_name": False,
