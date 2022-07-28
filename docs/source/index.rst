@@ -35,6 +35,3 @@ Follow the instructions to obtain your access token. Enter your access token wit
    nomic login [token]
 
 You are ready to interact with Nomic services. Continue on to `make your first neural map <examples.html>`_.
-
-
-
