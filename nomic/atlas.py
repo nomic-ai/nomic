@@ -227,12 +227,13 @@ class AtlasClient:
 
         return True
 
-    def create_index(self, project_id: str, index_name: str):
+    def create_index(self, project_id: str, index_name: str, colorable_fields=[]):
         '''
         Creates an index in the specified project
         Args:
             project_id: The project id to build the index for.
             index_name: The name of the index
+            colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
 
         Returns:
             CreateIndexResponse
@@ -249,6 +250,7 @@ class AtlasClient:
             'indexed_field': None,
             'atomizer_strategies': None,
             'model': None,
+            'colorable_fields': colorable_fields,
             'model_hyperparameters': None,
             'nearest_neighbor_index': 'HNSWIndex',
             'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
@@ -309,7 +311,7 @@ class AtlasClient:
         '''
         raise NotImplementedError("Building indices for text based projects is not yet implemented in this client.")
 
-    def map_embeddings(self, embeddings: np.array, data: List[Dict], id_field='id', is_public=True, num_workers=10):
+    def map_embeddings(self, embeddings: np.array, data: List[Dict], id_field='id', is_public=True, colorable_fields=[], num_workers=10):
         '''
         Generates a map of the given embeddings.
 
@@ -317,6 +319,7 @@ class AtlasClient:
             embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
             data: An [N,] element list of dictionaries containing metadata for each embedding.
             id_field: Each datums unique id field.
+            colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
             is_public: Should this embedding map be public or require organizational sign-in to view?
             num_workers: number of workers to use when sending data.
 
@@ -348,6 +351,6 @@ class AtlasClient:
             project_id=project_id, embeddings=embeddings, data=data, shard_size=shard_size, num_workers=num_workers
         )
 
-        response = self.create_index(project_id=project_id, index_name=index_name)
+        response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 
         return response

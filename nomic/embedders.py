@@ -33,6 +33,8 @@ class CohereEmbedder:
         if shard_size == -1:
             shard_size == len(texts)
             num_workers = 1
+            if num_workers == 1:
+                return self.client.embed(model=model, texts=texts).embeddings
 
         def send_request(i):
             data_shard = texts[i : i + shard_size]
