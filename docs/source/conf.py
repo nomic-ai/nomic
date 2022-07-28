@@ -83,7 +83,7 @@ html_theme_options = {
     ],
     "source_repository": "https://github.com/nomic-ai/nomic/",
     "source_branch": "main",
-    "source_directory": "docs/",
+    "source_directory": "docs/source",
 
 }
 
