@@ -4,7 +4,7 @@ import numpy as np
 from datasets import load_dataset
 
 atlas = AtlasClient()
-cohere_api_key = 'zWSuCYVdwA02QbqFudOb3VZxhtfHPTMu1IjeUUoT'
+cohere_api_key = ''
 
 dataset = load_dataset("sentiment140")['train']
 
