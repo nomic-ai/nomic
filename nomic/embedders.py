@@ -16,13 +16,14 @@ class CohereEmbedder:
 
         self.client = cohere.Client(cohere_api_key)
 
-    def embed(self, texts: List[str], model: str = 'large', shard_size=-1, num_workers=1):
+    def embed(self, texts: List[str], model: str = 'large', truncate='LEFT', shard_size=-1, num_workers=1):
         '''
         Embeds text with the Cohere API.
 
         Args:
             texts: a list of strings to embed.
             model: the Cohere API model to use. See the Cohere python client reference.
+            truncate: How the Cohere model will truncate text that is beyond the token limit of the model. See Cohere API for reference.
             shard_size: The number of embeddings to send in each job. If -1, sends one job with all data.
             num_workers: The numbers of parallel embedding jobs to send to the Cohere embedding API
 
@@ -34,11 +35,11 @@ class CohereEmbedder:
             shard_size == len(texts)
             num_workers = 1
             if num_workers == 1:
-                return self.client.embed(model=model, texts=texts).embeddings
+                return self.client.embed(model=model, texts=texts, truncate=truncate).embeddings
 
         def send_request(i):
             data_shard = texts[i : i + shard_size]
-            response = self.client.embed(model=model, texts=data_shard)
+            response = self.client.embed(model=model, texts=data_shard, truncate=truncate)
             return response
 
         responses = {}
