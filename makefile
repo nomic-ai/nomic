@@ -22,7 +22,7 @@ isort:
 
 
 documentation:
-	source env/bin/activate; make -C docs/ html
+	source env/bin/activate; rm -rf docs/build && make -C docs/ html
 
 pypi:
 	source env/bin/activate; python setup.py sdist; twine upload dist/*; rm -rf dist/

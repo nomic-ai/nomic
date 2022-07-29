@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 description = 'The offical Nomic python client.'
 setup(
     name='nomic',
-    version='1.0.0',
+    version='1.0.1',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
@@ -23,7 +23,9 @@ setup(
         'numpy',
         'pydantic',
         'wonderwords',
-        'tqdm'
+        'tqdm',
+        'cohere',
+        'datasets'
     ],
     extras_require={
         'dev': [

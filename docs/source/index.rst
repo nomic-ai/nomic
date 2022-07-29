@@ -1,14 +1,20 @@
-Nomic Client Documentation
+Nomic
 ========================================
 .. toctree::
    :hidden:
-   :maxdepth: 2
+   :maxdepth: 4
 
-   modules
+   examples
+   atlasclient
+   embedders
+
+`Nomic <http://nomic.ai>`_ is the worlds first *information cartography* company. We allow you to effortlessly view, explore and interact with large collections of
+unstructured data.
+
+Learn how to use our neural database Atlas to interact with your large collections of embeddings and text.
 
 Quickstart
 --------------------------
-Learn how to login and interact with Nomic services.
 
 Install the Nomic client with:
 
@@ -28,11 +34,4 @@ Follow the instructions to obtain your access token. Enter your access token wit
 
    nomic login [token]
 
-You are ready to interact with Nomic services.
-
-The following code snippet provides an example interaction with Atlas - Nomic's neural database.
-Upload 10,000 embeddings and see them instantly organized on an interactive map.
-
-.. literalinclude:: ../../examples/map_embeddings.py
-    :language: python
-
+You are ready to interact with Nomic services. Continue on to `make your first neural map <examples.html>`_.

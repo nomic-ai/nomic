@@ -1,8 +1,6 @@
 """
-The Official Nomic Python Client for Atlas
-
-This class allows for programmatic interactions with Atlas. Initialize AtlasClient in any Python context such as a script
-or in a Jupyter Notebook to organize your data.
+This class allows for programmatic interactions with Atlas - Nomics neural database. Initialize AtlasClient in any Python context such as a script
+or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 import concurrent.futures
 import json
@@ -20,7 +18,7 @@ from .cli import get_api_token
 
 
 class CreateIndexResponse(BaseModel):
-    scatter: Optional[str] = Field(
+    map: Optional[str] = Field(
         None, description="A link to the map this index creates. May take some time to be ready so check the job state."
     )
     job_id: str = Field(..., description="The job_id to track the progress of the index build.")
@@ -213,7 +211,7 @@ class AtlasClient:
 
         failed = []
 
-        print("Uploading embeddings")
+        print("Uploading embeddings to Nomic.")
         with tqdm(total=int(embeddings.shape[0]) // shard_size) as pbar:
             with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
                 futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
@@ -229,12 +227,13 @@ class AtlasClient:
 
         return True
 
-    def create_index(self, project_id: str, index_name: str):
+    def create_index(self, project_id: str, index_name: str, colorable_fields=[]):
         '''
         Creates an index in the specified project
         Args:
             project_id: The project id to build the index for.
             index_name: The name of the index
+            colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
 
         Returns:
             CreateIndexResponse
@@ -251,6 +250,7 @@ class AtlasClient:
             'indexed_field': None,
             'atomizer_strategies': None,
             'model': None,
+            'colorable_fields': colorable_fields,
             'model_hyperparameters': None,
             'nearest_neighbor_index': 'HNSWIndex',
             'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
@@ -294,7 +294,7 @@ class AtlasClient:
         if not projection_id:
             print("Could not find a projection being built for this index.")
         else:
-            to_return['scatter'] = f"https://atlas.nomic.ai/scatter/{project['id']}/{projection_id}"
+            to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
 
         return CreateIndexResponse(**to_return)
 
@@ -311,15 +311,17 @@ class AtlasClient:
         '''
         raise NotImplementedError("Building indices for text based projects is not yet implemented in this client.")
 
-    def map_embeddings(self, embeddings: np.array, data: List[Dict], unique_id_field='id', is_public=True):
+    def map_embeddings(self, embeddings: np.array, data: List[Dict], id_field='id', is_public=True, colorable_fields=[], num_workers=10):
         '''
         Generates a map of the given embeddings.
 
         Args:
             embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
             data: An [N,] element list of dictionaries containing metadata for each embedding.
-            unique_id_field: Each datums unique id field.
+            id_field: Each datums unique id field.
+            colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
             is_public: Should this embedding map be public or require organizational sign-in to view?
+            num_workers: number of workers to use when sending data.
 
         Returns:
             CreateIndexResponse
@@ -336,13 +338,19 @@ class AtlasClient:
         project_id = self.create_project(
             project_name=project_name,
             description=project_name,
-            unique_id_field=unique_id_field,
+            unique_id_field=id_field,
             modality='embedding',
             is_public=is_public,
         )
 
-        self.add_embeddings(project_id=project_id, embeddings=embeddings, data=data)
+        shard_size = 1000
+        if embeddings.shape[0] > 10000:
+            shard_size = 5000
 
-        response = self.create_index(project_id=project_id, index_name=index_name)
+        self.add_embeddings(
+            project_id=project_id, embeddings=embeddings, data=data, shard_size=shard_size, num_workers=num_workers
+        )
+
+        response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 
         return response
