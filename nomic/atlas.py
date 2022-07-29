@@ -211,7 +211,7 @@ class AtlasClient:
 
         failed = []
 
-        print("Uploading embeddings")
+        print("Uploading embeddings to Nomic.")
         with tqdm(total=int(embeddings.shape[0]) // shard_size) as pbar:
             with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
                 futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
@@ -294,7 +294,7 @@ class AtlasClient:
         if not projection_id:
             print("Could not find a projection being built for this index.")
         else:
-            to_return['map'] = f"https://atlas.nomic.ai/scatter/{project['id']}/{projection_id}"
+            to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
 
         return CreateIndexResponse(**to_return)
 
