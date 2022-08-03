@@ -66,10 +66,5 @@ def cli(command, params):
         if len(params) == 2 and params[0] == 'staging':
             login(token=params[1], tenant='staging')
 
-        # elif len(params) == 3 and params[0] == '-staging':
-        #     login(token=params[0], tenant='staging')
-        # else:
-        #     raise ValueError("Invalid parameter to login command. Try: `nomic login [token]`")
-
 if __name__ == "__main__":
     cli()
