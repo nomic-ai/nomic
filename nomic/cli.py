@@ -4,12 +4,20 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-auth0_domain: str = 'nomicai.us.auth0.com'
-auth0_api_audience: str = 'AtlasAPI'
-auth0_client_id: str = 'Gu47wjsnpW2PPfinIHpVnjpVclAnC8k4'
-frontend_domain: str = 'atlas.nomic.ai'
-
-auth0_auth_endpoint = f"https://{auth0_domain}/authorize?response_type=code&client_id={auth0_client_id}&redirect_uri=https://{frontend_domain}/token&scope=openid+profile+email&audience={auth0_api_audience}"
+tenants = {
+    'staging': {
+        'auth0_domain': 'nomicai.us.auth0.com',
+        'auth0_api_audience': 'AtlasAPI',
+        'auth0_client_id': 'Gu47wjsnpW2PPfinIHpVnjpVclAnC8k4',
+        'frontend_domain': 'staging-atlas.nomic.ai'
+    },
+    'production': {
+        'auth0_domain': '',
+        'auth0_api_audience': '',
+        'auth0_client_id': '',
+        'frontend_domain': ''
+    },
+}
 
 nomic_base_path = f'{str(Path.home())}/.nomic'
 
@@ -23,7 +31,10 @@ def get_api_token():
         return token
 
 
-def login(token):
+def login(token, tenant):
+    environment = tenants[tenant]
+    auth0_auth_endpoint = f"https://{environment['auth0_domain']}/authorize?response_type=code&client_id={environment['auth0_client_id']}&redirect_uri=https://{environment['frontend_domain']}/token&scope=openid+profile+email&audience={environment['auth0_api_audience']}"
+
     console = Console(width=190)
     style = "bold white on blue"
     if not token:
@@ -35,7 +46,6 @@ def login(token):
             justify="center",
         )
         exit()
-    token = token[0]
     # save credential
     if not os.path.exists(nomic_base_path):
         os.mkdir(nomic_base_path)
@@ -49,8 +59,17 @@ def login(token):
 @click.argument('params', nargs=-1)
 def cli(command, params):
     if command == 'login':
-        login(token=params)
+        if len(params) == 0:
+            login(token=None, tenant='production')
+        if len(params) == 1 and params[0] == 'staging':
+            login(token=None, tenant='staging')
+        if len(params) == 2 and params[0] == 'staging':
+            login(token=params[1], tenant='staging')
 
+        # elif len(params) == 3 and params[0] == '-staging':
+        #     login(token=params[0], tenant='staging')
+        # else:
+        #     raise ValueError("Invalid parameter to login command. Try: `nomic login [token]`")
 
 if __name__ == "__main__":
     cli()
