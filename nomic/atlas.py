@@ -34,17 +34,17 @@ class AtlasClient:
 
         '''
 
-        credentials = get_api_credentials()
+        self.credentials = get_api_credentials()
 
-        if credentials['tenant'] == 'staging':
+        if self.credentials['tenant'] == 'staging':
             hostname = 'staging-api-atlas.nomic.ai'
-        elif credentials['tenant'] == 'production':
+        elif self.credentials['tenant'] == 'production':
             hostname = 'api-atlas.nomic.ai'
         else:
             raise ValueError("Invalid tenant.")
 
         self.atlas_api_path = f"https://{hostname}"
-        self.token = credentials['token']
+        self.token = self.credentials['token']
         self.header = {"Authorization": f"Bearer {self.token}"}
 
         if self.token:
@@ -300,8 +300,10 @@ class AtlasClient:
         if not projection_id:
             print("Could not find a projection being built for this index.")
         else:
-            to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
-
+            if self.credentials['tenant'] == 'staging':
+                to_return['map'] = f"https://staging-atlas.nomic.ai/map/{project['id']}/{projection_id}"
+            else:
+                to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
         return CreateIndexResponse(**to_return)
 
     def add_text(self, project_id: str, data: List[Dict]):
