@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import click
+import json
 from rich.console import Console
 
 tenants = {
@@ -22,13 +23,13 @@ tenants = {
 nomic_base_path = f'{str(Path.home())}/.nomic'
 
 
-def get_api_token():
+def get_api_credentials():
     if not os.path.exists(os.path.join(nomic_base_path, 'credentials')):
         raise ValueError("You have not configured your Nomic API token. Run `nomic login` to configure.")
 
     with open(os.path.join(nomic_base_path, 'credentials'), 'r') as file:
-        token = str(file.read())
-        return token
+        credentials = json.load(file)
+        return credentials
 
 
 def login(token, tenant):
@@ -51,7 +52,7 @@ def login(token, tenant):
         os.mkdir(nomic_base_path)
 
     with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
-        file.write(token)
+        json.dump({'token': token, 'tenant': tenant}, file)
 
 
 @click.command()

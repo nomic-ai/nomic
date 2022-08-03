@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from tqdm import tqdm
 from wonderwords import RandomWord
 
-from .cli import get_api_token
+from .cli import get_api_credentials
 
 
 class CreateIndexResponse(BaseModel):
@@ -28,17 +28,23 @@ class CreateIndexResponse(BaseModel):
 class AtlasClient:
     """The Atlas Client"""
 
-    def __init__(self, hostname: str = 'staging-api-atlas.nomic.ai'):
+    def __init__(self):
         '''
         Initializes the Atlas client.
 
-        Args:
-            hostname: the hostname where the Atlas back-end is running.
-            port: the port where the Atlsa back-end is running.
-
         '''
+
+        credentials = get_api_credentials()
+
+        if credentials['tenant'] == 'staging':
+            hostname = 'staging-api-atlas.nomic.ai'
+        elif credentials['tenant'] == 'production':
+            hostname = 'api-atlas.nomic.ai'
+        else:
+            raise ValueError("Invalid tenant.")
+
         self.atlas_api_path = f"https://{hostname}"
-        self.token = str(get_api_token()).strip()
+        self.token = credentials['token']
         self.header = {"Authorization": f"Bearer {self.token}"}
 
         if self.token:
