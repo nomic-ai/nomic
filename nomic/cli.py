@@ -36,11 +36,11 @@ def login(token, tenant):
     environment = tenants[tenant]
     auth0_auth_endpoint = f"https://{environment['auth0_domain']}/authorize?response_type=code&client_id={environment['auth0_client_id']}&redirect_uri=https://{environment['frontend_domain']}/token&scope=openid+profile+email&audience={environment['auth0_api_audience']}"
 
-    console = Console(width=190)
+    console = Console()
     style = "bold white on blue"
     if not token:
         console.print("Authorize with the Nomic API", style=style, justify="center")
-        console.print(auth0_auth_endpoint, style=style)
+        console.print(auth0_auth_endpoint, style=style, justify="center")
         console.print(
             "Click the above link to retrieve your access token and then run `nomic login \[token]`",
             style=style,
