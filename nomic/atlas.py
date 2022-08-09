@@ -241,7 +241,8 @@ class AtlasClient:
 
         if failed:
             raise ValueError("Failed to upload a subset of datums")
-        print("Embedding upload succeeded.")
+        if close_pbar:
+            print("Embedding upload succeeded.")
 
         return True
 
@@ -367,12 +368,13 @@ class AtlasClient:
 
         shard_size = 1000
         if embeddings.shape[0] > 10000:
-            shard_size = 5000
+            shard_size = 2500
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
-        MAX_MEMORY_CHUNK = 100000
+        MAX_MEMORY_CHUNK = 150000
         print("Uploading embeddings to Nomic.")
-        with tqdm(total=(MAX_MEMORY_CHUNK // shard_size) * (len(data) // MAX_MEMORY_CHUNK)) as pbar:
+
+        with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
                 self.add_embeddings(
                     project_id=project_id,
@@ -382,6 +384,8 @@ class AtlasClient:
                     num_workers=num_workers,
                     pbar=pbar,
                 )
+
+        print("Embedding upload succeeded.")
 
         response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 
