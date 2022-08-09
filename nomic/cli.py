@@ -1,8 +1,8 @@
+import json
 import os
 from pathlib import Path
 
 import click
-import json
 from rich.console import Console
 
 tenants = {
@@ -10,13 +10,13 @@ tenants = {
         'auth0_domain': 'nomicai.us.auth0.com',
         'auth0_api_audience': 'AtlasAPI',
         'auth0_client_id': 'Gu47wjsnpW2PPfinIHpVnjpVclAnC8k4',
-        'frontend_domain': 'staging-atlas.nomic.ai'
+        'frontend_domain': 'staging-atlas.nomic.ai',
     },
     'production': {
-        'auth0_domain': '',
-        'auth0_api_audience': '',
-        'auth0_client_id': '',
-        'frontend_domain': ''
+        'auth0_domain': 'nomicai-production.us.auth0.com',
+        'auth0_api_audience': 'https://api-atlas.nomic.ai',
+        'auth0_client_id': 'VF41DqdEyS2Aaq64q1IoO1EOzdpjplnv',
+        'frontend_domain': 'atlas.nomic.ai',
     },
 }
 
@@ -37,7 +37,7 @@ def login(token, tenant):
     auth0_auth_endpoint = f"https://{environment['auth0_domain']}/authorize?response_type=code&client_id={environment['auth0_client_id']}&redirect_uri=https://{environment['frontend_domain']}/token&scope=openid+profile+email&audience={environment['auth0_api_audience']}"
 
     console = Console()
-    style = "bold white on blue"
+    style = "bold white on white"
     if not token:
         console.print("Authorize with the Nomic API", style=style, justify="center")
         console.print(auth0_auth_endpoint, style=style, justify="center")
@@ -66,6 +66,9 @@ def cli(command, params):
             login(token=None, tenant='staging')
         if len(params) == 2 and params[0] == 'staging':
             login(token=params[1], tenant='staging')
+        if len(params) == 1:
+            login(token=params[0], tenant='production')
+
 
 if __name__ == "__main__":
     cli()

@@ -187,7 +187,9 @@ class AtlasClient:
 
         return response.json()
 
-    def add_embeddings(self, project_id: str, embeddings: np.array, data: List[Dict], shard_size=1000, num_workers=10):
+    def add_embeddings(
+        self, project_id: str, embeddings: np.array, data: List[Dict], shard_size=1000, num_workers=10, pbar=None
+    ):
         '''
         Adds embeddings to an embedding project. Pair each embedding with meta-data to explore your embeddings.
 
@@ -213,23 +215,34 @@ class AtlasClient:
                 headers=self.header,
                 json={'project_id': project_id, 'embeddings': embedding_shard, 'data': data_shard},
             )
+            del embedding_shard
             return response
 
         failed = []
 
-        print("Uploading embeddings to Nomic.")
-        with tqdm(total=int(embeddings.shape[0]) // shard_size) as pbar:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-                futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
-                for future in concurrent.futures.as_completed(futures):
-                    response = future.result()
-                    pbar.update(1)
-                    if response.status_code != 200:
-                        failed.append(futures[future])
+        # if this method is being called internally, we pass a global progress bar
+        close_pbar = False
+        if pbar is None:
+            print("Uploading embeddings to Nomic.")
+            close_pbar = True
+            pbar = tqdm(total=int(embeddings.shape[0]) // shard_size)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
+            for future in concurrent.futures.as_completed(futures):
+                response = future.result()
+                pbar.update(1)
+                if response.status_code != 200:
+                    failed.append(futures[future])
+
+        # close the progress bar if this method was called with no external progresbar
+        if close_pbar:
+            pbar.close()
 
         if failed:
             raise ValueError("Failed to upload a subset of datums")
-        print("Embedding upload succeeded.")
+        if close_pbar:
+            print("Embedding upload succeeded.")
 
         return True
 
@@ -319,7 +332,9 @@ class AtlasClient:
         '''
         raise NotImplementedError("Building indices for text based projects is not yet implemented in this client.")
 
-    def map_embeddings(self, embeddings: np.array, data: List[Dict], id_field='id', is_public=True, colorable_fields=[], num_workers=10):
+    def map_embeddings(
+        self, embeddings: np.array, data: List[Dict], id_field='id', is_public=True, colorable_fields=[], num_workers=10
+    ):
         '''
         Generates a map of the given embeddings.
 
@@ -353,11 +368,24 @@ class AtlasClient:
 
         shard_size = 1000
         if embeddings.shape[0] > 10000:
-            shard_size = 5000
+            shard_size = 2500
 
-        self.add_embeddings(
-            project_id=project_id, embeddings=embeddings, data=data, shard_size=shard_size, num_workers=num_workers
-        )
+        # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
+        MAX_MEMORY_CHUNK = 150000
+        print("Uploading embeddings to Nomic.")
+
+        with tqdm(total=len(data) // shard_size) as pbar:
+            for i in range(0, len(data), MAX_MEMORY_CHUNK):
+                self.add_embeddings(
+                    project_id=project_id,
+                    embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
+                    data=data[i : i + MAX_MEMORY_CHUNK],
+                    shard_size=shard_size,
+                    num_workers=num_workers,
+                    pbar=pbar,
+                )
+
+        print("Embedding upload succeeded.")
 
         response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 
