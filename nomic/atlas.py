@@ -358,6 +358,9 @@ class AtlasClient:
         project_name = get_random_name()
         index_name = get_random_name()
 
+        if id_field in colorable_fields:
+            raise Exception(f'Cannot color by unique id field: {id_field}')
+
         project_id = self.create_project(
             project_name=project_name,
             description=project_name,
@@ -373,6 +376,8 @@ class AtlasClient:
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
         MAX_MEMORY_CHUNK = 150000
         print("Uploading embeddings to Nomic.")
+
+        embeddings = embeddings.astype(np.float16)
 
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
