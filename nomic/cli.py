@@ -40,7 +40,7 @@ def login(token, tenant):
     style = "bold"
     if not token:
         console.print("Authorize with the Nomic API", style=style, justify="center")
-        console.print(auth0_auth_endpoint, style=style, justify="center")
+        console.print(auth0_auth_endpoint, style=style)
         console.print(
             "Click the above link to retrieve your access token and then run `nomic login \[token]`",
             style=style,
