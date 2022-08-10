@@ -7,15 +7,9 @@ from rich.console import Console
 
 tenants = {
     'staging': {
-        'auth0_domain': 'nomicai.us.auth0.com',
-        'auth0_api_audience': 'AtlasAPI',
-        'auth0_client_id': 'Gu47wjsnpW2PPfinIHpVnjpVclAnC8k4',
         'frontend_domain': 'staging-atlas.nomic.ai',
     },
     'production': {
-        'auth0_domain': 'nomicai-production.us.auth0.com',
-        'auth0_api_audience': 'https://api-atlas.nomic.ai',
-        'auth0_client_id': 'VF41DqdEyS2Aaq64q1IoO1EOzdpjplnv',
         'frontend_domain': 'atlas.nomic.ai',
     },
 }
@@ -34,10 +28,10 @@ def get_api_credentials():
 
 def login(token, tenant):
     environment = tenants[tenant]
-    auth0_auth_endpoint = f"https://{environment['auth0_domain']}/authorize?response_type=code&client_id={environment['auth0_client_id']}&redirect_uri=https://{environment['frontend_domain']}/token&scope=openid+profile+email&audience={environment['auth0_api_audience']}"
+    auth0_auth_endpoint = f"https://{environment['frontend_domain']}/cli-login"
 
     console = Console()
-    style = "bold white on white"
+    style = "bold"
     if not token:
         console.print("Authorize with the Nomic API", style=style, justify="center")
         console.print(auth0_auth_endpoint, style=style, justify="center")
