@@ -233,16 +233,22 @@ class AtlasClient:
                 response = future.result()
                 pbar.update(1)
                 if response.status_code != 200:
-                    failed.append(futures[future])
+                    print(f"Shard upload failed: {response.json()}")
+                    if 'more datums exceeds your organization limit' in response.json():
+                        return False
 
+                    failed.append(futures[future])
         # close the progress bar if this method was called with no external progresbar
         if close_pbar:
             pbar.close()
 
         if failed:
-            raise ValueError("Failed to upload a subset of datums")
+            print(f"Failed to upload {len(failed)*shard_size} datums")
         if close_pbar:
-            print("Embedding upload succeeded.")
+            if failed:
+                print("Embedding upload partially succeeded.")
+            else:
+                print("Embedding upload succeeded.")
 
         return True
 
@@ -333,7 +339,15 @@ class AtlasClient:
         raise NotImplementedError("Building indices for text based projects is not yet implemented in this client.")
 
     def map_embeddings(
-        self, embeddings: np.array, data: List[Dict], id_field='id', is_public=True, colorable_fields=[], num_workers=10
+            self,
+            embeddings: np.array,
+            data: List[Dict],
+            id_field: str = 'id',
+            is_public: bool = True,
+            colorable_fields: list = [],
+            num_workers: int = 10,
+            map_name: str = None,
+            map_description: str = None
     ):
         '''
         Generates a map of the given embeddings.
@@ -343,8 +357,10 @@ class AtlasClient:
             data: An [N,] element list of dictionaries containing metadata for each embedding.
             id_field: Each datums unique id field.
             colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-            is_public: Should this embedding map be public or require organizational sign-in to view?
+            is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
             num_workers: number of workers to use when sending data.
+            map_name: A name for your map.
+            map_description: A description for your map.
 
         Returns:
             CreateIndexResponse
@@ -356,14 +372,20 @@ class AtlasClient:
             return f"{random_words.word(include_parts_of_speech=['adjectives'])}-{random_words.word(include_parts_of_speech=['nouns'])}"
 
         project_name = get_random_name()
+        description = project_name
         index_name = get_random_name()
+
+        if map_name:
+            project_name = map_name
+        if map_description:
+            description = map_description
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
 
         project_id = self.create_project(
             project_name=project_name,
-            description=project_name,
+            description=description,
             unique_id_field=id_field,
             modality='embedding',
             is_public=is_public,
