@@ -4,6 +4,12 @@ Map your data
 Nomics neural database ingests unstructured data such as embeddings or text and organizes them.
 Once your data is in Atlas, you can view *all* of it at once on a neural map.
 
+Example maps:
+
+`2022 News <https://atlas.nomic.ai/map/357e8f8e-b182-442d-bcbc-a4c3903aeb1b/3c70fef9-1994-4438-92cd-45b0ab803bd7>`_
+
+`Grand Comics Database <https://atlas.nomic.ai/map/988ad159-0c94-4559-a67a-a0498277b4d8/a5ef1e3c-105f-4606-abdb-5dc2e4fe20af>`_
+
 Your first neural map
 #####################
 
