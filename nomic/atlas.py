@@ -108,7 +108,7 @@ class AtlasClient:
                 raise Exception(
                     f"No such organization exists: {organization_name}. You can add projects to the following organization: {users_organizations}"
                 )
-            organization_id = organization_id_request['organization_id']
+            organization_id = organization_id_request.json()['organization_id']
 
         print(f"Creating project `{project_name}` in organization `{organization_name}`")
 
@@ -371,6 +371,7 @@ class AtlasClient:
         num_workers: int = 10,
         map_name: str = None,
         map_description: str = None,
+        organization_name: str = None
     ):
         '''
         Generates a map of the given embeddings.
@@ -384,6 +385,8 @@ class AtlasClient:
             num_workers: number of workers to use when sending data.
             map_name: A name for your map.
             map_description: A description for your map.
+            organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+
 
         Returns:
             CreateIndexResponse
@@ -412,6 +415,7 @@ class AtlasClient:
             unique_id_field=id_field,
             modality='embedding',
             is_public=is_public,
+            organization_name=organization_name
         )
 
         shard_size = 1000
