@@ -5,6 +5,7 @@ Nomic
    :maxdepth: 4
 
    examples
+   latency
    atlasclient
    embedders
 
