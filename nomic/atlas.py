@@ -70,7 +70,13 @@ class AtlasClient:
         return response.json()
 
     def create_project(
-        self, project_name: str, description: str, unique_id_field: str, modality: str, is_public: bool = True
+        self,
+        project_name: str,
+        description: str,
+        unique_id_field: str,
+        modality: str,
+        organization_name: str = None,
+        is_public: bool = True,
     ):
         '''
         Creates an Atlas project. Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
@@ -80,6 +86,7 @@ class AtlasClient:
             description: A description for the project.
             unique_id_field: The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
             modality: The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
+            organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
             is_public: Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
 
         Returns:
@@ -87,7 +94,23 @@ class AtlasClient:
 
         '''
 
-        organization_id = self._get_current_users_main_organization()
+        if organization_name is None:
+            organization = self._get_current_users_main_organization()
+            organization_name = organization['nickname']
+            organization_id = organization['organization_id']
+        else:
+            organization_id_request = requests.get(
+                self.atlas_api_path + f"/v1/organization/search/{organization_name}", headers=self.header
+            )
+            if organization_id_request.status_code != 200:
+                user = self._get_current_user()
+                users_organizations = [org['nickname'] for org in user['organizations']]
+                raise Exception(
+                    f"No such organization exists: {organization_name}. You can add projects to the following organization: {users_organizations}"
+                )
+            organization_id = organization_id_request['organization_id']
+
+        print(f"Creating project `{project_name}` in organization `{organization_name}`")
 
         response = requests.post(
             self.atlas_api_path + "/v1/project/create",
@@ -117,7 +140,7 @@ class AtlasClient:
         user = self._get_current_user()
         for organization in user['organizations']:
             if organization['user_id'] == user['sub'] and organization['access_role'] == 'OWNER':
-                return organization['organization_id']
+                return organization
 
     def _get_project_by_name(self, project_name: str):
         '''
@@ -129,7 +152,7 @@ class AtlasClient:
 
         '''
 
-        organization_id = self._get_current_users_main_organization()
+        organization_id = self._get_current_users_main_organization()['organization_id']
 
         organization = requests.get(
             self.atlas_api_path + f"/v1/organization/{organization_id}",
@@ -339,15 +362,15 @@ class AtlasClient:
         raise NotImplementedError("Building indices for text based projects is not yet implemented in this client.")
 
     def map_embeddings(
-            self,
-            embeddings: np.array,
-            data: List[Dict],
-            id_field: str = 'id',
-            is_public: bool = True,
-            colorable_fields: list = [],
-            num_workers: int = 10,
-            map_name: str = None,
-            map_description: str = None
+        self,
+        embeddings: np.array,
+        data: List[Dict],
+        id_field: str = 'id',
+        is_public: bool = True,
+        colorable_fields: list = [],
+        num_workers: int = 10,
+        map_name: str = None,
+        map_description: str = None,
     ):
         '''
         Generates a map of the given embeddings.
