@@ -51,6 +51,14 @@ Obtain an API key from [cohere.ai](https://os.cohere.ai) to embed your text data
 Add your Cohere API key to the below example to see how their large language model organizes text from a sentiment analysis dataset.
 
 [Sentiment Analysis Map](https://atlas.nomic.ai/map/ff2f89df-451e-49c4-b7a3-a608d7375961/f433cbd1-e728-49da-8c83-685cd613788b)
+
+!!! note
+
+    This example requires additional packages. Install them with
+    ```bash
+    pip install datasets
+    ```
+
 === "Co:here Example"
 
     ``` py title="map_hf_dataset_with_cohere.py"

@@ -15,17 +15,16 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     install_requires=[
-        'ruamel.yaml',
         "click",
         "jsonlines",
+        "logaru"
         'rich',
         'requests',
         'numpy',
         'pydantic',
         'wonderwords',
         'tqdm',
-        'cohere',
-        'datasets'
+        'cohere'
     ],
     extras_require={
         'dev': [
@@ -33,13 +32,9 @@ setup(
             'coverage',
             "pylint",
             "pytest",
-            "sphinx",
             "myst-parser",
             "mkdocs-material",
             "mkautodoc",
-            "sphinx_rtd_theme",
-            "furo",
-            "sphinx-copybutton",
             "twine"
         ],
     },
