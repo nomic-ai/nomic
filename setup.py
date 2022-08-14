@@ -17,7 +17,7 @@ setup(
     install_requires=[
         "click",
         "jsonlines",
-        "logaru"
+        "loguru",
         'rich',
         'requests',
         'numpy',

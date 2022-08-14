@@ -30,11 +30,10 @@ print("Embedding job complete.")
 response = atlas.map_embeddings(embeddings=np.array(embeddings),
                                 data=documents,
                                 id_field='id',
-                                is_public=True,
                                 colorable_fields=['sentiment'],
+                                is_public=True,
+                                organization_name=None, #defaults to your current user.
                                 num_workers=20)
 
 print("Embedding Map:")
 print(response)
-
-
