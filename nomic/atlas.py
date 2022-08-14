@@ -64,7 +64,7 @@ class AtlasClient:
             headers=self.header,
         )
         if not response.status_code == 200:
-            raise ValueError("Your authorization token is no longer valid.")
+            raise ValueError("Your authorization token is no longer valid. Run `nomic login` to obtain a new one.")
 
         return response.json()
 
