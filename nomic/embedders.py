@@ -20,15 +20,14 @@ class CohereEmbedder:
         '''
         Embeds text with the Cohere API.
 
-        Args:
-            texts: a list of strings to embed.
-            model: the Cohere API model to use. See the Cohere python client reference.
-            shard_size: The number of embeddings to send in each job. If -1, sends one job with all data.
-            num_workers: The numbers of parallel embedding jobs to send to the Cohere embedding API
+        **Parameters:**
 
-        Returns:
-            A list containing an embedding vector for each given text string.
+        * **texts** - a list of strings to embed.
+        * **model** - The Cohere API model to use. See the Cohere python client reference.
+        * **shard_size** - The number of embeddings to send in each job. If -1, sends one job with all data.
+        * **num_workers** - The numbers of parallel embedding jobs to send to the Cohere embedding API
 
+        **Returns:** A list containing an embedding vector for each given text string.
         '''
         if shard_size == -1:
             shard_size == len(texts)

@@ -35,6 +35,8 @@ setup(
             "pytest",
             "sphinx",
             "myst-parser",
+            "mkdocs-material",
+            "mkautodoc",
             "sphinx_rtd_theme",
             "furo",
             "sphinx-copybutton",
