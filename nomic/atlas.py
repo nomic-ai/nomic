@@ -404,6 +404,7 @@ class AtlasClient:
 
         if map_name:
             project_name = map_name
+            index_name = map_name
         if map_description:
             description = map_description
 
@@ -440,7 +441,7 @@ class AtlasClient:
                     pbar=pbar,
                 )
 
-        logger.info("Embedding upload succeeded.")
+        # logger.info("Embedding upload succeeded.")
 
         response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 
