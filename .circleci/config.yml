@@ -41,7 +41,7 @@ commands:
             command: make documentation | cat
         - run:
             name: Push documentation
-            command: aws s3 cp docs/build/html s3://docs.nomic.ai/ --recursive | cat
+            command: aws s3 cp ./site s3://docs.nomic.ai/ --recursive | cat
 
 
 jobs:

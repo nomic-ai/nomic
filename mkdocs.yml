@@ -4,6 +4,7 @@ repo_name: nomic-ai/nomic
 edit_uri: edit/main/docs/
 site_description: Nomic Client Documentation
 copyright: Copyright &copy; 2022 Nomic, Inc
+use_directory_urls: false
 
 nav:
     - 'index.md'
