@@ -1,0 +1,63 @@
+site_name: Nomic Documentation
+repo_url: https://github.com/nomic-ai/nomic
+repo_name: nomic-ai/nomic
+edit_uri: edit/main/docs/
+site_description: Nomic Client Documentation
+copyright: Copyright &copy; 2022 Nomic, Inc
+use_directory_urls: false
+
+nav:
+    - 'index.md'
+    - 'map_your_data.md'
+    - 'mapping_faq.md'
+    - 'API Reference':
+      - 'atlas_client.md'
+      - 'embedder.md'
+
+
+theme:
+  name: material
+  palette:
+    primary: white
+  logo: assets/nomic.png
+  favicon: assets/favicon.ico
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+#    - navigation.tabs
+#    - navigation.tabs.sticky
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+      options:
+        custom_icons:
+          - docs/overrides/.icons
+  - tables
+  - admonition
+  - codehilite:
+      css_class: highlight
+  - mkautodoc
+
+extra_css:
+    - css/custom.css
+
+extra:
+  generator: false
+  analytics:
+    provider: google
+    property: G-NPXC8BYHJV
+  social:
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/nomic_ai
+    - icon: material/fruit-pineapple
+      link: https://www.youtube.com/watch?v=628eVJgHD6I

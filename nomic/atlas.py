@@ -81,16 +81,16 @@ class AtlasClient:
         '''
         Creates an Atlas project. Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
 
-        Args:
-            project_name: The name of the project.
-            description: A description for the project.
-            unique_id_field: The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
-            modality: The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
-            organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
-            is_public: Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
+        **Parameters:**
 
-        Returns:
-            project_id on success.
+        * **project_name** - The name of the project.
+        * **description** - A description for the project.
+        * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
+        * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
+        * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+        * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
+
+        **Returns:** project_id on success.
 
         '''
 
@@ -132,8 +132,7 @@ class AtlasClient:
         '''
         Retrieves the ID of the current users default organization.
 
-        Returns:
-            The ID of the current users default organization.
+        **Returns:** The ID of the current users default organization
 
         '''
 
@@ -145,8 +144,12 @@ class AtlasClient:
     def _get_project_by_name(self, project_name: str):
         '''
         Retrieves a project that a user owns by name.
-        Args:
-            project_name: the project name
+
+        **Parameters:**
+
+        * **project_name** - The name of the project.
+
+        **Returns:** the project.
 
         Returns:
 
@@ -216,15 +219,15 @@ class AtlasClient:
         '''
         Adds embeddings to an embedding project. Pair each embedding with meta-data to explore your embeddings.
 
-        Args:
-            project_id: The id of the project you are adding emebeddings to.
-            embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
-            data: An [N,] element list of dictionaries containing metadata for each embedding.
-            shard_size: Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
-            num_workers: The number of worker threads to upload embeddings with.
+        **Parameters:**
 
-        Returns:
-            True on success.
+        * **project_id** - The id of the project you are adding embeddings to.
+        * **embeddings** - An [N,d] numpy array containing the batch of N embeddings to add.
+        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
+        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
+        * **num_workers** - The number of worker threads to upload embeddings with.
+
+        **Returns:** True on success.
         '''
 
         # Each worker currently is to slow beyond a shard_size of 5000
@@ -278,16 +281,16 @@ class AtlasClient:
     def create_index(self, project_id: str, index_name: str, colorable_fields=[]):
         '''
         Creates an index in the specified project
-        Args:
-            project_id: The project id to build the index for.
-            index_name: The name of the index
-            colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
 
-        Returns:
-            CreateIndexResponse
+        **Parameters:**
 
+        * **project_id** - The ID of the project this index is being built under.
+        * **index_name** - The name of the index
+        * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
+        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
+        * **num_workers** - The number of worker threads to upload embeddings with.
 
-
+        **Returns:** A link to your map.
         '''
 
         project = self._get_project_by_id(project_id=project_id)
@@ -348,7 +351,7 @@ class AtlasClient:
                 to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
         return CreateIndexResponse(**to_return)
 
-    def add_text(self, project_id: str, data: List[Dict]):
+    def _add_text(self, project_id: str, data: List[Dict]):
         '''
         Adds text to an Atlas text project. Each text datum consists of a keyed dictionary.
         Args:
@@ -376,21 +379,19 @@ class AtlasClient:
         '''
         Generates a map of the given embeddings.
 
-        Args:
-            embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
-            data: An [N,] element list of dictionaries containing metadata for each embedding.
-            id_field: Each datums unique id field.
-            colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-            is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
-            num_workers: number of workers to use when sending data.
-            map_name: A name for your map.
-            map_description: A description for your map.
-            organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+        **Parameters:**
 
+        * **embeddings** - An [N,d] numpy array containing the batch of N embeddings to add.
+        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
+        * **id_field** - Each datums unique id field.
+        * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
+        * **is_public** - Should this embedding map be public? Private maps can only be accessed by members of your organization.
+        * **num_workers** - The number of workers to use when sending data.
+        * **map_name** - A name for your map.
+        * **map_description** - A description for your map.
+        * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
 
-        Returns:
-            CreateIndexResponse
-
+        **Returns:** A link to your map.
         '''
 
         def get_random_name():
