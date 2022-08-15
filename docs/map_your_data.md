@@ -8,6 +8,8 @@ Once your data is in Atlas, you can view *all* of it at once on a neural map.
 
 [Grand Comics Database](https://atlas.nomic.ai/map/988ad159-0c94-4559-a67a-a0498277b4d8/a5ef1e3c-105f-4606-abdb-5dc2e4fe20af)
 
+[MNIST Logits](https://atlas.nomic.ai/map/2a222eb6-8f5a-405b-9ab8-f5ab23b71cfd/1dae224b-0284-49f7-b7c9-5f80d9ef8b32)
+
 ## Your first neural map
 
 The following code snippet shows you how to map your embeddings with Atlas - Nomic's neural database.
