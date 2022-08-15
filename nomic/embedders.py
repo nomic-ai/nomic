@@ -16,7 +16,7 @@ class CohereEmbedder:
 
         self.client = cohere.Client(cohere_api_key)
 
-    def embed(self, texts: List[str], model: str = 'large', shard_size=-1, num_workers=1):
+    def embed(self, texts: List[str], model: str = 'small', shard_size=-1, num_workers=1):
         '''
         Embeds text with the Cohere API.
 

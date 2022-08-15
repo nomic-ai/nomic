@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 description = 'The offical Nomic python client.'
 setup(
     name='nomic',
-    version='1.0.10',
+    version='1.0.11',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
@@ -15,17 +15,16 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     install_requires=[
-        'ruamel.yaml',
         "click",
         "jsonlines",
+        "loguru",
         'rich',
         'requests',
         'numpy',
         'pydantic',
         'wonderwords',
         'tqdm',
-        'cohere',
-        'datasets'
+        'cohere'
     ],
     extras_require={
         'dev': [
@@ -33,13 +32,9 @@ setup(
             'coverage',
             "pylint",
             "pytest",
-            "sphinx",
             "myst-parser",
             "mkdocs-material",
             "mkautodoc",
-            "sphinx_rtd_theme",
-            "furo",
-            "sphinx-copybutton",
             "twine"
         ],
     },

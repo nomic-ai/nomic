@@ -4,12 +4,11 @@ or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 import concurrent.futures
 import json
-import os
 from typing import Dict, List, Optional
 
 import numpy as np
-import pydantic
 import requests
+from loguru import logger
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 from wonderwords import RandomWord
@@ -53,7 +52,7 @@ class AtlasClient:
                 headers=self.header,
             )
             if not response.status_code == 200:
-                print("Your authorization token is no longer valid.")
+                logger.info("Your authorization token is no longer valid.")
         else:
             raise ValueError(
                 "Could not find an authorization token. Run `nomic login` to authorize this client with the Nomic API."
@@ -65,7 +64,7 @@ class AtlasClient:
             headers=self.header,
         )
         if not response.status_code == 200:
-            raise ValueError("Your authorization token is no longer valid.")
+            raise ValueError("Your authorization token is no longer valid. Run `nomic login` to obtain a new one.")
 
         return response.json()
 
@@ -110,7 +109,7 @@ class AtlasClient:
                 )
             organization_id = organization_id_request.json()['organization_id']
 
-        print(f"Creating project `{project_name}` in organization `{organization_name}`")
+        logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
 
         response = requests.post(
             self.atlas_api_path + "/v1/project/create",
@@ -249,7 +248,7 @@ class AtlasClient:
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
         if pbar is None:
-            print("Uploading embeddings to Nomic.")
+            logger.info("Uploading embeddings to Nomic.")
             close_pbar = True
             pbar = tqdm(total=int(embeddings.shape[0]) // shard_size)
 
@@ -259,7 +258,7 @@ class AtlasClient:
                 response = future.result()
                 pbar.update(1)
                 if response.status_code != 200:
-                    print(f"Shard upload failed: {response.json()}")
+                    logger.error(f"Shard upload failed: {response.json()}")
                     if 'more datums exceeds your organization limit' in response.json():
                         return False
 
@@ -269,12 +268,12 @@ class AtlasClient:
             pbar.close()
 
         if failed:
-            print(f"Failed to upload {len(failed)*shard_size} datums")
+            logger.warning(f"Failed to upload {len(failed)*shard_size} datums")
         if close_pbar:
             if failed:
-                print("Embedding upload partially succeeded.")
+                logger.warning("Embedding upload partially succeeded.")
             else:
-                print("Embedding upload succeeded.")
+                logger.warning("Embedding upload succeeded.")
 
         return True
 
@@ -343,12 +342,13 @@ class AtlasClient:
 
         to_return = {'job_id': job_id, 'index_id': index_id}
         if not projection_id:
-            print("Could not find a projection being built for this index.")
+            logger.warning("Could not find a projection being built for this index.")
         else:
             if self.credentials['tenant'] == 'staging':
                 to_return['map'] = f"https://staging-atlas.nomic.ai/map/{project['id']}/{projection_id}"
             else:
                 to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
+            logger.info(f"Created map `{index_name}`: {to_return['map']}")
         return CreateIndexResponse(**to_return)
 
     def _add_text(self, project_id: str, data: List[Dict]):
@@ -374,7 +374,7 @@ class AtlasClient:
         num_workers: int = 10,
         map_name: str = None,
         map_description: str = None,
-        organization_name: str = None
+        organization_name: str = None,
     ):
         '''
         Generates a map of the given embeddings.
@@ -416,7 +416,7 @@ class AtlasClient:
             unique_id_field=id_field,
             modality='embedding',
             is_public=is_public,
-            organization_name=organization_name
+            organization_name=organization_name,
         )
 
         shard_size = 1000
@@ -425,7 +425,7 @@ class AtlasClient:
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
         MAX_MEMORY_CHUNK = 150000
-        print("Uploading embeddings to Nomic.")
+        logger.info("Uploading embeddings to Nomics' neural database Atlas.")
 
         embeddings = embeddings.astype(np.float16)
 
@@ -440,7 +440,7 @@ class AtlasClient:
                     pbar=pbar,
                 )
 
-        print("Embedding upload succeeded.")
+        logger.info("Embedding upload succeeded.")
 
         response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 

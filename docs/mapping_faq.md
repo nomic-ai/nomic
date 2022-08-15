@@ -43,3 +43,14 @@ accessible by authenticated individuals in your Nomic organization. Public maps 
 If you are added to a Nomic organization by someone (such as your employer), you can create projects under them
 by specifying an `organization_name` in the `map_embedding` method of the AtlasClient. By default, projects are
 made under your own account.
+
+## Disabling logging
+Nomic utilizes the `loguru` module for logging. We recognize that logging can sometimes be annoying.
+You can disable or change the logging level by including the following snippet at the top of any script.
+```py
+from loguru import logger
+import sys
+logger.remove(0)
+logger.add(sys.stderr, level="ERROR", filter='nomic')
+
+```

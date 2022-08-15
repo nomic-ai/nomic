@@ -50,7 +50,15 @@ Obtain an API key from [cohere.ai](https://os.cohere.ai) to embed your text data
 
 Add your Cohere API key to the below example to see how their large language model organizes text from a sentiment analysis dataset.
 
-[Sentiment Analysis Map](https://atlas.nomic.ai/map/ff2f89df-451e-49c4-b7a3-a608d7375961/f433cbd1-e728-49da-8c83-685cd613788b)
+[Sentiment Analysis Map](https://atlas.nomic.ai/map/63b3d891-f807-44c5-abdf-2a95dad05b41/db0fa89e-6589-4a82-884b-f58bfb60d641)
+
+!!! note
+
+    This example requires additional packages. Install them with
+    ```bash
+    pip install datasets
+    ```
+
 === "Co:here Example"
 
     ``` py title="map_hf_dataset_with_cohere.py"
@@ -77,7 +85,7 @@ Add your Cohere API key to the below example to see how their large language mod
     embeddings = embedder.embed(texts=[document['user'] for document in documents],
                                 model='small',
                                 num_workers=10,
-                                shard_size=1000)
+                                shard_size=1000,)
     
     if len(embeddings) != len(documents):
         raise Exception("Embedding job failed")
@@ -86,13 +94,13 @@ Add your Cohere API key to the below example to see how their large language mod
     response = atlas.map_embeddings(embeddings=np.array(embeddings),
                                     data=documents,
                                     id_field='id',
-                                    is_public=True,
                                     colorable_fields=['sentiment'],
+                                    is_public=True,
+                                    map_name='Sentiment 140',
+                                    map_description='A 10,000 point sample of the huggingface sentiment140 dataset embedded with the co:here small model.',
+                                    organization_name=None, #defaults to your current user.
                                     num_workers=20)
-
     print(response)
-    
-
     ```
 
 === "Output"
