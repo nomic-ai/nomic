@@ -16,16 +16,17 @@ from nomic.callbacks import NomicMappingCallback
 
 PATH_DATASETS = os.environ.get("PATH_DATASETS", ".")
 BATCH_SIZE = 256 if torch.cuda.is_available() else 64
-
+torch.manual_seed(0)
 class MNISTModel(LightningModule):
     def __init__(self):
         super().__init__()
         self.l1 = torch.nn.Linear(28 * 28, 10)
+        self.l2 = torch.nn.Linear(10, 10)
         self.nomic_logits = []
         self.nomic_labels = []
 
     def forward(self, x):
-        return torch.relu(self.l1(x.view(x.size(0), -1)))
+        return torch.relu(self.l2(torch.relu(self.l1(x.view(x.size(0), -1)))))
 
     def training_step(self, batch, batch_nb):
         x, y = batch
@@ -48,13 +49,15 @@ train_ds = MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE)
 
 # Initialize a trainer
-max_epochs = 3
+max_epochs = 25
 trainer = Trainer(
     accelerator="auto",
     devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
     max_epochs=max_epochs,
     callbacks=[TQDMProgressBar(refresh_rate=20),
-               NomicMappingCallback(max_points=10000, map_name="MNIST Map", map_description=f"Sample of MNIST MLP logits after {max_epochs} epochs of training.")],
+               NomicMappingCallback(max_points=-1,
+                                    map_name="MNIST Map",
+                                    map_description=f"Sample of MNIST MLP logits after {max_epochs} epochs of training.")],
 )
 
 # Train the model ⚡
