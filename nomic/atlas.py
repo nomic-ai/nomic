@@ -1,5 +1,5 @@
 """
-This class allows for programmatic interactions with Atlas - Nomics neural database. Initialize AtlasClient in any Python context such as a script
+This class allows for programmatic interactions with Atlas - Nomic's neural database. Initialize AtlasClient in any Python context such as a script
 or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 import concurrent.futures
@@ -92,6 +92,10 @@ class AtlasClient:
         **Returns:** project_id on success.
 
         '''
+        supported_modalities = ['text', 'embedding']
+        if modality not in supported_modalities:
+            msg = 'Tried to create project with modality: {}, but Atlas only supports: {}'.format(modality,
+            raise ValueError(msg)
 
         if organization_name is None:
             organization = self._get_current_users_main_organization()
@@ -277,7 +281,7 @@ class AtlasClient:
 
         return True
 
-    def create_index(self, project_id: str, index_name: str, colorable_fields=[]):
+    def create_index(self, project_id: str, index_name: str, indexed_field=None, colorable_fields=[]):
         '''
         Creates an index in the specified project
 
@@ -285,6 +289,7 @@ class AtlasClient:
 
         * **project_id** - The ID of the project this index is being built under.
         * **index_name** - The name of the index
+        * **indexed_field** - Default None. For text projects, name the data field corresponding to the text to be mapped.
         * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
         * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
         * **num_workers** - The number of worker threads to upload embeddings with.
@@ -294,32 +299,57 @@ class AtlasClient:
 
         project = self._get_project_by_id(project_id=project_id)
 
-        index_build_template = {
-            'project_id': project['id'],
-            'index_name': index_name,
-            'indexed_field': None,
-            'atomizer_strategies': None,
-            'model': None,
-            'colorable_fields': colorable_fields,
-            'model_hyperparameters': None,
-            'nearest_neighbor_index': 'HNSWIndex',
-            'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
-            'projection': 'UMAPProjection',
-            'projection_hyperparameters': json.dumps(
-                {'n_neighbors': 15, 'min_dist': 3e-2, 'force_approximation_algorithm': True}
-            ),
-        }
-
         if project['modality'] == 'embedding':
+            embedding_build_template = {
+                'project_id': project['id'],
+                'index_name': index_name,
+                'indexed_field': None,
+                'atomizer_strategies': None,
+                'model': None,
+                'colorable_fields': colorable_fields,
+                'model_hyperparameters': None,
+                'nearest_neighbor_index': 'HNSWIndex',
+                'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
+                'projection': 'UMAPProjection',
+                'projection_hyperparameters': json.dumps(
+                    {'n_neighbors': 15, 'min_dist': 3e-2, 'force_approximation_algorithm': True}
+                ),
+            }
+
             response = requests.post(
                 self.atlas_api_path + "/v1/project/index/create",
                 headers=self.header,
-                json=index_build_template,
+                json=embedding_build_template,
             )
             job_id = response.json()['job_id']
 
         elif project['modality'] == 'text':
-            raise NotImplementedError("Building indices for text based projects is not yet implemented in this client.")
+            hyperparameters = {
+                'dataset_buffer_size': 1000,
+                'batch_size': 4,
+                'polymerize_by': 'charchunk',
+            }
+            text_build_template = {
+                'project_id': project['id'],
+                'index_name': index_name,
+                'indexed_field': None,
+                'atomizer_strategies': ['document', 'charchunk'],
+                'model': 'DiffCSE',
+                'colorable_fields': colorable_fields,
+                'model_hyperparameters': json.dumps(hyperparameters),
+                'nearest_neighbor_index': 'HNSWIndex',
+                'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
+                'projection': 'UMAPProjection',
+                'projection_hyperparameters': json.dumps(
+                    {'n_neighbors': 15, 'min_dist': 3e-2, 'force_approximation_algorithm': True}
+                ),
+            }
+            response = requests.post(
+                self.atlas_api_path + "/v1/project/index/create",
+                headers=self.header,
+                json=text_build_template,
+            )
+            job_id = response.json()['job_id']
 
         job = requests.get(
             self.atlas_api_path + f"/v1/project/index/job/{job_id}",
@@ -351,18 +381,74 @@ class AtlasClient:
             logger.info(f"Created map `{index_name}`: {to_return['map']}")
         return CreateIndexResponse(**to_return)
 
-    def _add_text(self, project_id: str, data: List[Dict]):
+    def add_text(
+            self, project_id: str, data: List[Dict], shard_size=1000, num_workers=10, pbar=None
+    ):
         '''
-        Adds text to an Atlas text project. Each text datum consists of a keyed dictionary.
-        Args:
-            project_id: The id of the project to add text to.
-            data: A [N,] element list of dictionaries containing your datums.
+        Adds data to a text project.
 
-        Returns:
-            True if success.
+        **Parameters:**
 
+        * **project_id** - The id of the project you are adding embeddings to.
+        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
+        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
+        * **num_workers** - The number of worker threads to upload embeddings with.
+
+        **Returns:** True on success.
         '''
-        raise NotImplementedError("Building indices for text based projects is not yet implemented in this client.")
+
+        #Ensure there are no empty datums
+        for i, elem in enumerate(data):
+            for k, v in data.items():
+                if isinstance(v, str) and len(v) == 0:
+                    msg = 'Datum number: {} had an empty string for key: {}'.format(i, k)
+                    raise ValueError(msg)
+
+        # Each worker currently is to slow beyond a shard_size of 5000
+        shard_size = min(shard_size, 5000)
+
+        def send_request(i):
+            data_shard = data[i : i + shard_size]
+            response = requests.post(
+                self.atlas_api_path + "/v1/project/data/add/json/initial",
+                headers=self.header,
+                json={'project_id': project_id, 'data': data_shard},
+            )
+            return response
+
+        failed = []
+
+        # if this method is being called internally, we pass a global progress bar
+        close_pbar = False
+        if pbar is None:
+            logger.info("Uploading text to Nomic.")
+            close_pbar = True
+            pbar = tqdm(total=int(len(data)) // shard_size)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
+            for future in concurrent.futures.as_completed(futures):
+                response = future.result()
+                pbar.update(1)
+                if response.status_code != 200:
+                    logger.error(f"Shard upload failed: {response.json()}")
+                    if 'more datums exceeds your organization limit' in response.json():
+                        return False
+
+                    failed.append(futures[future])
+        # close the progress bar if this method was called with no external progresbar
+        if close_pbar:
+            pbar.close()
+
+        if failed:
+            logger.warning(f"Failed to upload {len(failed)*shard_size} datums")
+        if close_pbar:
+            if failed:
+                logger.warning("Text upload partially succeeded.")
+            else:
+                logger.warning("Text upload succeeded.")
+
+        return True
 
     def map_embeddings(
         self,
@@ -425,7 +511,7 @@ class AtlasClient:
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
         MAX_MEMORY_CHUNK = 150000
-        logger.info("Uploading embeddings to Nomics' neural database Atlas.")
+        logger.info("Uploading embeddings to Nomic's neural database Atlas.")
 
         embeddings = embeddings.astype(np.float16)
 
@@ -443,5 +529,87 @@ class AtlasClient:
         logger.info("Embedding upload succeeded.")
 
         response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
+
+        return response
+
+    def map_text(
+            self,
+            data: List[Dict],
+            indexed_field: str,
+            id_field: str = 'id',
+            is_public: bool = True,
+            colorable_fields: list = [],
+            num_workers: int = 10,
+            map_name: str = None,
+            map_description: str = None,
+            organization_name: str = None,
+    ):
+        '''
+        Generates a map of the given text.
+
+        **Parameters:**
+
+        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
+        * **indexed_field** - The name the data field corresponding to the text to be mapped.
+        * **id_field** - Each datums unique id field.
+        * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
+        * **is_public** - Should this embedding map be public? Private maps can only be accessed by members of your organization.
+        * **num_workers** - The number of workers to use when sending data.
+        * **map_name** - A name for your map.
+        * **map_description** - A description for your map.
+        * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+
+        **Returns:** A link to your map.
+        '''
+
+        def get_random_name():
+            random_words = RandomWord()
+            return f"{random_words.word(include_parts_of_speech=['adjectives'])}-{random_words.word(include_parts_of_speech=['nouns'])}"
+
+        project_name = get_random_name()
+        description = project_name
+        index_name = get_random_name()
+
+        if map_name:
+            project_name = map_name
+        if map_description:
+            description = map_description
+
+        if id_field in colorable_fields:
+            raise Exception(f'Cannot color by unique id field: {id_field}')
+
+        project_id = self.create_project(
+            project_name=project_name,
+            description=description,
+            unique_id_field=id_field,
+            modality='text',
+            is_public=is_public,
+            organization_name=organization_name,
+        )
+
+        shard_size = 1000
+        if embeddings.shape[0] > 10000:
+            shard_size = 2500
+
+        # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
+        MAX_MEMORY_CHUNK = 150000
+        logger.info("Uploading text to Nomic's neural database Atlas.")
+
+        with tqdm(total=len(data) // shard_size) as pbar:
+            for i in range(0, len(data), MAX_MEMORY_CHUNK):
+                self.add_text(
+                    project_id=project_id,
+                    data=data[i : i + MAX_MEMORY_CHUNK],
+                    shard_size=shard_size,
+                    num_workers=num_workers,
+                    pbar=pbar,
+                )
+
+        logger.info("Text upload succeeded.")
+
+        response = self.create_index(project_id=project_id,
+                                     indexed_field=indexed_field,
+                                     index_name=index_name,
+                                     colorable_fields=colorable_fields)
 
         return response
