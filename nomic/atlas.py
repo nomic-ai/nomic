@@ -94,7 +94,7 @@ class AtlasClient:
         '''
         supported_modalities = ['text', 'embedding']
         if modality not in supported_modalities:
-            msg = 'Tried to create project with modality: {}, but Atlas only supports: {}'.format(modality,
+            msg = 'Tried to create project with modality: {}, but Atlas only supports: {}'.format(modality, supported_modalities)
             raise ValueError(msg)
 
         if organization_name is None:
@@ -310,7 +310,7 @@ class AtlasClient:
                 'model_hyperparameters': None,
                 'nearest_neighbor_index': 'HNSWIndex',
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
-                'projection': 'UMAPProjection',
+                'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
                     {'n_neighbors': 15, 'min_dist': 3e-2, 'force_approximation_algorithm': True}
                 ),
@@ -332,14 +332,14 @@ class AtlasClient:
             text_build_template = {
                 'project_id': project['id'],
                 'index_name': index_name,
-                'indexed_field': None,
+                'indexed_field': indexed_field,
                 'atomizer_strategies': ['document', 'charchunk'],
-                'model': 'DiffCSE',
+                'model': 'NomicEmbed',
                 'colorable_fields': colorable_fields,
                 'model_hyperparameters': json.dumps(hyperparameters),
                 'nearest_neighbor_index': 'HNSWIndex',
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
-                'projection': 'UMAPProjection',
+                'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
                     {'n_neighbors': 15, 'min_dist': 3e-2, 'force_approximation_algorithm': True}
                 ),
@@ -398,8 +398,9 @@ class AtlasClient:
         '''
 
         #Ensure there are no empty datums
+
         for i, elem in enumerate(data):
-            for k, v in data.items():
+            for k, v in elem.items():
                 if isinstance(v, str) and len(v) == 0:
                     msg = 'Datum number: {} had an empty string for key: {}'.format(i, k)
                     raise ValueError(msg)
@@ -426,7 +427,9 @@ class AtlasClient:
             pbar = tqdm(total=int(len(data)) // shard_size)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            logger.info('Execute started')
             futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
+            logger.info('Futures submitted')
             for future in concurrent.futures.as_completed(futures):
                 response = future.result()
                 pbar.update(1)
@@ -588,7 +591,7 @@ class AtlasClient:
         )
 
         shard_size = 1000
-        if embeddings.shape[0] > 10000:
+        if len(data) > 10000:
             shard_size = 2500
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
