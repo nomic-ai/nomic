@@ -434,9 +434,13 @@ class AtlasClient:
                 response = future.result()
                 pbar.update(1)
                 if response.status_code != 200:
-                    logger.error(f"Shard upload failed: {response.json()}")
-                    if 'more datums exceeds your organization limit' in response.json():
-                        return False
+                    try:
+                        logger.error(f"Shard upload failed: {response.json()}")
+                        if 'more datums exceeds your organization limit' in response.json():
+                            return False
+                    except requests.exceptions.JSONDecodeError:
+                        logger.error(f"Shard upload failed: {response}")
+                        continue
 
                     failed.append(futures[future])
         # close the progress bar if this method was called with no external progresbar
