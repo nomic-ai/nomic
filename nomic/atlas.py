@@ -94,7 +94,9 @@ class AtlasClient:
         '''
         supported_modalities = ['text', 'embedding']
         if modality not in supported_modalities:
-            msg = 'Tried to create project with modality: {}, but Atlas only supports: {}'.format(modality, supported_modalities)
+            msg = 'Tried to create project with modality: {}, but Atlas only supports: {}'.format(
+                modality, supported_modalities
+            )
             raise ValueError(msg)
 
         if organization_name is None:
@@ -381,9 +383,7 @@ class AtlasClient:
             logger.info(f"Created map `{index_name}`: {to_return['map']}")
         return CreateIndexResponse(**to_return)
 
-    def add_text(
-            self, project_id: str, data: List[Dict], shard_size=1000, num_workers=10, pbar=None
-    ):
+    def add_text(self, project_id: str, data: List[Dict], shard_size=1000, num_workers=10, pbar=None):
         '''
         Adds data to a text project.
 
@@ -397,7 +397,7 @@ class AtlasClient:
         **Returns:** True on success.
         '''
 
-        #Ensure there are no empty datums
+        # Ensure there are no empty datums
 
         for i, elem in enumerate(data):
             for k, v in elem.items():
@@ -502,6 +502,9 @@ class AtlasClient:
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
+        for field in colorable_fields:
+            if field not in data[0]:
+                raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
 
         project_id = self.create_project(
             project_name=project_name,
@@ -540,16 +543,16 @@ class AtlasClient:
         return response
 
     def map_text(
-            self,
-            data: List[Dict],
-            indexed_field: str,
-            id_field: str = 'id',
-            is_public: bool = True,
-            colorable_fields: list = [],
-            num_workers: int = 10,
-            map_name: str = None,
-            map_description: str = None,
-            organization_name: str = None,
+        self,
+        data: List[Dict],
+        indexed_field: str,
+        id_field: str = 'id',
+        is_public: bool = True,
+        colorable_fields: list = [],
+        num_workers: int = 10,
+        map_name: str = None,
+        map_description: str = None,
+        organization_name: str = None,
     ):
         '''
         Generates a map of the given text.
@@ -614,9 +617,8 @@ class AtlasClient:
 
         logger.info("Text upload succeeded.")
 
-        response = self.create_index(project_id=project_id,
-                                     indexed_field=indexed_field,
-                                     index_name=index_name,
-                                     colorable_fields=colorable_fields)
+        response = self.create_index(
+            project_id=project_id, indexed_field=indexed_field, index_name=index_name, colorable_fields=colorable_fields
+        )
 
         return response

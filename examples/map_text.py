@@ -3,7 +3,6 @@ import numpy as np
 from datasets import load_dataset
 
 atlas = AtlasClient()
-cohere_api_key = ''
 
 dataset = load_dataset('wikipedia', '20220301.en')['train']
 
