@@ -9,7 +9,12 @@ use_directory_urls: false
 nav:
     - 'index.md'
     - 'map_your_data.md'
-    - 'mapping_faq.md'
+    - 'map_your_text.md'
+    - 'map_your_images.md'
+    - 'map_your_video.md'
+    - 'map_your_audio.md'
+    - 'FAQ':
+      - 'mapping_faq.md'
     - 'API Reference':
       - 'atlas_client.md'
       - 'embedder.md'
