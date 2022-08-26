@@ -502,9 +502,12 @@ class AtlasClient:
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
+        if id_field not in data[0]:
+            raise Exception(f"You specified `{id_field}` as your unique id field but it is not contained in your data upload")
         for field in colorable_fields:
             if field not in data[0]:
                 raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
+
 
         project_id = self.create_project(
             project_name=project_name,
@@ -587,6 +590,8 @@ class AtlasClient:
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
+        if id_field not in data[0]:
+            raise Exception(f"You specified `{id_field}` as your unique id field but it is not contained in your data upload")
 
         project_id = self.create_project(
             project_name=project_name,
