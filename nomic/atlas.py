@@ -75,6 +75,17 @@ class AtlasClient:
         return response.json()
 
     def _ensure_metadata(self, metadata):
+        keys = metadata[0].keys()
+        for key in keys:
+            if len(key) >=2 and key[:2] == '__':
+                raise ValueError('Metadata fields cannot start with __')
+
+        keylist = sorted(list(keys))
+        for datum in metadata:
+            cur_keylist = sorted(list(datum.keys()))
+            if cur_keylist != keylist:
+                msg = 'All metadata must have the same keys, but found key sets: {} and {}'.format(keylist, cur_keylist)
+                raise ValueError(msg)
 
         return True
 
@@ -253,7 +264,13 @@ class AtlasClient:
             self.atlas_api_path+ f"/v1/project/{project_id}",
             headers=self.header,
         )
-        progressive = len(response.json()['atlas_indices']) > 0
+        project = response.json()
+
+        if project['modality'] != 'embedding':
+            msg = 'Cannot add embedding to project with modality: {}'.format(project['modality'])
+            raise ValueError(msg)
+
+        progressive = len(project['atlas_indices']) > 0
         upload_endpoint = "/v1/project/data/add/embedding/initial"
         if progressive:
             upload_endpoint = "/v1/project/data/add/embedding/progressive"
@@ -438,7 +455,12 @@ class AtlasClient:
             self.atlas_api_path+ f"/v1/project/{project_id}",
             headers=self.header,
         )
-        progressive = len(response.json()['atlas_indices']) > 0
+        project = response.json()
+        if project['modality'] != 'text':
+            msg = 'Cannot add text to project with modality: {}'.format(project['modality'])
+            raise ValueError(msg)
+
+        progressive = len(project['atlas_indices']) > 0
         upload_endpoint = "/v1/project/data/add/json/initial"
         if progressive:
             upload_endpoint = "/v1/project/data/add/json/progressive"
