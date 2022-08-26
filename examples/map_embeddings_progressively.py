@@ -12,8 +12,8 @@ second_upload_embeddings = embeddings[500:, :]
 first_upload_data = data[:500]
 second_upload_data = data[500:]
 
-response = atlas.map_embeddings(embeddings=embeddings,
-                                data=data,
+response = atlas.map_embeddings(embeddings=first_upload_embeddings,
+                                data=first_upload_data,
                                 id_field='id',
                                 is_public=True)
 
@@ -21,6 +21,6 @@ print('First upload response: ', response)
 project_id = response['project_id']
 
 response = atlas.update_maps(project_id=project_id,
-                             second_upload_embeddings=second_upload_embeddings,
+                             embeddings=second_upload_embeddings,
                              data=second_upload_data)
 print('Second upload response: ', response)
