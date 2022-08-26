@@ -502,11 +502,12 @@ class AtlasClient:
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
-        if len(id_field) == 0:
-            raise Exception("You cannot leave the id empty")
+        if not data[0]['id_field']:
+            raise Exception("Cannot leave id field empty")
         for field in colorable_fields:
             if field not in data[0]:
                 raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
+
 
         project_id = self.create_project(
             project_name=project_name,
