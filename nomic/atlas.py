@@ -278,6 +278,7 @@ class AtlasClient:
         # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
+            self._ensure_metadata(data_shard)
             embedding_shard = embeddings[i : i + shard_size, :].tolist()
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
@@ -440,6 +441,7 @@ class AtlasClient:
         **Returns:** True on success.
         '''
 
+
         # Ensure there are no empty datums
         for i, elem in enumerate(data):
             for k, v in elem.items():
@@ -468,6 +470,7 @@ class AtlasClient:
         # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
+            self._ensure_metadata(data_shard)
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
                 headers=self.header,
