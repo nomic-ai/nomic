@@ -250,16 +250,16 @@ class AtlasClient:
             headers=self.header,
         )
         progressive = len(response.json()['atlas_indices']) > 0
-        path = self.atlas_api_path + "/v1/project/data/add/embedding/initial",
+        upload_endpoint = "/v1/project/data/add/embedding/initial"
         if progressive:
-            path = self.atlas_api_path + "/v1/project/data/add/embedding/progressive",
+            upload_endpoint = "/v1/project/data/add/embedding/progressive"
 
         # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
             embedding_shard = embeddings[i : i + shard_size, :].tolist()
             response = requests.post(
-                path,
+                self.atlas_api_path + upload_endpoint,
                 headers=self.header,
                 json={'project_id': project_id, 'embeddings': embedding_shard, 'data': data_shard},
             )
