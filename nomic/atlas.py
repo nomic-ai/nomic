@@ -502,6 +502,8 @@ class AtlasClient:
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
+        if len(id_field) == 0:
+            raise Exception("You cannot leave the id empty")
         for field in colorable_fields:
             if field not in data[0]:
                 raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
