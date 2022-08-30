@@ -15,6 +15,11 @@ from wonderwords import RandomWord
 
 from .cli import get_api_credentials
 
+# Uploads send several requests to allow for threadpool refreshing.
+# Threadpool hogs memory and new ones need to be created.
+# This number specifies how much data gets processed before a new Threadpool is created
+MAX_MEMORY_CHUNK = 150000
+
 
 class CreateIndexResponse(BaseModel):
     map: Optional[str] = Field(
@@ -22,6 +27,7 @@ class CreateIndexResponse(BaseModel):
     )
     job_id: str = Field(..., description="The job_id to track the progress of the index build.")
     index_id: str = Field(..., description="The unique identifier of the index being built.")
+    project_id: str = Field(..., description="The id of the project this map is being created in")
 
 
 class AtlasClient:
@@ -67,6 +73,21 @@ class AtlasClient:
             raise ValueError("Your authorization token is no longer valid. Run `nomic login` to obtain a new one.")
 
         return response.json()
+
+    def _ensure_metadata(self, metadata):
+        keys = metadata[0].keys()
+        for key in keys:
+            if len(key) >=2 and key[:2] == '__':
+                raise ValueError('Metadata fields cannot start with __')
+
+        keylist = sorted(list(keys))
+        for datum in metadata:
+            cur_keylist = sorted(list(datum.keys()))
+            if cur_keylist != keylist:
+                msg = 'All metadata must have the same keys, but found key sets: {} and {}'.format(keylist, cur_keylist)
+                raise ValueError(msg)
+
+        return True
 
     def create_project(
         self,
@@ -238,11 +259,29 @@ class AtlasClient:
         # Each worker currently is to slow beyond a shard_size of 5000
         shard_size = min(shard_size, 5000)
 
+        # Check if this is a progressive project
+        response = requests.get(
+            self.atlas_api_path+ f"/v1/project/{project_id}",
+            headers=self.header,
+        )
+        project = response.json()
+
+        if project['modality'] != 'embedding':
+            msg = 'Cannot add embedding to project with modality: {}'.format(project['modality'])
+            raise ValueError(msg)
+
+        progressive = len(project['atlas_indices']) > 0
+        upload_endpoint = "/v1/project/data/add/embedding/initial"
+        if progressive:
+            upload_endpoint = "/v1/project/data/add/embedding/progressive"
+
+        # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
+            self._ensure_metadata(data_shard)
             embedding_shard = embeddings[i : i + shard_size, :].tolist()
             response = requests.post(
-                self.atlas_api_path + "/v1/project/data/add/embedding/initial",
+                self.atlas_api_path + upload_endpoint,
                 headers=self.header,
                 json={'project_id': project_id, 'embeddings': embedding_shard, 'data': data_shard},
             )
@@ -264,9 +303,13 @@ class AtlasClient:
                 response = future.result()
                 pbar.update(1)
                 if response.status_code != 200:
-                    logger.error(f"Shard upload failed: {response.json()}")
-                    if 'more datums exceeds your organization limit' in response.json():
-                        return False
+                    try:
+                        logger.error(f"Shard upload failed: {response.json()}")
+                        if 'more datums exceeds your organization limit' in response.json():
+                            return False
+                    except requests.exceptions.JSONDecodeError:
+                        logger.error(f"Shard upload failed: {response}")
+                        continue
 
                     failed.append(futures[future])
         # close the progress bar if this method was called with no external progresbar
@@ -381,6 +424,7 @@ class AtlasClient:
             else:
                 to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
             logger.info(f"Created map `{index_name}`: {to_return['map']}")
+        to_return['project_id'] = project['id']
         return CreateIndexResponse(**to_return)
 
     def add_text(self, project_id: str, data: List[Dict], shard_size=1000, num_workers=10, pbar=None):
@@ -397,8 +441,8 @@ class AtlasClient:
         **Returns:** True on success.
         '''
 
-        # Ensure there are no empty datums
 
+        # Ensure there are no empty datums
         for i, elem in enumerate(data):
             for k, v in elem.items():
                 if isinstance(v, str) and len(v) == 0:
@@ -408,10 +452,27 @@ class AtlasClient:
         # Each worker currently is to slow beyond a shard_size of 5000
         shard_size = min(shard_size, 5000)
 
+        # Check if this is a progressive project
+        response = requests.get(
+            self.atlas_api_path+ f"/v1/project/{project_id}",
+            headers=self.header,
+        )
+        project = response.json()
+        if project['modality'] != 'text':
+            msg = 'Cannot add text to project with modality: {}'.format(project['modality'])
+            raise ValueError(msg)
+
+        progressive = len(project['atlas_indices']) > 0
+        upload_endpoint = "/v1/project/data/add/json/initial"
+        if progressive:
+            upload_endpoint = "/v1/project/data/add/json/progressive"
+
+        # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
+            self._ensure_metadata(data_shard)
             response = requests.post(
-                self.atlas_api_path + "/v1/project/data/add/json/initial",
+                self.atlas_api_path + upload_endpoint,
                 headers=self.header,
                 json={'project_id': project_id, 'data': data_shard},
             )
@@ -427,9 +488,7 @@ class AtlasClient:
             pbar = tqdm(total=int(len(data)) // shard_size)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            logger.info('Execute started')
             futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
-            logger.info('Futures submitted')
             for future in concurrent.futures.as_completed(futures):
                 response = future.result()
                 pbar.update(1)
@@ -523,7 +582,6 @@ class AtlasClient:
             shard_size = 2500
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
-        MAX_MEMORY_CHUNK = 150000
         logger.info("Uploading embeddings to Nomic's neural database Atlas.")
 
         embeddings = embeddings.astype(np.float16)
@@ -543,7 +601,79 @@ class AtlasClient:
 
         response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 
-        return response
+        return dict(response)
+
+    def update_maps(self,
+                    project_id: str,
+                    data: List[Dict],
+                    embeddings: Optional[np.array]=None,
+                    shard_size: int=1000,
+                    num_workers: int = 10):
+        '''
+        Updates a project's maps with new data.
+
+        **Parameters:**
+
+        * **project_id** - The id of the project you want to update
+        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
+        * **embedding** - (Default None) An [N, d] matrix of embeddings for updating embedding projects. Leave as None to update text projects.
+        * **shard_size** - Data is uploaded in parallel by many threads. Adjust the number of datums to upload by each worker.
+        * **num_workers** - The number of workers to use when sending data.
+
+        **Returns:** job_ids: The ids of the update jobs
+        '''
+
+        # Validate data
+        project = self._get_project_by_id(project_id=project_id)
+        if project['modality'] == 'embedding' and embeddings is None:
+            msg = 'Please specify embeddings for updating an embedding project'
+            raise ValueError(msg)
+
+        if project['modality'] == 'text' and embeddings is not None:
+            msg = 'Please dont specify embeddings for updating a text project'
+            raise ValueError(msg)
+
+        if embeddings is not None and len(data) != embeddings.shape[0]:
+            msg = 'Expected data and embeddings to be the same length but found lengths {} and {} respectively.'.format()
+            raise ValueError(msg)
+
+
+        # Add new data
+        logger.info("Uploading data to Nomic's neural database Atlas.")
+        with tqdm(total=len(data) // shard_size) as pbar:
+            for i in range(0, len(data), MAX_MEMORY_CHUNK):
+                if project['modality'] == 'embedding':
+                    self.add_embeddings(
+                        project_id=project_id,
+                        embeddings=embeddings[i: i + MAX_MEMORY_CHUNK, :],
+                        data=data[i: i + MAX_MEMORY_CHUNK],
+                        shard_size=shard_size,
+                        num_workers=num_workers,
+                        pbar=pbar,
+                    )
+                else:
+                    self.add_text(
+                        project_id=project_id,
+                        data=data[i: i + MAX_MEMORY_CHUNK],
+                        shard_size=shard_size,
+                        num_workers=num_workers,
+                        pbar=pbar,
+                    )
+        logger.info("Upload succeeded.")
+
+        #Update maps
+        # finally, update all the indices
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/update_indices",
+            headers=self.header,
+            json={
+                'project_id': str(project_id),
+            },
+        )
+
+        return response.json()['job_ids']
+
+
 
     def map_text(
         self,
@@ -606,8 +736,6 @@ class AtlasClient:
         if len(data) > 10000:
             shard_size = 2500
 
-        # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
-        MAX_MEMORY_CHUNK = 150000
         logger.info("Uploading text to Nomic's neural database Atlas.")
 
         with tqdm(total=len(data) // shard_size) as pbar:
@@ -626,4 +754,4 @@ class AtlasClient:
             project_id=project_id, indexed_field=indexed_field, index_name=index_name, colorable_fields=colorable_fields
         )
 
-        return response
+        return dict(response)
