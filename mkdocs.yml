@@ -13,11 +13,12 @@ nav:
     - 'map_your_images.md'
     - 'map_your_video.md'
     - 'map_your_audio.md'
-    - 'FAQ':
-      - 'mapping_faq.md'
     - 'API Reference':
       - 'atlas_client.md'
       - 'embedder.md'
+    - 'FAQ and Releases':
+      - 'mapping_faq.md'
+      - 'release_notes.md'
 
 
 theme:
