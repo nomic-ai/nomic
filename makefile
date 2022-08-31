@@ -36,8 +36,7 @@ lint:
 pretty: isort black
 
 test:
-	source env/bin/activate; env/bin/coverage run --source=nomic  run_tests.py && env/bin/coverage report && env/bin/coverage html
-
+	source env/bin/activate;  pytest -s nomic/tests
 clean:
 	rm -rf {.pytest_cache,env,nomic.egg-info}
 	find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf

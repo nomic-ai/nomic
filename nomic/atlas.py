@@ -4,6 +4,7 @@ or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 import concurrent.futures
 import json
+import uuid
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -239,6 +240,61 @@ class AtlasClient:
 
         return response.json()
 
+    def _validate_user_supplied_metadata(self, data: List[Dict], project):
+        '''
+        Validates the users metadata for Atlas compatability.
+        If unique_id_field is specified, validates that each datum has that field. If not, adds it
+        and then notifies the user that it was added.
+        Args:
+            data: the user supplied list of data dictionaries
+            project: the atlas project you are validating the data for.
+
+        Returns:
+
+        '''
+
+        if not isinstance(data, list):
+            raise Exception("Metadata must be a list of dictionaries")
+
+
+
+        unique_id_field = project['unique_id_field']
+        metadata_keys = None
+        added_id_field_for_user = False
+        for datum in data:
+            if not isinstance(datum, dict):
+                raise Exception('Each metadata must be a dictionary with one level of keys and values of only string, int and float types.')
+
+            if unique_id_field not in datum:
+                added_id_field_for_user = True
+                datum[unique_id_field] = str(uuid.uuid4())
+
+            if metadata_keys is None:
+                metadata_keys = sorted(list(datum.keys()))
+
+            datum_keylist = sorted(list(datum.keys()))
+            if datum_keylist != metadata_keys:
+                msg = 'All metadata must have the same keys, but found key sets: {} and {}'.format(metadata_keys, datum_keylist)
+                raise ValueError(msg)
+
+            for key in datum:
+                if key.startswith('__'):
+                    raise ValueError('Metadata fields cannot start with __')
+
+                if project['modality'] == 'text':
+                    if isinstance(datum[key], str) and len(datum[key]) == 0:
+                        msg = 'Datum {} had an empty string for key: {}'.format(datum, key)
+                        raise ValueError(msg)
+
+                if not isinstance(datum[key], (str, float, int)):
+                    raise Exception(f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation.")
+
+        if added_id_field_for_user:
+            logger.info(f"A datum you supplied lacked the unique id field `{unique_id_field}`. Added it for you.")
+
+
+
+
     def add_embeddings(
         self, project_id: str, embeddings: np.array, data: List[Dict], shard_size=1000, num_workers=10, pbar=None
     ):
@@ -269,6 +325,12 @@ class AtlasClient:
         if project['modality'] != 'embedding':
             msg = 'Cannot add embedding to project with modality: {}'.format(project['modality'])
             raise ValueError(msg)
+
+        try:
+            self._validate_user_supplied_metadata(data=data, project=project)
+        except BaseException as e:
+            self.delete_project(project_id=project_id)
+            raise e
 
         progressive = len(project['atlas_indices']) > 0
         upload_endpoint = "/v1/project/data/add/embedding/initial"
@@ -423,7 +485,7 @@ class AtlasClient:
                 to_return['map'] = f"https://staging-atlas.nomic.ai/map/{project['id']}/{projection_id}"
             else:
                 to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
-            logger.info(f"Created map `{index_name}`: {to_return['map']}")
+            logger.info(f"Created map `{index_name}` in project `{project['project_name']}`: {to_return['map']}")
         to_return['project_id'] = project['id']
         return CreateIndexResponse(**to_return)
 
@@ -442,13 +504,6 @@ class AtlasClient:
         '''
 
 
-        # Ensure there are no empty datums
-        for i, elem in enumerate(data):
-            for k, v in elem.items():
-                if isinstance(v, str) and len(v) == 0:
-                    msg = 'Datum number: {} had an empty string for key: {}'.format(i, k)
-                    raise ValueError(msg)
-
         # Each worker currently is to slow beyond a shard_size of 5000
         shard_size = min(shard_size, 5000)
 
@@ -461,6 +516,12 @@ class AtlasClient:
         if project['modality'] != 'text':
             msg = 'Cannot add text to project with modality: {}'.format(project['modality'])
             raise ValueError(msg)
+
+        try:
+            self._validate_user_supplied_metadata(data=data, project=project)
+        except BaseException as e:
+            self.delete_project(project_id=project_id)
+            raise e
 
         progressive = len(project['atlas_indices']) > 0
         upload_endpoint = "/v1/project/data/add/json/initial"
@@ -561,8 +622,7 @@ class AtlasClient:
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
-        if id_field not in data[0]:
-            raise Exception(f"You specified `{id_field}` as your unique id field but it is not contained in your data upload")
+
         for field in colorable_fields:
             if field not in data[0]:
                 raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
@@ -601,7 +661,7 @@ class AtlasClient:
 
         response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 
-        return dict(response)
+        return {**dict(response), 'project_id': project_id}
 
     def update_maps(self,
                     project_id: str,
@@ -755,3 +815,27 @@ class AtlasClient:
         )
 
         return dict(response)
+
+
+    def delete_project(self, project_id: str):
+        '''
+        Deletes an atlas project with all associated metadata.
+
+        **Parameters:**
+
+        * **project_id** - The id of the project you want to delete.
+        '''
+        organization = self._get_current_users_main_organization()
+        organization_name = organization['nickname']
+
+        project = self._get_project_by_id(project_id=project_id)
+
+
+        logger.info(f"Deleting project `{project['project_name']}` from organization `{organization_name}`")
+
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/remove",
+            headers=self.header,
+            json={'project_id': project_id},
+        )
+
