@@ -330,8 +330,6 @@ class AtlasClient:
         try:
             self._validate_user_supplied_metadata(data=data, project=project)
         except BaseException as e:
-            if not progressive:
-                self.delete_project(project_id=project_id)
             raise e
 
 
@@ -523,8 +521,6 @@ class AtlasClient:
         try:
             self._validate_user_supplied_metadata(data=data, project=project)
         except BaseException as e:
-            if not progressive:
-                self.delete_project(project_id=project_id)
             raise e
 
         upload_endpoint = "/v1/project/data/add/json/initial"
@@ -651,14 +647,19 @@ class AtlasClient:
 
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
-                self.add_embeddings(
-                    project_id=project_id,
-                    embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
-                    data=data[i : i + MAX_MEMORY_CHUNK],
-                    shard_size=shard_size,
-                    num_workers=num_workers,
-                    pbar=pbar,
-                )
+                try:
+                    self.add_embeddings(
+                        project_id=project_id,
+                        embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
+                        data=data[i : i + MAX_MEMORY_CHUNK],
+                        shard_size=shard_size,
+                        num_workers=num_workers,
+                        pbar=pbar,
+                    )
+                except BaseException as e:
+                    self.delete_project(project_id=project_id)
+                    raise e
+
 
         logger.info("Embedding upload succeeded.")
 
@@ -803,13 +804,17 @@ class AtlasClient:
 
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
-                self.add_text(
-                    project_id=project_id,
-                    data=data[i : i + MAX_MEMORY_CHUNK],
-                    shard_size=shard_size,
-                    num_workers=num_workers,
-                    pbar=pbar,
-                )
+                try:
+                    self.add_text(
+                        project_id=project_id,
+                        data=data[i : i + MAX_MEMORY_CHUNK],
+                        shard_size=shard_size,
+                        num_workers=num_workers,
+                        pbar=pbar,
+                    )
+                except BaseException as e:
+                    self.delete_project(project_id=project_id)
+                    raise e
 
         logger.info("Text upload succeeded.")
 
