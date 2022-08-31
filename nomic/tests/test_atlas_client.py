@@ -1,3 +1,5 @@
+import uuid
+
 from nomic import AtlasClient
 import pytest
 import random
@@ -35,12 +37,21 @@ def test_map_embeddings_with_errors():
                                         id_field='id',
                                         is_public=True)
 
+    #test duplicate keys error
+    with pytest.raises(Exception):
+        data = [{'id': 'a'} for i in range(len(embeddings))]
+        data[1]['goodbye'] = 'b'
+        response = atlas.map_embeddings(embeddings=embeddings,
+                                        data=data,
+                                        id_field='id',
+                                        is_public=True)
+
 def test_map_embeddings():
     atlas = AtlasClient()
 
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'id': i} for i in range(len(embeddings))]
+    data = [{'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
                                     data=data,
@@ -48,13 +59,11 @@ def test_map_embeddings():
                                     is_public=True)
 
     #progressive gives a shard upload failure for some reason
-    # data = [{'id': str(i*num_embeddings+1)} for i in range(len(embeddings))]
-    # atlas.update_maps(project_id=response['project_id'], data=data, embeddings=embeddings)
+    data = [{'id': str(uuid.uuid4())} for i in range(len(embeddings))]
+    atlas.update_maps(project_id=response['project_id'], data=data, embeddings=embeddings)
 
     assert response['project_id']
     atlas.delete_project(project_id=response['project_id'])
-
-
 
 
 def test_map_text_errors():
