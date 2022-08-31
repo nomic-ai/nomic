@@ -326,13 +326,15 @@ class AtlasClient:
             msg = 'Cannot add embedding to project with modality: {}'.format(project['modality'])
             raise ValueError(msg)
 
+        progressive = len(project['atlas_indices']) > 0
         try:
             self._validate_user_supplied_metadata(data=data, project=project)
         except BaseException as e:
-            self.delete_project(project_id=project_id)
+            if not progressive:
+                self.delete_project(project_id=project_id)
             raise e
 
-        progressive = len(project['atlas_indices']) > 0
+
         upload_endpoint = "/v1/project/data/add/embedding/initial"
         if progressive:
             upload_endpoint = "/v1/project/data/add/embedding/progressive"
@@ -517,13 +519,14 @@ class AtlasClient:
             msg = 'Cannot add text to project with modality: {}'.format(project['modality'])
             raise ValueError(msg)
 
+        progressive = len(project['atlas_indices']) > 0
         try:
             self._validate_user_supplied_metadata(data=data, project=project)
         except BaseException as e:
-            self.delete_project(project_id=project_id)
+            if not progressive:
+                self.delete_project(project_id=project_id)
             raise e
 
-        progressive = len(project['atlas_indices']) > 0
         upload_endpoint = "/v1/project/data/add/json/initial"
         if progressive:
             upload_endpoint = "/v1/project/data/add/json/progressive"
