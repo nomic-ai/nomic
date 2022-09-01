@@ -46,6 +46,16 @@ def test_map_embeddings_with_errors():
                                         id_field='id',
                                         is_public=True)
 
+    #fail on to large metadata
+    with pytest.raises(Exception):
+        embeddings = np.random.rand(1000, 10)
+        data = [{'id': i, 'string': ''.join(['a'] * (1048576 // 10))} for i in range(len(embeddings))]
+        response = atlas.map_embeddings(embeddings=embeddings,
+                                        data=data,
+                                        id_field='id',
+                                        is_public=True)
+
+
 def test_map_embeddings():
     atlas = AtlasClient()
 
