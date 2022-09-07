@@ -5,6 +5,7 @@ or in a Jupyter Notebook to organize and interact with your unstructured data.
 import concurrent.futures
 import json
 import uuid
+import gc
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -15,12 +16,36 @@ from tqdm import tqdm
 from wonderwords import RandomWord
 
 from .cli import get_api_credentials
-
+import sys
 # Uploads send several requests to allow for threadpool refreshing.
 # Threadpool hogs memory and new ones need to be created.
 # This number specifies how much data gets processed before a new Threadpool is created
 MAX_MEMORY_CHUNK = 150000
 
+
+def get_object_size_in_bytes(obj):
+    marked = {id(obj)}
+    obj_q = [obj]
+    sz = 0
+
+    while obj_q:
+        sz += sum(map(sys.getsizeof, obj_q))
+
+        # Lookup all the object referred to by the object in obj_q.
+        # See: https://docs.python.org/3.7/library/gc.html#gc.get_referents
+        all_refr = ((id(o), o) for o in gc.get_referents(*obj_q))
+
+        # Filter object that are already marked.
+        # Using dict notation will prevent repeated objects.
+        new_refr = {o_id: o for o_id, o in all_refr if o_id not in marked and not isinstance(o, type)}
+
+        # The new obj_q will be the ones that were not marked,
+        # and we will update marked with their ids so we will
+        # not traverse them again.
+        obj_q = new_refr.values()
+        marked.update(new_refr.keys())
+
+    return sz
 
 class CreateIndexResponse(BaseModel):
     map: Optional[str] = Field(
@@ -340,6 +365,8 @@ class AtlasClient:
         # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
+            if get_object_size_in_bytes(data_shard) > 8000000:
+                raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
             self._ensure_metadata(data_shard)
             embedding_shard = embeddings[i : i + shard_size, :].tolist()
             response = requests.post(
@@ -370,7 +397,10 @@ class AtlasClient:
                         if 'more datums exceeds your organization limit' in response.json():
                             return False
                     except requests.exceptions.JSONDecodeError:
-                        logger.error(f"Shard upload failed: {response}")
+                        if response.status_code == 413:
+                            logger.error("Shard upload failed: you are sending meta-data data is to large.")
+                        else:
+                            logger.error(f"Shard upload failed: {response}")
                         continue
 
                     failed.append(futures[future])
@@ -530,6 +560,8 @@ class AtlasClient:
         # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
+            if get_object_size_in_bytes(data_shard) > 8000000:
+                raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
             self._ensure_metadata(data_shard)
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
