@@ -461,6 +461,12 @@ class AtlasClient:
             job_id = response.json()['job_id']
 
         elif project['modality'] == 'text':
+            if indexed_field is None:
+                raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
+
+            if indexed_field not in project['project_fields']:
+                raise Exception(f"Your index field is not valid. Valid options are: {project['project_fields']}")
+
             hyperparameters = {
                 'dataset_buffer_size': 1000,
                 'batch_size': 4,
