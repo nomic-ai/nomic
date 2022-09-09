@@ -484,7 +484,7 @@ class AtlasClient:
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
                 'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
-                    {'n_neighbors': 15, 'min_dist': 3e-2, 'force_approximation_algorithm': True}
+                    {'n_neighbors': 15, 'n_epochs': 50, 'spread': 1}
                 ),
             }
             response = requests.post(
