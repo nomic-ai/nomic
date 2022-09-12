@@ -3,14 +3,17 @@ import os
 from pathlib import Path
 
 import click
+import requests
 from rich.console import Console
 
 tenants = {
     'staging': {
         'frontend_domain': 'staging-atlas.nomic.ai',
+        'api_domain': 'staging-api-atlas.nomic.ai'
     },
     'production': {
         'frontend_domain': 'atlas.nomic.ai',
+        'api_domain': 'api-atlas.nomic.ai'
     },
 }
 
@@ -33,7 +36,7 @@ def login(token, tenant):
     console = Console()
     style = "bold"
     if not token:
-        console.print("Authorize with the Nomic API", style=style, justify="center")
+        console.print("Authenticate with the Nomic API", style=style, justify="center")
         console.print(auth0_auth_endpoint, style=style, justify="center")
         console.print(
             "Click the above link to retrieve your access token and then run `nomic login \[token]`",
@@ -45,8 +48,17 @@ def login(token, tenant):
     if not os.path.exists(nomic_base_path):
         os.mkdir(nomic_base_path)
 
+    response = requests.get(
+        tenant[environment]['api_domain'] + f"/v1/user/token/refresh_token/{token}"
+    ).json()
+
+    if not response.status_code == 200:
+        raise Exception("Could not authorize you with Nomic")
+
+    bearer_token = response['access_token']
+
     with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
-        json.dump({'token': token, 'tenant': tenant}, file)
+        json.dump({'refresh_token': token, 'token': bearer_token, 'tenant': tenant}, file)
 
 
 @click.command()
