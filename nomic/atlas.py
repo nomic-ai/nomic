@@ -307,11 +307,6 @@ class AtlasClient:
                 if key.startswith('__'):
                     raise ValueError('Metadata fields cannot start with __')
 
-                if project['modality'] == 'text':
-                    if isinstance(datum[key], str) and len(datum[key]) == 0:
-                        msg = 'Datum {} had an empty string for key: {}'.format(datum, key)
-                        raise ValueError(msg)
-
                 if not isinstance(datum[key], (str, float, int)):
                     raise Exception(f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation.")
 
