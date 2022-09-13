@@ -616,7 +616,7 @@ class AtlasClient:
             if failed:
                 logger.warning("Text upload partially succeeded.")
             else:
-                logger.warning("Text upload succeeded.")
+                logger.info("Text upload succeeded.")
 
         return True
 
