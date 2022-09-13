@@ -3,14 +3,18 @@ import os
 from pathlib import Path
 
 import click
+import time
+import requests
 from rich.console import Console
 
 tenants = {
     'staging': {
         'frontend_domain': 'staging-atlas.nomic.ai',
+        'api_domain': 'staging-api-atlas.nomic.ai'
     },
     'production': {
         'frontend_domain': 'atlas.nomic.ai',
+        'api_domain': 'api-atlas.nomic.ai'
     },
 }
 
@@ -33,7 +37,7 @@ def login(token, tenant):
     console = Console()
     style = "bold"
     if not token:
-        console.print("Authorize with the Nomic API", style=style, justify="center")
+        console.print("Authenticate with the Nomic API", style=style, justify="center")
         console.print(auth0_auth_endpoint, style=style, justify="center")
         console.print(
             "Click the above link to retrieve your access token and then run `nomic login \[token]`",
@@ -41,12 +45,37 @@ def login(token, tenant):
             justify="center",
         )
         exit()
+
     # save credential
     if not os.path.exists(nomic_base_path):
         os.mkdir(nomic_base_path)
 
+    response = requests.get(
+        'https://'+environment['api_domain'] + f"/v1/user/token/refresh/?refresh_token={token}"
+    )
+
+    if not response.status_code == 200:
+        raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
+
+    bearer_token = response.json()['access_token']
     with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
-        json.dump({'token': token, 'tenant': tenant}, file)
+        json.dump({'refresh_token': token, 'token': bearer_token, 'tenant': tenant, 'expires': time.time()+80000}, file)
+
+def refresh_bearer_token():
+    credentials = get_api_credentials()
+    if time.time() >= credentials['expires']:
+        environment = tenants[credentials['tenant']]
+        response = requests.get(
+            'https://'+environment['api_domain'] + f"/v1/user/token/refresh/?refresh_token={credentials['refresh_token']}"
+        )
+
+        if not response.status_code == 200:
+            raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
+
+        bearer_token = response.json()['access_token']
+        credentials['access_token'] = bearer_token
+        with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
+            json.dump(credentials, file)
 
 
 @click.command()

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from tqdm import tqdm
 from wonderwords import RandomWord
 
-from .cli import get_api_credentials
+from .cli import get_api_credentials, refresh_bearer_token
 import sys
 # Uploads send several requests to allow for threadpool refreshing.
 # Threadpool hogs memory and new ones need to be created.
@@ -65,6 +65,7 @@ class AtlasClient:
 
         '''
 
+        refresh_bearer_token()
         self.credentials = get_api_credentials()
 
         if self.credentials['tenant'] == 'staging':
