@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import click
+import time
 import requests
 from rich.console import Console
 
@@ -44,21 +45,37 @@ def login(token, tenant):
             justify="center",
         )
         exit()
+
     # save credential
     if not os.path.exists(nomic_base_path):
         os.mkdir(nomic_base_path)
 
     response = requests.get(
-        tenant[environment]['api_domain'] + f"/v1/user/token/refresh_token/{token}"
-    ).json()
+        'https://'+environment['api_domain'] + f"/v1/user/token/refresh/?refresh_token={token}"
+    )
 
     if not response.status_code == 200:
-        raise Exception("Could not authorize you with Nomic")
+        raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
 
-    bearer_token = response['access_token']
-
+    bearer_token = response.json()['access_token']
     with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
-        json.dump({'refresh_token': token, 'token': bearer_token, 'tenant': tenant}, file)
+        json.dump({'refresh_token': token, 'token': bearer_token, 'tenant': tenant, 'expires': time.time()+80000}, file)
+
+def refresh_bearer_token():
+    credentials = get_api_credentials()
+    if time.time() >= credentials['expires']:
+        environment = tenants[credentials['tenant']]
+        response = requests.get(
+            'https://'+environment['api_domain'] + f"/v1/user/token/refresh/?refresh_token={credentials['refresh_token']}"
+        )
+
+        if not response.status_code == 200:
+            raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
+
+        bearer_token = response.json()['access_token']
+        credentials['access_token'] = bearer_token
+        with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
+            json.dump(credentials, file)
 
 
 @click.command()
