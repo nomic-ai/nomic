@@ -23,7 +23,7 @@ commands:
             command: make dev
         - run:
             name: Authenticate with Nomic
-            command: nomic login staging $NOMIC_API_KEY
+            command: source env/bin/activate && nomic login staging $NOMIC_API_KEY
 
 #        - run:
 #            name: Run Isort
