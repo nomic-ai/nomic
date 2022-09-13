@@ -266,7 +266,7 @@ class AtlasClient:
 
         return response.json()
 
-    def _validate_user_supplied_metadata(self, data: List[Dict], project):
+    def _validate_user_supplied_metadata(self, data: List[Dict], project, replace_empty_values_with_null=True):
         '''
         Validates the users metadata for Atlas compatability.
         If unique_id_field is specified, validates that each datum has that field. If not, adds it
@@ -307,6 +307,14 @@ class AtlasClient:
                 if key.startswith('__'):
                     raise ValueError('Metadata fields cannot start with __')
 
+                if project['modality'] == 'text':
+                    if isinstance(datum[key], str) and len(datum[key]) == 0:
+                        if replace_empty_values_with_null:
+                            datum[key] = 'null'
+                        else:
+                            msg = 'Datum {} had an empty string for key: {}'.format(datum, key)
+                            raise ValueError(msg)
+
                 if not isinstance(datum[key], (str, float, int)):
                     raise Exception(f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation.")
 
@@ -317,7 +325,7 @@ class AtlasClient:
 
 
     def add_embeddings(
-        self, project_id: str, embeddings: np.array, data: List[Dict], shard_size=1000, num_workers=10, pbar=None
+        self, project_id: str, embeddings: np.array, data: List[Dict], shard_size=1000, num_workers=10, replace_empty_values_with_null=True, pbar=None
     ):
         '''
         Adds embeddings to an embedding project. Pair each embedding with meta-data to explore your embeddings.
@@ -329,6 +337,7 @@ class AtlasClient:
         * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
         * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
         * **num_workers** - The number of worker threads to upload embeddings with.
+        * **replace_empty_values_with_null** - Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
 
         **Returns:** True on success.
         '''
@@ -349,7 +358,7 @@ class AtlasClient:
 
         progressive = len(project['atlas_indices']) > 0
         try:
-            self._validate_user_supplied_metadata(data=data, project=project)
+            self._validate_user_supplied_metadata(data=data, project=project, replace_empty_values_with_null=replace_empty_values_with_null)
         except BaseException as e:
             raise e
 
@@ -521,7 +530,7 @@ class AtlasClient:
         to_return['project_id'] = project['id']
         return CreateIndexResponse(**to_return)
 
-    def add_text(self, project_id: str, data: List[Dict], shard_size=1000, num_workers=10, pbar=None):
+    def add_text(self, project_id: str, data: List[Dict], shard_size=1000, num_workers=10, replace_empty_values_with_null=True, pbar=None):
         '''
         Adds data to a text project.
 
@@ -531,6 +540,7 @@ class AtlasClient:
         * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
         * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
         * **num_workers** - The number of worker threads to upload embeddings with.
+        * **replace_empty_values_with_null** - Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
 
         **Returns:** True on success.
         '''
@@ -551,7 +561,7 @@ class AtlasClient:
 
         progressive = len(project['atlas_indices']) > 0
         try:
-            self._validate_user_supplied_metadata(data=data, project=project)
+            self._validate_user_supplied_metadata(data=data, project=project, replace_empty_values_with_null=replace_empty_values_with_null)
         except BaseException as e:
             raise e
 
