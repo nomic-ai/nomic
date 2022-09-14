@@ -766,6 +766,19 @@ class AtlasClient:
 
         #Update maps
         # finally, update all the indices
+        return self.rebuild_maps(project_id=project_id)
+
+    def refresh_maps(self, project_id: str):
+        '''
+        Refresh all maps in a project with the latest state.
+
+        **Parameters:**
+
+        * **project_id** - The id of the project whose maps will be refreshed.
+
+        **Returns:** a list of jobs
+        '''
+
         response = requests.post(
             self.atlas_api_path + "/v1/project/update_indices",
             headers=self.header,
@@ -775,6 +788,7 @@ class AtlasClient:
         )
 
         return response.json()['job_ids']
+
 
 
 
