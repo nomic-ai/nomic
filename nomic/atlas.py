@@ -668,6 +668,7 @@ class AtlasClient:
 
         if map_name:
             project_name = map_name
+            index_name = map_name
         if map_description:
             description = map_description
 
@@ -845,6 +846,7 @@ class AtlasClient:
 
         if map_name:
             project_name = map_name
+            index_name = map_name
         if map_description:
             description = map_description
 
