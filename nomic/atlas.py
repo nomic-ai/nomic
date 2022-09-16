@@ -324,8 +324,6 @@ class AtlasClient:
             logger.info(f"A datum you supplied lacked the unique id field `{unique_id_field}`. Added it for you.")
 
 
-
-
     def add_embeddings(
         self, project_id: str, embeddings: np.array, data: List[Dict], shard_size=1000, num_workers=10, replace_empty_string_values_with_string_null=True, pbar=None
     ):
@@ -357,6 +355,9 @@ class AtlasClient:
         if project['modality'] != 'embedding':
             msg = 'Cannot add embedding to project with modality: {}'.format(project['modality'])
             raise ValueError(msg)
+
+        if project['insert_update_delete_lock']:
+            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
         progressive = len(project['atlas_indices']) > 0
         try:
@@ -559,12 +560,17 @@ class AtlasClient:
             self.atlas_api_path+ f"/v1/project/{project_id}",
             headers=self.header,
         )
+
         project = response.json()
         if project['modality'] != 'text':
             msg = 'Cannot add text to project with modality: {}'.format(project['modality'])
             raise ValueError(msg)
 
         progressive = len(project['atlas_indices']) > 0
+
+        if project['insert_update_delete_lock']:
+            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+
         try:
             self._validate_user_supplied_metadata(data=data, project=project,
                                                   replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
