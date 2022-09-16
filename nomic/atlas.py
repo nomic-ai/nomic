@@ -97,6 +97,7 @@ class AtlasClient:
             headers=self.header,
         )
         if not response.status_code == 200:
+            print(response.json())
             raise ValueError("Your authorization token is no longer valid. Run `nomic login` to obtain a new one.")
 
         return response.json()
@@ -371,6 +372,7 @@ class AtlasClient:
         # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
+
             if get_object_size_in_bytes(data_shard) > 8000000:
                 raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
             self._ensure_metadata(data_shard)
@@ -475,7 +477,7 @@ class AtlasClient:
 
             hyperparameters = {
                 'dataset_buffer_size': 1000,
-                'batch_size': 4,
+                'batch_size': 20,
                 'polymerize_by': 'charchunk',
             }
             text_build_template = {
@@ -773,6 +775,19 @@ class AtlasClient:
 
         #Update maps
         # finally, update all the indices
+        return self.refresh_maps(project_id=project_id)
+
+    def refresh_maps(self, project_id: str):
+        '''
+        Refresh all maps in a project with the latest state.
+
+        **Parameters:**
+
+        * **project_id** - The id of the project whose maps will be refreshed.
+
+        **Returns:** a list of jobs
+        '''
+
         response = requests.post(
             self.atlas_api_path + "/v1/project/update_indices",
             headers=self.header,
@@ -782,6 +797,7 @@ class AtlasClient:
         )
 
         return response.json()['job_ids']
+
 
 
 
@@ -843,8 +859,6 @@ class AtlasClient:
         )
 
         shard_size = 1000
-        if len(data) > 10000:
-            shard_size = 2500
 
         logger.info("Uploading text to Nomic's neural database Atlas.")
 
