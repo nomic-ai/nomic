@@ -53,10 +53,8 @@ def login(token, tenant):
     response = requests.get(
         'https://'+environment['api_domain'] + f"/v1/user/token/refresh/{token}"
     )
-    print('https://'+environment['api_domain'] + f"/v1/user/token/refresh/{token}")
 
     if not response.status_code == 200:
-        print(response.json())
         raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
 
     bearer_token = response.json()['access_token']
@@ -72,7 +70,6 @@ def refresh_bearer_token():
         )
 
         if not response.status_code == 200:
-            print(response.json())
             raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
 
         bearer_token = response.json()['access_token']
