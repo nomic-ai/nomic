@@ -768,7 +768,7 @@ class AtlasClient:
 
         #Update maps
         # finally, update all the indices
-        return self.rebuild_maps(project_id=project_id)
+        return self.refresh_maps(project_id=project_id)
 
     def refresh_maps(self, project_id: str):
         '''
