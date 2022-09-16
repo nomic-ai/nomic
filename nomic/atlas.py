@@ -404,6 +404,8 @@ class AtlasClient:
                         logger.error(f"Shard upload failed: {response.json()}")
                         if 'more datums exceeds your organization limit' in response.json():
                             return False
+                        if 'Project transaction lock is held':
+                            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
                     except requests.exceptions.JSONDecodeError:
                         if response.status_code == 413:
                             logger.error("Shard upload failed: you are sending meta-data data is to large.")
@@ -605,6 +607,8 @@ class AtlasClient:
                         logger.error(f"Shard upload failed: {response.json()}")
                         if 'more datums exceeds your organization limit' in response.json():
                             return False
+                        if 'Project transaction lock is held':
+                            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
                     except requests.exceptions.JSONDecodeError:
                         logger.error(f"Shard upload failed: {response}")
                         continue
