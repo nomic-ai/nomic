@@ -51,10 +51,12 @@ def login(token, tenant):
         os.mkdir(nomic_base_path)
 
     response = requests.get(
-        'https://'+environment['api_domain'] + f"/v1/user/token/refresh/?refresh_token={token}"
+        'https://'+environment['api_domain'] + f"/v1/user/token/refresh/{token}"
     )
+    print('https://'+environment['api_domain'] + f"/v1/user/token/refresh/{token}")
 
     if not response.status_code == 200:
+        print(response.json())
         raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
 
     bearer_token = response.json()['access_token']
@@ -66,10 +68,11 @@ def refresh_bearer_token():
     if time.time() >= credentials['expires']:
         environment = tenants[credentials['tenant']]
         response = requests.get(
-            'https://'+environment['api_domain'] + f"/v1/user/token/refresh/?refresh_token={credentials['refresh_token']}"
+            'https://'+environment['api_domain'] + f"/v1/user/token/refresh/{credentials['refresh_token']}"
         )
 
         if not response.status_code == 200:
+            print(response.json())
             raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
 
         bearer_token = response.json()['access_token']
