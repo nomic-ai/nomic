@@ -324,6 +324,23 @@ class AtlasClient:
             logger.info(f"A datum you supplied lacked the unique id field `{unique_id_field}`. Added it for you.")
 
 
+    def is_project_accepting_data(self, project_id: str):
+        '''
+        Checks if the project can accept data. Projects cannot accept data when they are being indexed.
+
+        **Parameters:**
+
+        * **project_id** - The id of the project you are checking.
+
+        **Returns:** True if project is unlocked for data additions, false otherwise.
+        '''
+        response = requests.get(
+            self.atlas_api_path+ f"/v1/project/{project_id}",
+            headers=self.header,
+        )
+        project = response.json()
+
+        return not project['insert_update_delete_lock']
 
 
     def add_embeddings(
@@ -357,6 +374,9 @@ class AtlasClient:
         if project['modality'] != 'embedding':
             msg = 'Cannot add embedding to project with modality: {}'.format(project['modality'])
             raise ValueError(msg)
+
+        if project['insert_update_delete_lock']:
+            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
         progressive = len(project['atlas_indices']) > 0
         try:
@@ -404,6 +424,8 @@ class AtlasClient:
                         logger.error(f"Shard upload failed: {response.json()}")
                         if 'more datums exceeds your organization limit' in response.json():
                             return False
+                        if 'Project transaction lock is held':
+                            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
                     except requests.exceptions.JSONDecodeError:
                         if response.status_code == 413:
                             logger.error("Shard upload failed: you are sending meta-data data is to large.")
@@ -557,12 +579,17 @@ class AtlasClient:
             self.atlas_api_path+ f"/v1/project/{project_id}",
             headers=self.header,
         )
+
         project = response.json()
         if project['modality'] != 'text':
             msg = 'Cannot add text to project with modality: {}'.format(project['modality'])
             raise ValueError(msg)
 
         progressive = len(project['atlas_indices']) > 0
+
+        if project['insert_update_delete_lock']:
+            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+
         try:
             self._validate_user_supplied_metadata(data=data, project=project,
                                                   replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
@@ -605,6 +632,8 @@ class AtlasClient:
                         logger.error(f"Shard upload failed: {response.json()}")
                         if 'more datums exceeds your organization limit' in response.json():
                             return False
+                        if 'Project transaction lock is held':
+                            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
                     except requests.exceptions.JSONDecodeError:
                         logger.error(f"Shard upload failed: {response}")
                         continue
@@ -664,6 +693,7 @@ class AtlasClient:
 
         if map_name:
             project_name = map_name
+            index_name = map_name
         if map_description:
             description = map_description
 
@@ -841,6 +871,7 @@ class AtlasClient:
 
         if map_name:
             project_name = map_name
+            index_name = map_name
         if map_description:
             description = map_description
 

@@ -3,6 +3,7 @@ import uuid
 from nomic import AtlasClient
 import pytest
 import random
+import time
 import numpy as np
 
 def test_map_embeddings_with_errors():
@@ -17,6 +18,7 @@ def test_map_embeddings_with_errors():
         data = [{'hello': {'hello'}} for i in range(len(embeddings))]
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
+                                        map_name='UNITTEST',
                                         id_field='id',
                                         is_public=True)
 
@@ -25,6 +27,7 @@ def test_map_embeddings_with_errors():
         data = [{'__hello': {'hello'} } for i in range(len(embeddings))]
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
+                                        map_name='UNITTEST',
                                         id_field='id',
                                         is_public=True)
 
@@ -34,6 +37,7 @@ def test_map_embeddings_with_errors():
         data[1]['goodbye'] = 'b'
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
+                                        map_name='UNITTEST',
                                         id_field='id',
                                         is_public=True)
 
@@ -43,6 +47,7 @@ def test_map_embeddings_with_errors():
         data[1]['goodbye'] = 'b'
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
+                                        map_name='UNITTEST',
                                         id_field='id',
                                         is_public=True)
 
@@ -52,6 +57,7 @@ def test_map_embeddings_with_errors():
         data = [{'id': i, 'string': ''.join(['a'] * (1048576 // 10))} for i in range(len(embeddings))]
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
+                                        map_name='UNITTEST',
                                         id_field='id',
                                         is_public=True)
 
@@ -64,15 +70,20 @@ def test_map_embeddings():
     data = [{'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
+                                    map_name='UNITTEST',
                                     data=data,
                                     id_field='id',
                                     is_public=True)
 
-    #progressive gives a shard upload failure for some reason
-    data = [{'id': str(uuid.uuid4())} for i in range(len(embeddings))]
-    atlas.update_maps(project_id=response['project_id'], data=data, embeddings=embeddings)
-
     assert response['project_id']
+    data = [{'id': str(uuid.uuid4())} for i in range(len(embeddings))]
+    while True:
+        # Code executed here
+        time.sleep(10)
+        if atlas.is_project_accepting_data(project_id=response['project_id']):
+            atlas.update_maps(project_id=response['project_id'], data=data, embeddings=embeddings)
+            break
+
     atlas.delete_project(project_id=response['project_id'])
 
 
@@ -85,7 +96,7 @@ def test_map_text_errors():
                                   id_field='id',
                                   indexed_field='text',
                                   is_public=True,
-                                  map_name='test map name',
+                                  map_name='UNITTEST',
                                   map_description='test map description',
                                   num_workers=1)
 
@@ -95,7 +106,7 @@ def test_map_text_errors():
                                   id_field='id',
                                   indexed_field='key',
                                   is_public=True,
-                                  map_name='test map name',
+                                  map_name='UNITTEST',
                                   map_description='test map description',
                                   num_workers=1)
 
