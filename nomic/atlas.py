@@ -324,6 +324,25 @@ class AtlasClient:
             logger.info(f"A datum you supplied lacked the unique id field `{unique_id_field}`. Added it for you.")
 
 
+    def is_project_accepting_data(self, project_id: str):
+        '''
+        Checks if the project can accept data. Projects cannot accept data when they are being indexed.
+
+        **Parameters:**
+
+        * **project_id** - The id of the project you are checking.
+
+        **Returns:** True if project is unlocked for data additions, false otherwise.
+        '''
+        response = requests.get(
+            self.atlas_api_path+ f"/v1/project/{project_id}",
+            headers=self.header,
+        )
+        project = response.json()
+
+        return not project['insert_update_delete_lock']
+
+
     def add_embeddings(
         self, project_id: str, embeddings: np.array, data: List[Dict], shard_size=1000, num_workers=10, replace_empty_string_values_with_string_null=True, pbar=None
     ):
