@@ -20,6 +20,11 @@ tenants = {
 
 nomic_base_path = f'{str(Path.home())}/.nomic'
 
+def validate_api_http_response(response):
+    if response.status_code >= 500 and response.status_code < 600:
+        raise Exception("Cannot contact establish a connection with Nomic services.")
+
+    return response
 
 def get_api_credentials():
     if not os.path.exists(os.path.join(nomic_base_path, 'credentials')):
@@ -53,6 +58,8 @@ def login(token, tenant):
     response = requests.get(
         'https://'+environment['api_domain'] + f"/v1/user/token/refresh/{token}"
     )
+    response = validate_api_http_response(response)
+
 
     if not response.status_code == 200:
         raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
@@ -68,6 +75,7 @@ def refresh_bearer_token():
         response = requests.get(
             'https://'+environment['api_domain'] + f"/v1/user/token/refresh/{credentials['refresh_token']}"
         )
+        response = validate_api_http_response(response)
 
         if not response.status_code == 200:
             raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
