@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from tqdm import tqdm
 from wonderwords import RandomWord
 
-from .cli import get_api_credentials, refresh_bearer_token
+from .cli import get_api_credentials, refresh_bearer_token, validate_api_http_response
 import sys
 # Uploads send several requests to allow for threadpool refreshing.
 # Threadpool hogs memory and new ones need to be created.
@@ -84,6 +84,7 @@ class AtlasClient:
                 self.atlas_api_path + "/v1/user",
                 headers=self.header,
             )
+            response = validate_api_http_response(response)
             if not response.status_code == 200:
                 logger.info("Your authorization token is no longer valid.")
         else:
@@ -96,8 +97,8 @@ class AtlasClient:
             self.atlas_api_path + "/v1/user",
             headers=self.header,
         )
+        response = validate_api_http_response(response)
         if not response.status_code == 200:
-            print(response.json())
             raise ValueError("Your authorization token is no longer valid. Run `nomic login` to obtain a new one.")
 
         return response.json()
