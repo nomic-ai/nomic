@@ -1,4 +1,6 @@
 import uuid
+import time
+import tempfile
 
 from nomic import AtlasClient
 import pytest
@@ -76,6 +78,9 @@ def test_map_embeddings():
                                     is_public=True)
 
     assert response['project_id']
+    project_id = response['project_id']
+    project = atlas.get_project_by_id(project_id)
+    atlas_index_id = project['atlas_indices'][0]['id']
     data = [{'id': str(uuid.uuid4())} for i in range(len(embeddings))]
     while True:
         # Code executed here
@@ -83,6 +88,10 @@ def test_map_embeddings():
         if atlas.is_project_accepting_data(project_id=response['project_id']):
             atlas.update_maps(project_id=response['project_id'], data=data, embeddings=embeddings)
             break
+
+    time.sleep(10)
+    with tempfile.TemporaryDirectory() as td:
+        atlas.download_embeddings(project_id, atlas_index_id, td)
 
     atlas.delete_project(project_id=response['project_id'])
 
