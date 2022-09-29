@@ -307,8 +307,8 @@ class AtlasClient:
                 raise ValueError(msg)
 
             for key in datum:
-                if key.startswith('__'):
-                    raise ValueError('Metadata fields cannot start with __')
+                if key.startswith('_'):
+                    raise ValueError('Metadata fields cannot start with _')
 
                 if project['modality'] == 'text':
                     if isinstance(datum[key], str) and len(datum[key]) == 0:
