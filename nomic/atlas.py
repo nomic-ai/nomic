@@ -955,7 +955,6 @@ class AtlasClient:
             headers=self.header,
         )
         project = response.json()
-        print('project: ', project)
         total_datums = project['total_datums_in_project']
         if project['insert_update_delete_lock']:
             raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
@@ -1003,7 +1002,6 @@ class AtlasClient:
             headers=self.header,
         )
         project = response.json()
-        print('project: ', project)
         if project['insert_update_delete_lock']:
             raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
 
