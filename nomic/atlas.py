@@ -2,6 +2,8 @@
 This class allows for programmatic interactions with Atlas - Nomic's neural database. Initialize AtlasClient in any Python context such as a script
 or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
+import os
+import pickle
 import concurrent.futures
 import json
 import uuid
@@ -21,7 +23,7 @@ import sys
 # Threadpool hogs memory and new ones need to be created.
 # This number specifies how much data gets processed before a new Threadpool is created
 MAX_MEMORY_CHUNK = 150000
-
+EMBEDDING_PAGINATION_LIMIT = 1000
 
 def get_object_size_in_bytes(obj):
     marked = {id(obj)}
@@ -228,7 +230,7 @@ class AtlasClient:
 
         return target_project
 
-    def _get_project_by_id(self, project_id: str):
+    def get_project_by_id(self, project_id: str):
         '''
 
         Args:
@@ -285,8 +287,6 @@ class AtlasClient:
         if not isinstance(data, list):
             raise Exception("Metadata must be a list of dictionaries")
 
-
-
         unique_id_field = project['unique_id_field']
         metadata_keys = None
         added_id_field_for_user = False
@@ -307,8 +307,8 @@ class AtlasClient:
                 raise ValueError(msg)
 
             for key in datum:
-                if key.startswith('__'):
-                    raise ValueError('Metadata fields cannot start with __')
+                if key.startswith('_'):
+                    raise ValueError('Metadata fields cannot start with _')
 
                 if project['modality'] == 'text':
                     if isinstance(datum[key], str) and len(datum[key]) == 0:
@@ -465,7 +465,7 @@ class AtlasClient:
         **Returns:** A link to your map.
         '''
 
-        project = self._get_project_by_id(project_id=project_id)
+        project = self.get_project_by_id(project_id=project_id)
 
         if project['modality'] == 'embedding':
             embedding_build_template = {
@@ -523,6 +523,10 @@ class AtlasClient:
                 headers=self.header,
                 json=text_build_template,
             )
+            if response.status_code != 200:
+                logger.error('Create project failed with code: {}'.format(response.status_code))
+                logger.error('Additional info: {}'.format(response.json()))
+                return
             job_id = response.json()['job_id']
 
         job = requests.get(
@@ -767,7 +771,7 @@ class AtlasClient:
         '''
 
         # Validate data
-        project = self._get_project_by_id(project_id=project_id)
+        project = self.get_project_by_id(project_id=project_id)
         if project['modality'] == 'embedding' and embeddings is None:
             msg = 'Please specify embeddings for updating an embedding project'
             raise ValueError(msg)
@@ -828,7 +832,6 @@ class AtlasClient:
         )
 
         return response.json()['job_ids']
-
 
 
 
@@ -928,7 +931,7 @@ class AtlasClient:
         organization = self._get_current_users_main_organization()
         organization_name = organization['nickname']
 
-        project = self._get_project_by_id(project_id=project_id)
+        project = self.get_project_by_id(project_id=project_id)
 
 
         logger.info(f"Deleting project `{project['project_name']}` from organization `{organization_name}`")
@@ -939,3 +942,84 @@ class AtlasClient:
             json={'project_id': project_id},
         )
 
+    def download_embeddings(self, project_id, atlas_index_id, output_dir, num_workers=10):
+        '''
+        Downloads a mapping from datum_id to embedding in shards to the provided directory
+
+        Args:
+            project_id: the id of the relevant index's parent project
+            atlas_index_id: the id of the index whose ambient embeddings you want
+            output_dir: the directory to save shards to
+
+
+        '''
+
+        response = requests.get(
+            self.atlas_api_path + f"/v1/project/{project_id}",
+            headers=self.header,
+        )
+        project = response.json()
+        total_datums = project['total_datums_in_project']
+        if project['insert_update_delete_lock']:
+            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+
+        offset = 0
+        limit = EMBEDDING_PAGINATION_LIMIT
+
+        def download_shard(offset):
+            response = requests.get(
+                self.atlas_api_path + f"/v1/project/data/get/embedding/{project_id}/{atlas_index_id}/{offset}/{limit}",
+                headers=self.header,
+            )
+            try:
+                content = response.json()
+                shard_name = '{}_{}_{}.pkl'.format(atlas_index_id, offset, offset+limit)
+                shard_path = os.path.join(output_dir, shard_name)
+                with open(shard_path, 'wb') as f:
+                    pickle.dump(content, f)
+
+            except Exception as e:
+                logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
+
+
+        with tqdm(total=total_datums // limit) as pbar:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+                futures = {executor.submit(download_shard, cur_offset): cur_offset for cur_offset in range(0, total_datums, limit)}
+                for future in concurrent.futures.as_completed(futures):
+                    _ = future.result()
+                    pbar.update(1)
+
+    def get_embedding_iterator(self, project_id, atlas_index_id):
+        '''
+        Returns an iterable of datum_ids and embeddings from the given index
+
+        Args:
+            project_id: the id of the relevant index's parent project
+            atlas_index_id: the id of the index whose ambient embeddings you want
+
+        Returns:
+            Iterable[Tuple[datum_ids, embeddings]]
+        '''
+
+        response = requests.get(
+            self.atlas_api_path+ f"/v1/project/{project_id}",
+            headers=self.header,
+        )
+        project = response.json()
+        if project['insert_update_delete_lock']:
+            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+
+        offset = 0
+        limit = EMBEDDING_PAGINATION_LIMIT
+        while True:
+            response = requests.get(
+                self.atlas_api_path+ f"/v1/project/data/get/embedding/{project_id}/{atlas_index_id}/{offset}/{limit}",
+                headers=self.header,
+            )
+
+            content = response.json()
+            if len(content['datum_ids']) == 0:
+                break
+            offset += len(content['datum_ids'])
+
+            yield content['datum_ids'], content['embeddings']
