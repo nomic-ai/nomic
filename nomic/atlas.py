@@ -523,6 +523,10 @@ class AtlasClient:
                 headers=self.header,
                 json=text_build_template,
             )
+            if response.status_code != 200:
+                logger.error('Create project failed with code: {}'.format(response.status_code))
+                logger.error('Additional info: {}'.format(response.json()))
+                return
             job_id = response.json()['job_id']
 
         job = requests.get(
