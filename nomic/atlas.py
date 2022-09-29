@@ -1013,7 +1013,6 @@ class AtlasClient:
                 headers=self.header,
             )
 
-            print('response: ', response)
             content = response.json()
             if len(content['datum_ids']) == 0:
                 break
