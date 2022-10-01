@@ -702,6 +702,9 @@ class AtlasClient:
         if map_description:
             description = map_description
 
+        if not isinstance(colorable_fields, list):
+            raise ValueError("colorable_fields must be a list of fields")
+
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
 
@@ -879,8 +882,12 @@ class AtlasClient:
         if map_description:
             description = map_description
 
+        if not isinstance(colorable_fields, list):
+            raise ValueError("colorable_fields must be a list of fields")
+
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
+
         if id_field not in data[0]:
             raise Exception(f"You specified `{id_field}` as your unique id field but it is not contained in your data upload")
 
@@ -959,6 +966,7 @@ class AtlasClient:
             headers=self.header,
         )
         project = response.json()
+
         total_datums = project['total_datums_in_project']
         if project['insert_update_delete_lock']:
             raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
@@ -966,13 +974,19 @@ class AtlasClient:
         offset = 0
         limit = EMBEDDING_PAGINATION_LIMIT
 
-        def download_shard(offset):
+        def download_shard(offset, check_access=False):
             response = requests.get(
                 self.atlas_api_path + f"/v1/project/data/get/embedding/{project_id}/{atlas_index_id}/{offset}/{limit}",
                 headers=self.header,
             )
+
+            if response.status_code != 200:
+                raise Exception(response.json()['detail'])
+            if check_access:
+                return
             try:
                 content = response.json()
+
                 shard_name = '{}_{}_{}.pkl'.format(atlas_index_id, offset, offset+limit)
                 shard_path = os.path.join(output_dir, shard_name)
                 with open(shard_path, 'wb') as f:
@@ -981,6 +995,7 @@ class AtlasClient:
             except Exception as e:
                 logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
 
+        download_shard(0, check_access=True)
 
         with tqdm(total=total_datums // limit) as pbar:
             with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -988,6 +1003,7 @@ class AtlasClient:
                 for future in concurrent.futures.as_completed(futures):
                     _ = future.result()
                     pbar.update(1)
+
 
     def get_embedding_iterator(self, project_id, atlas_index_id):
         '''
@@ -1016,6 +1032,8 @@ class AtlasClient:
                 self.atlas_api_path+ f"/v1/project/data/get/embedding/{project_id}/{atlas_index_id}/{offset}/{limit}",
                 headers=self.header,
             )
+            if response.status_code != 200:
+                raise Exception(response.json()['detail'])
 
             content = response.json()
             if len(content['datum_ids']) == 0:
