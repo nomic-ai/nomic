@@ -524,9 +524,10 @@ class AtlasClient:
                 json=text_build_template,
             )
             if response.status_code != 200:
-                logger.error('Create project failed with code: {}'.format(response.status_code))
-                logger.error('Additional info: {}'.format(response.json()))
-                return
+                logger.info('Create project failed with code: {}'.format(response.status_code))
+                logger.info('Additional info: {}'.format(response.json()))
+                raise Exception(response.json['detail'])
+            print(response.json())
             job_id = response.json()['job_id']
 
         job = requests.get(
@@ -982,10 +983,12 @@ class AtlasClient:
 
             if response.status_code != 200:
                 raise Exception(response.json()['detail'])
+
             if check_access:
                 return
             try:
                 content = response.json()
+                print("HERE")
 
                 shard_name = '{}_{}_{}.pkl'.format(atlas_index_id, offset, offset+limit)
                 shard_path = os.path.join(output_dir, shard_name)
