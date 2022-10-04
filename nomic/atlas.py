@@ -988,7 +988,6 @@ class AtlasClient:
                 return
             try:
                 content = response.json()
-                print("HERE")
 
                 shard_name = '{}_{}_{}.pkl'.format(atlas_index_id, offset, offset+limit)
                 shard_path = os.path.join(output_dir, shard_name)
