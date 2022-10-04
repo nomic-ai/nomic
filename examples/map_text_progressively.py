@@ -10,14 +10,10 @@ max_documents = 1000
 subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
 documents = [dataset[i] for i in subset_idxs]
 
-for idx, document in enumerate(documents):
-    document['id'] = idx
-
 first_upload = documents[:500]
 second_upload = documents[500:]
 
 response = atlas.map_text(data=first_upload,
-                          id_field='id',
                           indexed_field='text',
                           is_public=True,
                           num_workers=10)

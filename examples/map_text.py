@@ -10,11 +10,7 @@ max_documents = 10000
 subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
 documents = [dataset[i] for i in subset_idxs]
 
-for idx, document in enumerate(documents):
-    document['id'] = idx
-
 response = atlas.map_text(data=documents,
-                          id_field='id',
                           indexed_field='text',
                           is_public=True,
                           map_name='Wiki 10K',

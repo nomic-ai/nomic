@@ -12,7 +12,6 @@ index_name = 'My Index'
 
 project_id = atlas.create_project(project_name=project_name,
                      description=project_name,
-                     unique_id_field='id',
                      modality='embedding')
 
 print(f"Adding embeddings to project: {project_id}")
