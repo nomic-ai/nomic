@@ -49,7 +49,7 @@ of dictionaries - one for each of your embeddings.
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)
     
-    categories = ['dog', 'cat', 'horse']
+    categories = ['rhizome', 'cartography', 'lindenstrauss']
     data = [{'category': categories[i % len(categories)]}
                 for i in range(len(embeddings))]
     
