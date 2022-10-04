@@ -4,7 +4,7 @@ Map your text with Atlas by sending over lists of JSON files. Atlas handles the 
 
 ## Map text with Atlas
 Send over lists of JSON or Python dictionaries via the `AtlasClient` and Atlas makes a map. When sending text
-you should specify an `index_field`. This lets Atlas know what metadata field to use when building and organizing the map.
+you should specify an `indexed_field`. This lets Atlas know what metadata field to use when building and organizing the map.
 
 === "Atlas Embed"
 
