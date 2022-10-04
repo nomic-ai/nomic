@@ -10,8 +10,6 @@ atlas = AtlasClient()
 max_documents = 10000
 dataset = load_dataset("sentiment140")['train']
 documents = [dataset[i] for i in np.random.randint(len(dataset), size=max_documents).tolist()]
-for idx, document in enumerate(documents):
-    document['id'] = idx
 
 
 model = AutoModel.from_pretrained("prajjwal1/bert-mini")
@@ -32,7 +30,6 @@ print(embeddings.shape)
 
 response = atlas.map_embeddings(embeddings=embeddings,
                                 data=documents,
-                                id_field='id',
                                 colorable_fields=['sentiment'],
                                 is_public=True,
                                 map_name="Huggingface Model Example",

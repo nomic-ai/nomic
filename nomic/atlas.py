@@ -15,8 +15,8 @@ import requests
 from loguru import logger
 from pydantic import BaseModel, Field
 from tqdm import tqdm
-from wonderwords import RandomWord
 
+from .utils import get_random_name
 from .cli import get_api_credentials, refresh_bearer_token, validate_api_http_response
 import sys
 # Uploads send several requests to allow for threadpool refreshing.
@@ -24,6 +24,7 @@ import sys
 # This number specifies how much data gets processed before a new Threadpool is created
 MAX_MEMORY_CHUNK = 150000
 EMBEDDING_PAGINATION_LIMIT = 1000
+ATLAS_DEFAULT_ID_FIELD = 'id_'
 
 def get_object_size_in_bytes(obj):
     marked = {id(obj)}
@@ -105,20 +106,18 @@ class AtlasClient:
 
         return response.json()
 
-    def _ensure_metadata(self, metadata):
-        keys = metadata[0].keys()
-        for key in keys:
-            if len(key) >=2 and key[:2] == '__':
-                raise ValueError('Metadata fields cannot start with __')
+    def _validate_map_data_inputs(self, colorable_fields, id_field, data):
+        '''Validates inputs to map data calls.'''
 
-        keylist = sorted(list(keys))
-        for datum in metadata:
-            cur_keylist = sorted(list(datum.keys()))
-            if cur_keylist != keylist:
-                msg = 'All metadata must have the same keys, but found key sets: {} and {}'.format(keylist, cur_keylist)
-                raise ValueError(msg)
+        if not isinstance(colorable_fields, list):
+            raise ValueError("colorable_fields must be a list of fields")
 
-        return True
+        if id_field in colorable_fields:
+            raise Exception(f'Cannot color by unique id field: {id_field}')
+
+        for field in colorable_fields:
+            if field not in data[0]:
+                raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
 
     def create_project(
         self,
@@ -270,7 +269,7 @@ class AtlasClient:
 
         return response.json()
 
-    def _validate_user_supplied_metadata(self, data: List[Dict], project, replace_empty_string_values_with_string_null=True):
+    def _validate_and_correct_user_supplied_metadata(self, data: List[Dict], project, replace_empty_string_values_with_string_null=True):
         '''
         Validates the users metadata for Atlas compatability.
         If unique_id_field is specified, validates that each datum has that field. If not, adds it
@@ -287,16 +286,18 @@ class AtlasClient:
         if not isinstance(data, list):
             raise Exception("Metadata must be a list of dictionaries")
 
-        unique_id_field = project['unique_id_field']
         metadata_keys = None
-        added_id_field_for_user = False
         for datum in data:
+
+            #The Atlas client adds a unique datum id field for each user.
+            #It does not overwrite the field if it exists, instead map creation fails.
+            if project['unique_id_field'] in datum:
+                raise Exception(f"`{project['unique_id_field']}` is an invalid field type. Atlas uses the `{project['unique_id_field']}` field to uniquely identify datums.")
+            else:
+                datum[project['unique_id_field']] = str(uuid.uuid4())
+
             if not isinstance(datum, dict):
                 raise Exception('Each metadata must be a dictionary with one level of keys and values of only string, int and float types.')
-
-            if unique_id_field not in datum:
-                added_id_field_for_user = True
-                datum[unique_id_field] = str(uuid.uuid4())
 
             if metadata_keys is None:
                 metadata_keys = sorted(list(datum.keys()))
@@ -321,8 +322,6 @@ class AtlasClient:
                 if not isinstance(datum[key], (str, float, int)):
                     raise Exception(f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation.")
 
-        if added_id_field_for_user:
-            logger.info(f"A datum you supplied lacked the unique id field `{unique_id_field}`. Added it for you.")
 
 
     def is_project_accepting_data(self, project_id: str):
@@ -381,7 +380,7 @@ class AtlasClient:
 
         progressive = len(project['atlas_indices']) > 0
         try:
-            self._validate_user_supplied_metadata(data=data, project=project, replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
+            self._validate_and_correct_user_supplied_metadata(data=data, project=project, replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
         except BaseException as e:
             raise e
 
@@ -396,7 +395,6 @@ class AtlasClient:
 
             if get_object_size_in_bytes(data_shard) > 8000000:
                 raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
-            self._ensure_metadata(data_shard)
             embedding_shard = embeddings[i : i + shard_size, :].tolist()
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
@@ -449,7 +447,7 @@ class AtlasClient:
 
         return True
 
-    def create_index(self, project_id: str, index_name: str, indexed_field=None, colorable_fields=[]):
+    def create_index(self, project_id: str, index_name: str, indexed_field=None, colorable_fields=[]) -> CreateIndexResponse:
         '''
         Creates an index in the specified project
 
@@ -527,7 +525,7 @@ class AtlasClient:
                 logger.info('Create project failed with code: {}'.format(response.status_code))
                 logger.info('Additional info: {}'.format(response.json()))
                 raise Exception(response.json['detail'])
-            print(response.json())
+
             job_id = response.json()['job_id']
 
         job = requests.get(
@@ -597,8 +595,8 @@ class AtlasClient:
             raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
         try:
-            self._validate_user_supplied_metadata(data=data, project=project,
-                                                  replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
+            self._validate_and_correct_user_supplied_metadata(data=data, project=project,
+                                                              replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
         except BaseException as e:
             raise e
 
@@ -611,7 +609,6 @@ class AtlasClient:
             data_shard = data[i : i + shard_size]
             if get_object_size_in_bytes(data_shard) > 8000000:
                 raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
-            self._ensure_metadata(data_shard)
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
                 headers=self.header,
@@ -662,8 +659,7 @@ class AtlasClient:
     def map_embeddings(
         self,
         embeddings: np.array,
-        data: List[Dict],
-        id_field: str = 'id',
+        data: List[Dict] = None,
         is_public: bool = True,
         colorable_fields: list = [],
         num_workers: int = 10,
@@ -678,7 +674,6 @@ class AtlasClient:
 
         * **embeddings** - An [N,d] numpy array containing the batch of N embeddings to add.
         * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
-        * **id_field** - Each datums unique id field.
         * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
         * **is_public** - Should this embedding map be public? Private maps can only be accessed by members of your organization.
         * **num_workers** - The number of workers to use when sending data.
@@ -688,10 +683,7 @@ class AtlasClient:
 
         **Returns:** A link to your map.
         '''
-
-        def get_random_name():
-            random_words = RandomWord()
-            return f"{random_words.word(include_parts_of_speech=['adjectives'])}-{random_words.word(include_parts_of_speech=['nouns'])}"
+        id_field = ATLAS_DEFAULT_ID_FIELD # do not let user specify a unique id field, handle it for them.
 
         project_name = get_random_name()
         description = project_name
@@ -703,16 +695,10 @@ class AtlasClient:
         if map_description:
             description = map_description
 
-        if not isinstance(colorable_fields, list):
-            raise ValueError("colorable_fields must be a list of fields")
-
-        if id_field in colorable_fields:
-            raise Exception(f'Cannot color by unique id field: {id_field}')
-
-        for field in colorable_fields:
-            if field not in data[0]:
-                raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
-
+        if data is None:
+            data = [{} for i in range(len(embeddings))]
+        
+        self._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 
         project_id = self.create_project(
             project_name=project_name,
@@ -723,15 +709,11 @@ class AtlasClient:
             organization_name=organization_name,
         )
 
-        shard_size = 1000
-        if embeddings.shape[0] > 10000:
-            shard_size = 2500
-
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
         logger.info("Uploading embeddings to Nomic's neural database Atlas.")
 
         embeddings = embeddings.astype(np.float16)
-
+        shard_size = 1000
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
                 try:
@@ -752,13 +734,13 @@ class AtlasClient:
 
         response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
 
-        return {**dict(response), 'project_id': project_id}
+        return dict(response)
 
     def update_maps(self,
                     project_id: str,
                     data: List[Dict],
                     embeddings: Optional[np.array]=None,
-                    shard_size: int=1000,
+                    shard_size: int = 1000,
                     num_workers: int = 10):
         '''
         Updates a project's maps with new data.
@@ -843,7 +825,6 @@ class AtlasClient:
         self,
         data: List[Dict],
         indexed_field: str,
-        id_field: str = 'id',
         is_public: bool = True,
         colorable_fields: list = [],
         num_workers: int = 10,
@@ -858,7 +839,6 @@ class AtlasClient:
 
         * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
         * **indexed_field** - The name the data field corresponding to the text to be mapped.
-        * **id_field** - Each datums unique id field.
         * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
         * **is_public** - Should this embedding map be public? Private maps can only be accessed by members of your organization.
         * **num_workers** - The number of workers to use when sending data.
@@ -868,11 +848,7 @@ class AtlasClient:
 
         **Returns:** A link to your map.
         '''
-
-        def get_random_name():
-            random_words = RandomWord()
-            return f"{random_words.word(include_parts_of_speech=['adjectives'])}-{random_words.word(include_parts_of_speech=['nouns'])}"
-
+        id_field = ATLAS_DEFAULT_ID_FIELD
         project_name = get_random_name()
         description = project_name
         index_name = get_random_name()
@@ -883,14 +859,7 @@ class AtlasClient:
         if map_description:
             description = map_description
 
-        if not isinstance(colorable_fields, list):
-            raise ValueError("colorable_fields must be a list of fields")
-
-        if id_field in colorable_fields:
-            raise Exception(f'Cannot color by unique id field: {id_field}')
-
-        if id_field not in data[0]:
-            raise Exception(f"You specified `{id_field}` as your unique id field but it is not contained in your data upload")
+        self._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 
         project_id = self.create_project(
             project_name=project_name,
@@ -901,10 +870,10 @@ class AtlasClient:
             organization_name=organization_name,
         )
 
-        shard_size = 1000
+
 
         logger.info("Uploading text to Nomic's neural database Atlas.")
-
+        shard_size = 1000
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
                 try:

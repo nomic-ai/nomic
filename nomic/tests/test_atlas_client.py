@@ -21,7 +21,6 @@ def test_map_embeddings_with_errors():
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
                                         map_name='UNITTEST',
-                                        id_field='id',
                                         is_public=True)
 
     #test underscore
@@ -45,22 +44,20 @@ def test_map_embeddings_with_errors():
 
     #test duplicate keys error
     with pytest.raises(Exception):
-        data = [{'id': 'a'} for i in range(len(embeddings))]
+        data = [{'b': 'a'} for i in range(len(embeddings))]
         data[1]['goodbye'] = 'b'
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
                                         map_name='UNITTEST',
-                                        id_field='id',
                                         is_public=True)
 
     #fail on to large metadata
     with pytest.raises(Exception):
         embeddings = np.random.rand(1000, 10)
-        data = [{'id': i, 'string': ''.join(['a'] * (1048576 // 10))} for i in range(len(embeddings))]
+        data = [{'string': ''.join(['a'] * (1048576 // 10))} for _ in range(len(embeddings))]
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
                                         map_name='UNITTEST',
-                                        id_field='id',
                                         is_public=True)
 
 
@@ -69,19 +66,18 @@ def test_map_embeddings():
 
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'id': str(uuid.uuid4())} for i in range(len(embeddings))]
+    data = [{'field': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
                                     map_name='UNITTEST',
                                     data=data,
-                                    id_field='id',
                                     is_public=True)
 
     assert response['project_id']
     project_id = response['project_id']
     project = atlas.get_project_by_id(project_id)
     atlas_index_id = project['atlas_indices'][0]['id']
-    data = [{'id': str(uuid.uuid4())} for i in range(len(embeddings))]
+    data = [{'field': str(uuid.uuid4())} for i in range(len(embeddings))]
     while True:
         # Code executed here
         time.sleep(10)
@@ -102,18 +98,7 @@ def test_map_text_errors():
     # no indexed field
     with pytest.raises(Exception):
         response = atlas.map_text(data=[{'key': 'a'}],
-                                  id_field='id',
                                   indexed_field='text',
-                                  is_public=True,
-                                  map_name='UNITTEST',
-                                  map_description='test map description',
-                                  num_workers=1)
-
-    # assert empty value for a field
-    with pytest.raises(Exception):
-        response = atlas.map_text(data=[{'key': ''}],
-                                  id_field='id',
-                                  indexed_field='key',
                                   is_public=True,
                                   map_name='UNITTEST',
                                   map_description='test map description',

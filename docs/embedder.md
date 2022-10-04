@@ -1,7 +1,8 @@
 # Embedders
+You can either embed datums using Atlas' built-in neural inference functionality or supply your own embeddings.
+Here is an example of using an external embedding provider API to embed text and then send over the embeddings for
+Atlas to organize.
 
-You need embeddings to make maps. Nomic provides light-weight wrappers on existing embedding providers to quickly
-get you going.
 
 === "Cohere Embedding"
 

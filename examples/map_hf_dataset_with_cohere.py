@@ -12,9 +12,6 @@ max_documents = 10000
 subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
 documents = [dataset[i] for i in subset_idxs]
 
-for idx, document in enumerate(documents):
-    document['id'] = idx
-
 embedder = CohereEmbedder(cohere_api_key=cohere_api_key)
 
 print(f"Embedding {len(documents)} documents with Cohere API")
@@ -29,7 +26,6 @@ print("Embedding job complete.")
 
 response = atlas.map_embeddings(embeddings=np.array(embeddings),
                                 data=documents,
-                                id_field='id',
                                 colorable_fields=['sentiment'],
                                 is_public=True,
                                 map_name='Sentiment 140',

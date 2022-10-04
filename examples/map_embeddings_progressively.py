@@ -14,7 +14,6 @@ second_upload_data = data[500:]
 
 response = atlas.map_embeddings(embeddings=first_upload_embeddings,
                                 data=first_upload_data,
-                                id_field='id',
                                 is_public=True)
 
 print('First upload response: ', response)

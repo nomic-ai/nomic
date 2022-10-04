@@ -10,9 +10,9 @@ embedder = CohereEmbedder(cohere_api_key=cohere_api_key)
 texts = ['Hello how are you', 'I am here.']
 embeddings = embedder.embed(texts=texts)
 
-data = [{'id': i, 'text': text} for i, text in enumerate(texts)]
+data = [{'text': text} for i, text in enumerate(texts)]
 
-response = atlas.map_embeddings(embeddings=np.array(embeddings), data=data, id_field='id', is_public=True)
+response = atlas.map_embeddings(embeddings=np.array(embeddings), data=data, is_public=True)
 print(response)
 
 
