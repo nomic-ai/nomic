@@ -24,6 +24,7 @@ import sys
 # This number specifies how much data gets processed before a new Threadpool is created
 MAX_MEMORY_CHUNK = 150000
 EMBEDDING_PAGINATION_LIMIT = 1000
+ATLAS_DEFAULT_ID_FIELD = 'id_'
 
 def get_object_size_in_bytes(obj):
     marked = {id(obj)}
@@ -105,21 +106,6 @@ class AtlasClient:
 
         return response.json()
 
-    def _ensure_metadata(self, metadata):
-        keys = metadata[0].keys()
-        for key in keys:
-            if len(key) >=2 and key[:2] == '__':
-                raise ValueError('Metadata fields cannot start with __')
-
-        keylist = sorted(list(keys))
-        for datum in metadata:
-            cur_keylist = sorted(list(datum.keys()))
-            if cur_keylist != keylist:
-                msg = 'All metadata must have the same keys, but found key sets: {} and {}'.format(keylist, cur_keylist)
-                raise ValueError(msg)
-
-        return True
-
     def _validate_map_data_inputs(self, colorable_fields, id_field, data):
         '''Validates inputs to map data calls.'''
 
@@ -128,9 +114,6 @@ class AtlasClient:
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
-
-        if id_field not in data[0]:
-            raise Exception(f"You specified `{id_field}` as your unique id field but it is not contained in your data upload")
 
         for field in colorable_fields:
             if field not in data[0]:
@@ -286,7 +269,7 @@ class AtlasClient:
 
         return response.json()
 
-    def _validate_user_supplied_metadata(self, data: List[Dict], project, replace_empty_string_values_with_string_null=True):
+    def _validate_and_correct_user_supplied_metadata(self, data: List[Dict], project, replace_empty_string_values_with_string_null=True):
         '''
         Validates the users metadata for Atlas compatability.
         If unique_id_field is specified, validates that each datum has that field. If not, adds it
@@ -305,10 +288,13 @@ class AtlasClient:
 
         metadata_keys = None
         for datum in data:
-            if 'id' in datum:
-                raise Exception('`id` is an invalid field type. Atlas uses the `id` field to uniquely identify datums.')
+
+            #The Atlas client adds a unique datum id field for each user.
+            #It does not overwrite the field if it exists, instead map creation fails.
+            if project['unique_id_field'] in datum:
+                raise Exception(f"`{project['unique_id_field']}` is an invalid field type. Atlas uses the `{project['unique_id_field']}` field to uniquely identify datums.")
             else:
-                datum['id'] = str(uuid.uuid4())
+                datum[project['unique_id_field']] = str(uuid.uuid4())
 
             if not isinstance(datum, dict):
                 raise Exception('Each metadata must be a dictionary with one level of keys and values of only string, int and float types.')
@@ -394,7 +380,7 @@ class AtlasClient:
 
         progressive = len(project['atlas_indices']) > 0
         try:
-            self._validate_user_supplied_metadata(data=data, project=project, replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
+            self._validate_and_correct_user_supplied_metadata(data=data, project=project, replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
         except BaseException as e:
             raise e
 
@@ -409,7 +395,6 @@ class AtlasClient:
 
             if get_object_size_in_bytes(data_shard) > 8000000:
                 raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
-            self._ensure_metadata(data_shard)
             embedding_shard = embeddings[i : i + shard_size, :].tolist()
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
@@ -610,8 +595,8 @@ class AtlasClient:
             raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
         try:
-            self._validate_user_supplied_metadata(data=data, project=project,
-                                                  replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
+            self._validate_and_correct_user_supplied_metadata(data=data, project=project,
+                                                              replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
         except BaseException as e:
             raise e
 
@@ -624,7 +609,6 @@ class AtlasClient:
             data_shard = data[i : i + shard_size]
             if get_object_size_in_bytes(data_shard) > 8000000:
                 raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
-            self._ensure_metadata(data_shard)
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
                 headers=self.header,
@@ -675,7 +659,7 @@ class AtlasClient:
     def map_embeddings(
         self,
         embeddings: np.array,
-        data: List[Dict],
+        data: List[Dict] = None,
         is_public: bool = True,
         colorable_fields: list = [],
         num_workers: int = 10,
@@ -699,7 +683,7 @@ class AtlasClient:
 
         **Returns:** A link to your map.
         '''
-        id_field = 'id' # do not let user specify a unique id field, handle it for them.
+        id_field = ATLAS_DEFAULT_ID_FIELD # do not let user specify a unique id field, handle it for them.
 
         project_name = get_random_name()
         description = project_name
@@ -711,6 +695,9 @@ class AtlasClient:
         if map_description:
             description = map_description
 
+        if data is None:
+            data = [{} for i in range(len(embeddings))]
+        
         self._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 
         project_id = self.create_project(
@@ -861,7 +848,7 @@ class AtlasClient:
 
         **Returns:** A link to your map.
         '''
-        id_field = 'id'
+        id_field = ATLAS_DEFAULT_ID_FIELD
         project_name = get_random_name()
         description = project_name
         index_name = get_random_name()

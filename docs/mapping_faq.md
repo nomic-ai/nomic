@@ -28,11 +28,8 @@ accessible by authenticated individuals in your Nomic organization. Public maps 
     
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)
-    data = [{'id': i} for i in range(len(embeddings))]
     
     response = atlas.map_embeddings(embeddings=embeddings,
-                                    data=data,
-                                    id_field='id',
                                     is_public=False,
                                     organization_name='my_organization'
                                     )
