@@ -25,6 +25,9 @@ import sys
 MAX_MEMORY_CHUNK = 150000
 EMBEDDING_PAGINATION_LIMIT = 1000
 ATLAS_DEFAULT_ID_FIELD = 'id_'
+DEFAULT_PROJECTION_N_NEIGHBORS = 15
+DEFAULT_PROJECTION_EPOCHS = 50
+DEFAULT_PROJECTION_SPREAD = 1.
 
 def get_object_size_in_bytes(obj):
     marked = {id(obj)}
@@ -447,7 +450,7 @@ class AtlasClient:
 
         return True
 
-    def create_index(self, project_id: str, index_name: str, indexed_field=None, colorable_fields=[]) -> CreateIndexResponse:
+    def create_index(self, project_id: str, index_name: str, indexed_field=None, colorable_fields=[], projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS, projection_epochs=DEFAULT_PROJECTION_EPOCHS, projection_spread=DEFAULT_PROJECTION_SPREAD) -> CreateIndexResponse:
         '''
         Creates an index in the specified project
 
@@ -462,6 +465,7 @@ class AtlasClient:
 
         **Returns:** A link to your map.
         '''
+
 
         project = self.get_project_by_id(project_id=project_id)
 
@@ -478,7 +482,9 @@ class AtlasClient:
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
                 'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
-                    {'n_neighbors': 15, 'min_dist': 3e-2, 'force_approximation_algorithm': True}
+                    {'n_neighbors': projection_n_neighbors,
+                     'n_epochs': projection_epochs,
+                     'spread': projection_spread}
                 ),
             }
 
@@ -513,7 +519,9 @@ class AtlasClient:
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
                 'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
-                    {'n_neighbors': 15, 'n_epochs': 50, 'spread': 1}
+                    {'n_neighbors': projection_n_neighbors,
+                     'n_epochs': projection_epochs,
+                     'spread': projection_spread}
                 ),
             }
             response = requests.post(
@@ -666,6 +674,9 @@ class AtlasClient:
         map_name: str = None,
         map_description: str = None,
         organization_name: str = None,
+        projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
+        projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
+        projection_spread: float = DEFAULT_PROJECTION_SPREAD
     ):
         '''
         Generates a map of the given embeddings.
@@ -680,6 +691,9 @@ class AtlasClient:
         * **map_name** - A name for your map.
         * **map_description** - A description for your map.
         * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+        * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
+        * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
+        * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
 
         **Returns:** A link to your map.
         '''
@@ -732,7 +746,12 @@ class AtlasClient:
 
         logger.info("Embedding upload succeeded.")
 
-        response = self.create_index(project_id=project_id, index_name=index_name, colorable_fields=colorable_fields)
+        response = self.create_index(project_id=project_id,
+                                     index_name=index_name,
+                                     colorable_fields=colorable_fields,
+                                     projection_n_neighbors=projection_n_neighbors,
+                                     projection_epochs=projection_epochs,
+                                     projection_spread=projection_spread)
 
         return dict(response)
 
@@ -831,6 +850,9 @@ class AtlasClient:
         map_name: str = None,
         map_description: str = None,
         organization_name: str = None,
+        projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
+        projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
+        projection_spread: float = DEFAULT_PROJECTION_SPREAD
     ):
         '''
         Generates a map of the given text.
@@ -845,6 +867,9 @@ class AtlasClient:
         * **map_name** - A name for your map.
         * **map_description** - A description for your map.
         * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+        * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
+        * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
+        * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
 
         **Returns:** A link to your map.
         '''
@@ -891,7 +916,13 @@ class AtlasClient:
         logger.info("Text upload succeeded.")
 
         response = self.create_index(
-            project_id=project_id, indexed_field=indexed_field, index_name=index_name, colorable_fields=colorable_fields
+            project_id=project_id,
+            indexed_field=indexed_field,
+            index_name=index_name,
+            colorable_fields=colorable_fields,
+            projection_n_neighbors=projection_n_neighbors,
+            projection_epochs=projection_epochs,
+            projection_spread=projection_spread,
         )
 
         return dict(response)
@@ -927,8 +958,6 @@ class AtlasClient:
             project_id: the id of the relevant index's parent project
             atlas_index_id: the id of the index whose ambient embeddings you want
             output_dir: the directory to save shards to
-
-
         '''
 
         response = requests.get(
