@@ -9,7 +9,7 @@
 [MNIST Logits](https://atlas.nomic.ai/map/2a222eb6-8f5a-405b-9ab8-f5ab23b71cfd/1dae224b-0284-49f7-b7c9-5f80d9ef8b32)
 
 
-## GLUE (Generalized Language Understanding Benchmark)
+## GLUE (General Language Understanding Evaluation)
 Created from the GLUE benchmark as uploaded to the [HuggingFace Hub](https://huggingface.co/datasets/glue).
 
 [COLA](https://atlas.nomic.ai/map/2d5544f1-124e-4d28-b9de-f7165c000fe0/62fefbab-8c0d-4039-857e-d6f79c475f49) (10,657 datums)
