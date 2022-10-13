@@ -32,4 +32,7 @@ You are ready to interact with Nomic services. Continue on to [make your first n
 
 [MNIST Logits](https://atlas.nomic.ai/map/2a222eb6-8f5a-405b-9ab8-f5ab23b71cfd/1dae224b-0284-49f7-b7c9-5f80d9ef8b32)
 
-[Map Collection](collection_of_maps.md)
+[Curated Map Collection](collection_of_maps.md)
+
+
+
