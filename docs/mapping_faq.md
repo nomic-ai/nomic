@@ -41,6 +41,10 @@ If you are added to a Nomic organization by someone (such as your employer), you
 by specifying an `organization_name` in the `map_embedding` method of the AtlasClient. By default, projects are
 made under your own account.
 
+## How do I make maps of a dataset I have already uploaded?
+You need to make a new index on the project you have uploaded your data to.
+See [How does Atlas work?](how_does_atlas_work.md) for details.
+
 ## Disabling logging
 Nomic utilizes the `loguru` module for logging. We recognize that logging can sometimes be annoying.
 You can disable or change the logging level by including the following snippet at the top of any script.
