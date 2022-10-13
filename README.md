@@ -10,6 +10,7 @@
 [//]: # (<img src="" alt="Nomic Workflow" style="display: block; margin: 0 auto;" />)
 
 ## Quickstart
+
 Install the Nomic client with:
 ```bash
 pip install nomic
@@ -38,3 +39,5 @@ embeddings = np.random.rand(num_embeddings, 256)
 response = atlas.map_embeddings(embeddings=embeddings)
 print(response)
 ```
+
+Explore the [documentation](https://docs.nomic.ai) to make more advanced maps.
