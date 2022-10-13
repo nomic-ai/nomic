@@ -1,6 +1,6 @@
 # Release Notes
 ## v1.0.22
-**ID fields**: Every datum by default has an `id` field attached. You no longer have to specify an `id` field when mapping data (by you cannot use the field `id`).
+**ID fields**: Every datum by default has an id field attached. You no longer have to specify an id field when mapping data.
 **Bug fixes**: Numerous bugs are now squashed involving error handling.
 
 ## v1.0.14
