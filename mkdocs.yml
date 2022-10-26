@@ -18,6 +18,7 @@ nav:
       - 'atlas_client.md'
       - 'embedder.md'
     - 'FAQ and Releases':
+      - 'how_does_atlas_work.md'
       - 'collection_of_maps.md'
       - 'mapping_faq.md'
       - 'release_notes.md'
