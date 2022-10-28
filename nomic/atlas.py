@@ -295,7 +295,7 @@ class AtlasClient:
             #The Atlas client adds a unique datum id field for each user.
             #It does not overwrite the field if it exists, instead map creation fails.
             if project['unique_id_field'] in datum:
-                if len(datum[project['unique_id_field']]) > 36:
+                if len(str(datum[project['unique_id_field']])) > 36:
                     raise ValueError(f"{datum}\n The id_field `{datum[project['unique_id_field']]}` is greater than 36 characters. Atlas does not support id_fields longer than 36 characters.")
             else:
                 if project['unique_id_field'] == ATLAS_DEFAULT_ID_FIELD:

@@ -93,9 +93,9 @@ def test_map_embeddings():
             atlas.update_maps(project_id=response['project_id'], data=data, embeddings=embeddings)
             break
 
-    # time.sleep(10)
-    # with tempfile.TemporaryDirectory() as td:
-    #     atlas.download_embeddings(project_id, atlas_index_id, td)
+    time.sleep(10)
+    with tempfile.TemporaryDirectory() as td:
+        atlas.download_embeddings(project_id, atlas_index_id, td)
 
     atlas.delete_project(project_id=response['project_id'])
 
