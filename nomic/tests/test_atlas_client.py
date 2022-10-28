@@ -42,6 +42,15 @@ def test_map_embeddings_with_errors():
                                         id_field='id',
                                         is_public=True)
 
+    #test to long ids
+    with pytest.raises(Exception):
+        data = [{'id': str(uuid.uuid4())+'a'} for i in range(len(embeddings))]
+        response = atlas.map_embeddings(embeddings=embeddings,
+                                        data=data,
+                                        map_name='UNITTEST',
+                                        id_field='id',
+                                        is_public=True)
+
     #test duplicate keys error
     with pytest.raises(Exception):
         data = [{'b': 'a'} for i in range(len(embeddings))]
@@ -66,10 +75,11 @@ def test_map_embeddings():
 
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'field': str(uuid.uuid4())} for i in range(len(embeddings))]
+    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
                                     map_name='UNITTEST',
+                                    id_field='id',
                                     data=data,
                                     is_public=True)
 
@@ -77,7 +87,7 @@ def test_map_embeddings():
     project_id = response['project_id']
     project = atlas.get_project_by_id(project_id)
     atlas_index_id = project['atlas_indices'][0]['id']
-    data = [{'field': str(uuid.uuid4())} for i in range(len(embeddings))]
+    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
     while True:
         # Code executed here
         time.sleep(10)
@@ -85,9 +95,9 @@ def test_map_embeddings():
             atlas.update_maps(project_id=response['project_id'], data=data, embeddings=embeddings)
             break
 
-    time.sleep(10)
-    with tempfile.TemporaryDirectory() as td:
-        atlas.download_embeddings(project_id, atlas_index_id, td)
+    # time.sleep(10)
+    # with tempfile.TemporaryDirectory() as td:
+    #     atlas.download_embeddings(project_id, atlas_index_id, td)
 
     atlas.delete_project(project_id=response['project_id'])
 

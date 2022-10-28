@@ -295,9 +295,13 @@ class AtlasClient:
             #The Atlas client adds a unique datum id field for each user.
             #It does not overwrite the field if it exists, instead map creation fails.
             if project['unique_id_field'] in datum:
-                raise Exception(f"`{project['unique_id_field']}` is an invalid field type. Atlas uses the `{project['unique_id_field']}` field to uniquely identify datums.")
+                if len(datum[project['unique_id_field']]) > 36:
+                    raise ValueError(f"{datum}\n The id_field `{datum[project['unique_id_field']]}` is greater than 36 characters. Atlas does not support id_fields longer than 36 characters.")
             else:
-                datum[project['unique_id_field']] = str(uuid.uuid4())
+                if project['unique_id_field'] == ATLAS_DEFAULT_ID_FIELD:
+                    datum[project['unique_id_field']] = str(uuid.uuid4())
+                else:
+                    raise ValueError(f"{datum} does not contain your specified id_field `{datum[project['unique_id_field']]}`")
 
             if not isinstance(datum, dict):
                 raise Exception('Each metadata must be a dictionary with one level of keys and values of only string, int and float types.')
@@ -493,6 +497,8 @@ class AtlasClient:
                 headers=self.header,
                 json=embedding_build_template,
             )
+
+            print(response.json())
             job_id = response.json()['job_id']
 
         elif project['modality'] == 'text':
@@ -668,6 +674,7 @@ class AtlasClient:
         self,
         embeddings: np.array,
         data: List[Dict] = None,
+        id_field: str = None,
         is_public: bool = True,
         colorable_fields: list = [],
         num_workers: int = 10,
@@ -686,6 +693,7 @@ class AtlasClient:
         * **embeddings** - An [N,d] numpy array containing the batch of N embeddings to add.
         * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
         * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
+        * **id_field** - Specify your datas unique id field. ID fields can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         * **is_public** - Should this embedding map be public? Private maps can only be accessed by members of your organization.
         * **num_workers** - The number of workers to use when sending data.
         * **map_name** - A name for your map.
@@ -697,7 +705,8 @@ class AtlasClient:
 
         **Returns:** A link to your map.
         '''
-        id_field = ATLAS_DEFAULT_ID_FIELD # do not let user specify a unique id field, handle it for them.
+        if id_field is None:
+            id_field = ATLAS_DEFAULT_ID_FIELD # do not let user specify a unique id field, handle it for them.
 
         project_name = get_random_name()
         description = project_name
@@ -844,6 +853,7 @@ class AtlasClient:
         self,
         data: List[Dict],
         indexed_field: str,
+        id_field: str = None,
         is_public: bool = True,
         colorable_fields: list = [],
         num_workers: int = 10,
@@ -861,6 +871,7 @@ class AtlasClient:
 
         * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
         * **indexed_field** - The name the data field corresponding to the text to be mapped.
+        * **id_field** - Specify your datas unique id field. ID fields can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
         * **is_public** - Should this embedding map be public? Private maps can only be accessed by members of your organization.
         * **num_workers** - The number of workers to use when sending data.
@@ -873,7 +884,9 @@ class AtlasClient:
 
         **Returns:** A link to your map.
         '''
-        id_field = ATLAS_DEFAULT_ID_FIELD
+        if id_field is None:
+            id_field = ATLAS_DEFAULT_ID_FIELD
+
         project_name = get_random_name()
         description = project_name
         index_name = get_random_name()
@@ -980,7 +993,7 @@ class AtlasClient:
             )
 
             if response.status_code != 200:
-                raise Exception(response.json()['detail'])
+                raise Exception(response.json())
 
             if check_access:
                 return
