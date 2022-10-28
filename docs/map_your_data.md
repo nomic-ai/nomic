@@ -50,11 +50,12 @@ of dictionaries - one for each of your embeddings.
     embeddings = np.random.rand(num_embeddings, 256)
     
     categories = ['rhizome', 'cartography', 'lindenstrauss']
-    data = [{'category': categories[i % len(categories)]}
+    data = [{'category': categories[i % len(categories)], 'id': i}
                 for i in range(len(embeddings))]
     
     response = atlas.map_embeddings(embeddings=embeddings,
                                     data=data,
+                                    id_field='id',
                                     colorable_fields=['category']
                                     )
     print(response)

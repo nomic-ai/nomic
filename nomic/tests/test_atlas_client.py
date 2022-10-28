@@ -29,13 +29,20 @@ def test_map_embeddings_with_errors():
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
                                         map_name='UNITTEST',
-                                        id_field='id',
                                         is_public=True)
 
     #test non-matching keys across metadatums
     with pytest.raises(Exception):
         data = [{'hello': 'a'} for i in range(len(embeddings))]
         data[1]['goodbye'] = 'b'
+        response = atlas.map_embeddings(embeddings=embeddings,
+                                        data=data,
+                                        map_name='UNITTEST',
+                                        is_public=True)
+
+    #test to long ids
+    with pytest.raises(Exception):
+        data = [{'id': str(uuid.uuid4())+'a'} for i in range(len(embeddings))]
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
                                         map_name='UNITTEST',
@@ -66,10 +73,11 @@ def test_map_embeddings():
 
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'field': str(uuid.uuid4())} for i in range(len(embeddings))]
+    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
                                     map_name='UNITTEST',
+                                    id_field='id',
                                     data=data,
                                     is_public=True)
 
@@ -77,7 +85,7 @@ def test_map_embeddings():
     project_id = response['project_id']
     project = atlas.get_project_by_id(project_id)
     atlas_index_id = project['atlas_indices'][0]['id']
-    data = [{'field': str(uuid.uuid4())} for i in range(len(embeddings))]
+    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
     while True:
         # Code executed here
         time.sleep(10)
