@@ -29,7 +29,6 @@ def test_map_embeddings_with_errors():
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
                                         map_name='UNITTEST',
-                                        id_field='id',
                                         is_public=True)
 
     #test non-matching keys across metadatums
@@ -39,7 +38,6 @@ def test_map_embeddings_with_errors():
         response = atlas.map_embeddings(embeddings=embeddings,
                                         data=data,
                                         map_name='UNITTEST',
-                                        id_field='id',
                                         is_public=True)
 
     #test to long ids
