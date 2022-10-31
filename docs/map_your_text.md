@@ -15,7 +15,8 @@ you should specify an `indexed_field`. This lets Atlas know what metadata field 
     
     atlas = AtlasClient()
     
-    #make dataset
+    #make a dataset with the shape [{'col1': 'val', 'col2': 'val', ...}, etc]
+    #tip: if you're working with a pandas dataframe, use pandas.DataFrame.to_dict('records')
     max_documents = 10000
     dataset = load_dataset("sentiment140")['train']
     documents = [dataset[i] for i in np.random.randint(len(dataset), size=max_documents).tolist()]
@@ -24,7 +25,7 @@ you should specify an `indexed_field`. This lets Atlas know what metadata field 
                               indexed_field='text',
                               is_public=True,
                               map_name='10k subsample of sentiment140',
-                              map_description='A 10,000 point sample of the huggingface sentiment140 dataset embedded with Nomic's text embedder.,
+                              map_description="A 10,000 point sample of the huggingface sentiment140 dataset embedded with Nomic's text embedder.",
                               organization_name=None, #defaults to your current user.
                               num_workers=10)
     print(response)
