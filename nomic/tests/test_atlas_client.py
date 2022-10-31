@@ -1,6 +1,7 @@
 import uuid
 import time
 import tempfile
+import datetime
 
 from nomic import AtlasClient
 import pytest
@@ -98,6 +99,34 @@ def test_map_embeddings():
         atlas.download_embeddings(project_id, atlas_index_id, td)
 
     atlas.delete_project(project_id=response['project_id'])
+
+
+def test_date_metadata():
+    atlas = AtlasClient()
+
+    num_embeddings = 10
+    embeddings = np.random.rand(num_embeddings, 10)
+    data = [{'my_date': datetime.datetime(2022, 1, i).isoformat()} for i in range(1, len(embeddings)+1)]
+
+    response = atlas.map_embeddings(embeddings=embeddings,
+                                    map_name='UNITTEST',
+                                    data=data,
+                                    is_public=True)
+
+    assert response['project_id']
+
+    atlas.delete_project(project_id=response['project_id'])
+
+
+    #put an invalid iso timestamp after the first valid isotimestamp , make sure the client fails
+    with pytest.raises(Exception):
+        data[1]['my_date'] = data[1]['my_date']+'asdf'
+        response = atlas.map_embeddings(embeddings=embeddings,
+                                        map_name='UNITTEST',
+                                        id_field='id',
+                                        data=data,
+                                        is_public=True)
+
 
 
 def test_map_text_errors():

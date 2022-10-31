@@ -41,9 +41,26 @@ If you are added to a Nomic organization by someone (such as your employer), you
 by specifying an `organization_name` in the `map_embedding` method of the AtlasClient. By default, projects are
 made under your own account.
 
+## Working with dates and timestamps
+Atlas will consider any metadata field as a timestamp if and only if it matches the ISO8601 timestamp format.
+You can convert a Python `datetime` object into the ISO8601 timestamp format as follows:
+```py
+import datetime
+now=datetime.datetime.now()
+now.isoformat()
+```
+If you are working with dates which are in a non-uniform format, parsing into datetime objects may be difficult. Nomic recommends
+using the `python-dateutil` package in this situation. It will intelligently parse a string into a Python datetime object at the cost of some compute cycles.
+```python
+from dateutil import parser
+date = parser.parse("Apr 15 1999 12:00AM")  # datetime.datetime(1999, 4, 15, 0, 0)
+date.isoformat()
+```
+
 ## Disabling logging
 Nomic utilizes the `loguru` module for logging. We recognize that logging can sometimes be annoying.
 You can disable or change the logging level by including the following snippet at the top of any script.
+
 ```py
 from loguru import logger
 import sys
