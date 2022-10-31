@@ -55,7 +55,10 @@ using the `python-dateutil` package in this situation. It will intelligently par
 from dateutil import parser
 date = parser.parse("Apr 15 1999 12:00AM")  # datetime.datetime(1999, 4, 15, 0, 0)
 date.isoformat()
-```
+``` 
+## How do I make maps of a dataset I have already uploaded?
+You need to make a new index on the project you have uploaded your data to.
+See [How does Atlas work?](how_does_atlas_work.md) for details.
 
 ## Disabling logging
 Nomic utilizes the `loguru` module for logging. We recognize that logging can sometimes be annoying.
