@@ -15,6 +15,7 @@ import requests
 from loguru import logger
 from pydantic import BaseModel, Field
 from tqdm import tqdm
+from datetime import date
 
 from .utils import get_random_name
 from .cli import get_api_credentials, refresh_bearer_token, validate_api_http_response
@@ -275,8 +276,12 @@ class AtlasClient:
     def _validate_and_correct_user_supplied_metadata(self, data: List[Dict], project, replace_empty_string_values_with_string_null=True):
         '''
         Validates the users metadata for Atlas compatability.
-        If unique_id_field is specified, validates that each datum has that field. If not, adds it
-        and then notifies the user that it was added.
+
+        1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.
+
+        2. If a key is detected to store values that match an ISO8601 timestamp string ,Atlas will assume you are working with timestamps. If any additional metadata
+        has this key associated with a non-ISO8601 timestamp string the upload will fail.
+
         Args:
             data: the user supplied list of data dictionaries
             project: the atlas project you are validating the data for.
@@ -285,13 +290,13 @@ class AtlasClient:
         Returns:
 
         '''
-
         if not isinstance(data, list):
             raise Exception("Metadata must be a list of dictionaries")
 
         metadata_keys = None
-        for datum in data:
+        metadata_date_keys = []
 
+        for datum in data:
             #The Atlas client adds a unique datum id field for each user.
             #It does not overwrite the field if it exists, instead map creation fails.
             if project['unique_id_field'] in datum:
@@ -309,6 +314,14 @@ class AtlasClient:
             if metadata_keys is None:
                 metadata_keys = sorted(list(datum.keys()))
 
+                #figure out which are dates
+                for key in metadata_keys:
+                    try:
+                        date.fromisoformat(datum[key])
+                        metadata_date_keys.append(key)
+                    except ValueError:
+                        pass
+
             datum_keylist = sorted(list(datum.keys()))
             if datum_keylist != metadata_keys:
                 msg = 'All metadata must have the same keys, but found key sets: {} and {}'.format(metadata_keys, datum_keylist)
@@ -317,6 +330,13 @@ class AtlasClient:
             for key in datum:
                 if key.startswith('_'):
                     raise ValueError('Metadata fields cannot start with _')
+
+                if key in metadata_date_keys:
+                    try:
+                        date.fromisoformat(datum[key])
+                    except ValueError:
+                        raise ValueError(f"{datum} has timestamp key `{key}` which cannot be parsed as a ISO8601 string. See the following documentation in the Nomic client for working with timestamps: https://docs.nomic.ai/mapping_faq.html.")
+
 
                 if project['modality'] == 'text':
                     if isinstance(datum[key], str) and len(datum[key]) == 0:
