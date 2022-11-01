@@ -317,7 +317,7 @@ class AtlasClient:
                 #figure out which are dates
                 for key in metadata_keys:
                     try:
-                        date.fromisoformat(datum[key])
+                        date.fromisoformat(str(datum[key]))
                         metadata_date_keys.append(key)
                     except ValueError:
                         pass
@@ -333,7 +333,7 @@ class AtlasClient:
 
                 if key in metadata_date_keys:
                     try:
-                        date.fromisoformat(datum[key])
+                        date.fromisoformat(str(datum[key]))
                     except ValueError:
                         raise ValueError(f"{datum} has timestamp key `{key}` which cannot be parsed as a ISO8601 string. See the following documentation in the Nomic client for working with timestamps: https://docs.nomic.ai/mapping_faq.html.")
 
