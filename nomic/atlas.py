@@ -9,6 +9,7 @@ import json
 import uuid
 import gc
 from typing import Dict, List, Optional
+from uuid import UUID
 
 import numpy as np
 import requests
@@ -53,6 +54,12 @@ def get_object_size_in_bytes(obj):
         marked.update(new_refr.keys())
 
     return sz
+
+def assert_valid_project_id(project_id):
+    try:
+        uuid_obj = UUID(project_id, version=4)
+    except ValueError:
+        raise ValueError(f"`{project_id}` is not a valid project id.")
 
 class CreateIndexResponse(BaseModel):
     map: Optional[str] = Field(
@@ -243,6 +250,8 @@ class AtlasClient:
             Returns the requested project.
         '''
 
+        assert_valid_project_id(project_id)
+
         response = requests.get(
             self.atlas_api_path + f"/v1/project/{project_id}",
             headers=self.header,
@@ -361,6 +370,8 @@ class AtlasClient:
 
         **Returns:** True if project is unlocked for data additions, false otherwise.
         '''
+        assert_valid_project_id(project_id)
+
         response = requests.get(
             self.atlas_api_path+ f"/v1/project/{project_id}",
             headers=self.header,
@@ -387,6 +398,7 @@ class AtlasClient:
 
         **Returns:** True on success.
         '''
+        assert_valid_project_id(project_id)
 
         # Each worker currently is to slow beyond a shard_size of 5000
         shard_size = min(shard_size, 5000)
@@ -489,7 +501,7 @@ class AtlasClient:
 
         **Returns:** A link to your map.
         '''
-
+        assert_valid_project_id(project_id)
 
         project = self.get_project_by_id(project_id=project_id)
 
@@ -607,6 +619,7 @@ class AtlasClient:
 
         **Returns:** True on success.
         '''
+        assert_valid_project_id(project_id)
 
 
         # Each worker currently is to slow beyond a shard_size of 5000
