@@ -32,6 +32,8 @@ You are ready to interact with Nomic services. Continue on to [make your first n
 
 ## Example maps
 
+[Stable Diffusion](https://atlas.nomic.ai/map/809ef16a-5b2d-4291-b772-a913f4c8ee61/9ed7d171-650b-4526-85bf-3592ee51ea31)
+
 [2022 News](https://atlas.nomic.ai/map/357e8f8e-b182-442d-bcbc-a4c3903aeb1b/3c70fef9-1994-4438-92cd-45b0ab803bd7)
 
 [ICLR 2018-2023 Submissions](https://atlas.nomic.ai/map/b06c5cd7-6946-43ed-b515-7934970c8ed7/6e643208-03fb-4b94-ae01-69ce5395ee5b)

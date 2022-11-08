@@ -68,6 +68,7 @@ class CreateIndexResponse(BaseModel):
     job_id: str = Field(..., description="The job_id to track the progress of the index build.")
     index_id: str = Field(..., description="The unique identifier of the index being built.")
     project_id: str = Field(..., description="The id of the project this map is being created in")
+    project_name: str = Field(..., description="The name of the project that was created.")
 
 
 class AtlasClient:
@@ -138,9 +139,12 @@ class AtlasClient:
         modality: str,
         organization_name: str = None,
         is_public: bool = True,
+        reset_project_if_exists: bool = False
     ):
         '''
-        Creates an Atlas project. Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
+        Creates an Atlas project.
+        Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
+        If the organization already contains a project with this name, it will be returned instead.
 
         **Parameters:**
 
@@ -150,6 +154,7 @@ class AtlasClient:
         * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
         * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
+        * **reset_project_if_exists** - If the requested project exists in your organization, will delete it and re-create it.
 
         **Returns:** project_id on success.
 
@@ -176,6 +181,31 @@ class AtlasClient:
                     f"No such organization exists: {organization_name}. You can add projects to the following organization: {users_organizations}"
                 )
             organization_id = organization_id_request.json()['organization_id']
+
+
+        #check if this project already exists.
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/search/name",
+            headers=self.header,
+            json={
+                'organization_name': organization_name,
+                'project_name': project_name
+            },
+        )
+        if response.status_code != 200:
+            raise Exception(f"Failed to create project: {response.json()}")
+        search_results = response.json()['results']
+
+        if search_results:
+            existing_project = search_results[0]
+            existing_project_id = existing_project['id']
+            if reset_project_if_exists:
+                logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Clearing it of data by request.")
+                self.delete_project(project_id=existing_project_id)
+            else:
+                logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Adding data to this project instead of creating a new one.")
+                return existing_project_id
+
 
         logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
 
@@ -464,7 +494,7 @@ class AtlasClient:
                             return False
                         if 'Project transaction lock is held':
                             raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
-                    except requests.exceptions.JSONDecodeError:
+                    except requests.decoder.JSONDecodeError:
                         if response.status_code == 413:
                             logger.error("Shard upload failed: you are sending meta-data data is to large.")
                         else:
@@ -603,6 +633,7 @@ class AtlasClient:
                 to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
             logger.info(f"Created map `{index_name}` in project `{project['project_name']}`: {to_return['map']}")
         to_return['project_id'] = project['id']
+        to_return['project_name'] = project['project_name']
         return CreateIndexResponse(**to_return)
 
     def add_text(self, project_id: str, data: List[Dict], shard_size=1000, num_workers=10, replace_empty_string_values_with_string_null=True, pbar=None):
@@ -714,6 +745,7 @@ class AtlasClient:
         map_name: str = None,
         map_description: str = None,
         organization_name: str = None,
+        reset_project_if_exists: bool = False,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
         projection_spread: float = DEFAULT_PROJECTION_SPREAD
@@ -732,6 +764,7 @@ class AtlasClient:
         * **map_name** - A name for your map.
         * **map_description** - A description for your map.
         * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+        * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
@@ -739,7 +772,7 @@ class AtlasClient:
         **Returns:** A link to your map.
         '''
         if id_field is None:
-            id_field = ATLAS_DEFAULT_ID_FIELD # do not let user specify a unique id field, handle it for them.
+            id_field = ATLAS_DEFAULT_ID_FIELD
 
         project_name = get_random_name()
         description = project_name
@@ -763,7 +796,11 @@ class AtlasClient:
             modality='embedding',
             is_public=is_public,
             organization_name=organization_name,
+            reset_project_if_exists=reset_project_if_exists
         )
+
+        project = self.get_project_by_id(project_id=project_id)
+        number_of_datums_before_upload = project['total_datums_in_project']
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
         logger.info("Uploading embeddings to Nomic's neural database Atlas.")
@@ -782,82 +819,27 @@ class AtlasClient:
                         pbar=pbar,
                     )
                 except BaseException as e:
-                    self.delete_project(project_id=project_id)
+                    if number_of_datums_before_upload == 0:
+                        logger.info("Deleting project due to failure in initial upload.")
+                        self.delete_project(project_id=project_id)
                     raise e
 
 
         logger.info("Embedding upload succeeded.")
 
-        response = self.create_index(project_id=project_id,
-                                     index_name=index_name,
-                                     colorable_fields=colorable_fields,
-                                     projection_n_neighbors=projection_n_neighbors,
-                                     projection_epochs=projection_epochs,
-                                     projection_spread=projection_spread)
+        # make a new index if there were no datums in the project before
+        if number_of_datums_before_upload == 0:
+            response = self.create_index(project_id=project_id,
+                                         index_name=index_name,
+                                         colorable_fields=colorable_fields,
+                                         projection_n_neighbors=projection_n_neighbors,
+                                         projection_epochs=projection_epochs,
+                                         projection_spread=projection_spread)
+        else:
+            # otherwise refresh the maps
+            self.refresh_maps(project_id=project_id)
 
         return dict(response)
-
-    def update_maps(self,
-                    project_id: str,
-                    data: List[Dict],
-                    embeddings: Optional[np.array]=None,
-                    shard_size: int = 1000,
-                    num_workers: int = 10):
-        '''
-        Updates a project's maps with new data.
-
-        **Parameters:**
-
-        * **project_id** - The id of the project you want to update
-        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
-        * **embedding** - (Default None) An [N, d] matrix of embeddings for updating embedding projects. Leave as None to update text projects.
-        * **shard_size** - Data is uploaded in parallel by many threads. Adjust the number of datums to upload by each worker.
-        * **num_workers** - The number of workers to use when sending data.
-
-        **Returns:** job_ids: The ids of the update jobs
-        '''
-
-        # Validate data
-        project = self.get_project_by_id(project_id=project_id)
-        if project['modality'] == 'embedding' and embeddings is None:
-            msg = 'Please specify embeddings for updating an embedding project'
-            raise ValueError(msg)
-
-        if project['modality'] == 'text' and embeddings is not None:
-            msg = 'Please dont specify embeddings for updating a text project'
-            raise ValueError(msg)
-
-        if embeddings is not None and len(data) != embeddings.shape[0]:
-            msg = 'Expected data and embeddings to be the same length but found lengths {} and {} respectively.'.format()
-            raise ValueError(msg)
-
-
-        # Add new data
-        logger.info("Uploading data to Nomic's neural database Atlas.")
-        with tqdm(total=len(data) // shard_size) as pbar:
-            for i in range(0, len(data), MAX_MEMORY_CHUNK):
-                if project['modality'] == 'embedding':
-                    self.add_embeddings(
-                        project_id=project_id,
-                        embeddings=embeddings[i: i + MAX_MEMORY_CHUNK, :],
-                        data=data[i: i + MAX_MEMORY_CHUNK],
-                        shard_size=shard_size,
-                        num_workers=num_workers,
-                        pbar=pbar,
-                    )
-                else:
-                    self.add_text(
-                        project_id=project_id,
-                        data=data[i: i + MAX_MEMORY_CHUNK],
-                        shard_size=shard_size,
-                        num_workers=num_workers,
-                        pbar=pbar,
-                    )
-        logger.info("Upload succeeded.")
-
-        #Update maps
-        # finally, update all the indices
-        return self.refresh_maps(project_id=project_id)
 
     def refresh_maps(self, project_id: str):
         '''
@@ -878,7 +860,11 @@ class AtlasClient:
             },
         )
 
-        return response.json()['job_ids']
+        project = self.get_project_by_id(project_id=project_id)
+
+        logger.info(f"Updating maps in project `{project['project_name']}`")
+
+        return {'project_id': project_id}
 
 
 
@@ -893,12 +879,13 @@ class AtlasClient:
         map_name: str = None,
         map_description: str = None,
         organization_name: str = None,
+        reset_project_if_exists: bool = False,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
         projection_spread: float = DEFAULT_PROJECTION_SPREAD
     ):
         '''
-        Generates a map of the given text.
+        Generates or updates a map of the given text.
 
         **Parameters:**
 
@@ -911,6 +898,7 @@ class AtlasClient:
         * **map_name** - A name for your map.
         * **map_description** - A description for your map.
         * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+        * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
@@ -939,11 +927,15 @@ class AtlasClient:
             modality='text',
             is_public=is_public,
             organization_name=organization_name,
+            reset_project_if_exists=reset_project_if_exists
         )
 
+        project = self.get_project_by_id(project_id=project_id)
+        number_of_datums_before_upload = project['total_datums_in_project']
 
 
         logger.info("Uploading text to Nomic's neural database Atlas.")
+
         shard_size = 1000
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
@@ -956,20 +948,24 @@ class AtlasClient:
                         pbar=pbar,
                     )
                 except BaseException as e:
-                    self.delete_project(project_id=project_id)
+                    if number_of_datums_before_upload == 0:
+                        logger.info("Deleting project due to failure in initial upload.")
+                        self.delete_project(project_id=project_id)
                     raise e
 
         logger.info("Text upload succeeded.")
 
-        response = self.create_index(
-            project_id=project_id,
-            indexed_field=indexed_field,
-            index_name=index_name,
-            colorable_fields=colorable_fields,
-            projection_n_neighbors=projection_n_neighbors,
-            projection_epochs=projection_epochs,
-            projection_spread=projection_spread,
-        )
+        # make a new index if there were no datums in the project before
+        if number_of_datums_before_upload == 0:
+            response = self.create_index(project_id=project_id,
+                                         index_name=index_name,
+                                         colorable_fields=colorable_fields,
+                                         projection_n_neighbors=projection_n_neighbors,
+                                         projection_epochs=projection_epochs,
+                                         projection_spread=projection_spread)
+        else:
+            # otherwise refresh the maps
+            self.refresh_maps(project_id=project_id)
 
         return dict(response)
 
