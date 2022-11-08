@@ -270,6 +270,41 @@ class AtlasClient:
 
         return target_project
 
+    def get_project(self, project_name, organization_name=None):
+        '''
+        Retrieves a project by its name and organization.
+
+        **Parameters:**
+
+        * **project_name** - The id of the project you are checking.
+        * **organization_name** - (Optional) The organization this project belongs to. Defaults to your main organization.
+
+        **Returns:** A dictionary with details about your queried project. Error if project could not be found.
+        '''
+
+        if organization_name is None:
+            organization = self._get_current_users_main_organization()
+            organization_name = organization['nickname']
+            organization_id = organization['organization_id']
+
+        #check if this project already exists.
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/search/name",
+            headers=self.header,
+            json={
+                'organization_name': organization_name,
+                'project_name': project_name
+            },
+        )
+        if response.status_code != 200:
+            raise Exception(f"Failed to search for project: {response.json()}")
+        search_results = response.json()['results']
+
+        if search_results:
+            existing_project = search_results[0]
+            return existing_project
+        else:
+            raise Exception("Could not find project `{project_name} in organization `{organization_name}``")
     def get_project_by_id(self, project_id: str):
         '''
 

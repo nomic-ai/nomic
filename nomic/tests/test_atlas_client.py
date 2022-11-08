@@ -150,13 +150,22 @@ def test_map_embedding_progressive():
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
-                                    map_name='UNITTEST',
+                                    map_name='UNITTEST1',
                                     id_field='id',
                                     data=data,
                                     is_public=True,
                                     reset_project_if_exists=True)
 
-    #TODO test progressive maps.
-    print(response)
+    current_project = atlas.get_project(response['project_name'])
+
+    # TODO test progressive maps once staging isn't borked by topic work.
+    #add some more data to it
+    # time.sleep(60)
+    # response = atlas.map_embeddings(embeddings=embeddings,
+    #                                 map_name=current_project['project_name'],
+    #                                 id_field='id',
+    #                                 data=data,
+    #                                 is_public=True
+    #                                 )
 
 
