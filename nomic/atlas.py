@@ -238,38 +238,6 @@ class AtlasClient:
             if organization['user_id'] == user['sub'] and organization['access_role'] == 'OWNER':
                 return organization
 
-    def _get_project_by_name(self, project_name: str):
-        '''
-        Retrieves a project that a user owns by name.
-
-        **Parameters:**
-
-        * **project_name** - The name of the project.
-
-        **Returns:** the project.
-
-        Returns:
-
-        '''
-
-        organization_id = self._get_current_users_main_organization()['organization_id']
-
-        organization = requests.get(
-            self.atlas_api_path + f"/v1/organization/{organization_id}",
-            headers=self.header,
-        ).json()
-
-        target_project = None
-        for candidate in organization['projects']:
-            if candidate['project_name'] == project_name:
-                target_project = candidate
-                break
-
-        if target_project is None:
-            raise ValueError(f"Could not find project `{project_name}`")
-
-        return target_project
-
     def get_project(self, project_name, organization_name=None):
         '''
         Retrieves a project by its name and organization.
@@ -305,7 +273,8 @@ class AtlasClient:
             return existing_project
         else:
             raise Exception("Could not find project `{project_name} in organization `{organization_name}``")
-    def get_project_by_id(self, project_id: str):
+
+    def _get_project_by_id(self, project_id: str):
         '''
 
         Args:
@@ -445,6 +414,49 @@ class AtlasClient:
 
         return not project['insert_update_delete_lock']
 
+    def get_tags(self, project_name: str, index_name=None):
+        '''
+        Retrieves back all tags made in the web browser for a specific project and map.
+
+        **Parameters:**
+
+        * **project_name** - The name of the project you are getting tags from.
+        * **index_name** - The name of the atlas index in the project.
+
+        **Returns:** A dictionary mapping datum ids to tags.
+        '''
+
+        project = self.get_project(project_name=project_name)
+
+
+        response = requests.get(
+            self.atlas_api_path+ f"/v1/project/{project['id']}",
+            headers=self.header,
+        )
+        project = response.json()
+        if len(project['atlas_indices']) == 0:
+            raise Exception(f'There are no indices in the project `{project_name}`.')
+
+        target_index = None
+        for index in project['atlas_indices']:
+            if index['index_name'] == index_name:
+                target_index = index
+                break
+        if target_index is None:
+            target_index = project['atlas_indices'][0]
+
+        #now get the tags
+        datums_and_tags = requests.post(
+            self.atlas_api_path + '/v1/project/tag/read/all_by_datum',
+            headers=self.header,
+            json={'project_id': project['id'], 'atlas_index_id': target_index['id'],},
+        ).json()['results']
+
+        datum_to_labels = {}
+        for item in datums_and_tags:
+            datum_to_labels[item['datum_id']] = item['labels']
+
+        return datums_and_tags
 
     def add_embeddings(
         self, project_id: str, embeddings: np.array, data: List[Dict], shard_size=1000, num_workers=10, replace_empty_string_values_with_string_null=True, pbar=None
@@ -568,7 +580,7 @@ class AtlasClient:
         '''
         assert_valid_project_id(project_id)
 
-        project = self.get_project_by_id(project_id=project_id)
+        project = self._get_project_by_id(project_id=project_id)
 
         if project['modality'] == 'embedding':
             embedding_build_template = {
@@ -834,7 +846,7 @@ class AtlasClient:
             reset_project_if_exists=reset_project_if_exists
         )
 
-        project = self.get_project_by_id(project_id=project_id)
+        project = self._get_project_by_id(project_id=project_id)
         number_of_datums_before_upload = project['total_datums_in_project']
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
@@ -895,7 +907,7 @@ class AtlasClient:
             },
         )
 
-        project = self.get_project_by_id(project_id=project_id)
+        project = self._get_project_by_id(project_id=project_id)
 
         logger.info(f"Updating maps in project `{project['project_name']}`")
 
@@ -965,7 +977,7 @@ class AtlasClient:
             reset_project_if_exists=reset_project_if_exists
         )
 
-        project = self.get_project_by_id(project_id=project_id)
+        project = self._get_project_by_id(project_id=project_id)
         number_of_datums_before_upload = project['total_datums_in_project']
 
 
@@ -1016,7 +1028,7 @@ class AtlasClient:
         organization = self._get_current_users_main_organization()
         organization_name = organization['nickname']
 
-        project = self.get_project_by_id(project_id=project_id)
+        project = self._get_project_by_id(project_id=project_id)
 
 
         logger.info(f"Deleting project `{project['project_name']}` from organization `{organization_name}`")
