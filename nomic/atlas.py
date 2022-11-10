@@ -406,6 +406,7 @@ class AtlasClient:
         '''
         assert_valid_project_id(project_id)
 
+
         response = requests.get(
             self.atlas_api_path+ f"/v1/project/{project_id}",
             headers=self.header,
@@ -793,6 +794,7 @@ class AtlasClient:
         map_description: str = None,
         organization_name: str = None,
         reset_project_if_exists: bool = False,
+        shard_size: int = 1000,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
         projection_spread: float = DEFAULT_PROJECTION_SPREAD
@@ -812,6 +814,7 @@ class AtlasClient:
         * **map_description** - A description for your map.
         * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
+        * **shard_size** - The AtlasClient sends your data in shards to Atlas. A smaller shard_size sends more requests. Decrease the shard_size if you hit data size errors during upload.
         * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
@@ -832,7 +835,7 @@ class AtlasClient:
             description = map_description
 
         if data is None:
-            data = [{} for i in range(len(embeddings))]
+            data = [{} for _ in range(len(embeddings))]
         
         self._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 
@@ -927,6 +930,7 @@ class AtlasClient:
         map_description: str = None,
         organization_name: str = None,
         reset_project_if_exists: bool = False,
+        shard_size: int = 1000,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
         projection_spread: float = DEFAULT_PROJECTION_SPREAD
@@ -946,6 +950,7 @@ class AtlasClient:
         * **map_description** - A description for your map.
         * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
+        * **shard_size** - The AtlasClient sends your data in shards to Atlas. A smaller shard_size sends more requests. Decrease the shard_size if you hit data size errors during upload.
         * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
@@ -983,7 +988,6 @@ class AtlasClient:
 
         logger.info("Uploading text to Nomic's neural database Atlas.")
 
-        shard_size = 1000
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
                 try:
