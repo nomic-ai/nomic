@@ -564,7 +564,15 @@ class AtlasClient:
 
         return True
 
-    def create_index(self, project_id: str, index_name: str, indexed_field=None, colorable_fields=[], projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS, projection_epochs=DEFAULT_PROJECTION_EPOCHS, projection_spread=DEFAULT_PROJECTION_SPREAD) -> CreateIndexResponse:
+    def create_index(self, project_id: str,
+                     index_name: str,
+                     indexed_field=None,
+                     colorable_fields: list = [],
+                     build_topic_model: bool = False,
+                     projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS,
+                     projection_epochs=DEFAULT_PROJECTION_EPOCHS,
+                     projection_spread=DEFAULT_PROJECTION_SPREAD
+                     ) -> CreateIndexResponse:
         '''
         Creates an index in the specified project
 
@@ -600,6 +608,10 @@ class AtlasClient:
                      'n_epochs': projection_epochs,
                      'spread': projection_spread}
                 ),
+                'topic_model_hyperparameters': json.dumps(
+                    {'build_topic_model': build_topic_model,
+                     }
+                )
             }
 
             response = requests.post(
@@ -639,6 +651,10 @@ class AtlasClient:
                      'n_epochs': projection_epochs,
                      'spread': projection_spread}
                 ),
+                'topic_model_hyperparameters': json.dumps(
+                    {'build_topic_model': build_topic_model,
+                     }
+                )
             }
             response = requests.post(
                 self.atlas_api_path + "/v1/project/index/create",
@@ -797,7 +813,8 @@ class AtlasClient:
         shard_size: int = 1000,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
-        projection_spread: float = DEFAULT_PROJECTION_SPREAD
+        projection_spread: float = DEFAULT_PROJECTION_SPREAD,
+        build_topic_model: bool = False
     ):
         '''
         Generates a map of the given embeddings.
@@ -818,6 +835,7 @@ class AtlasClient:
         * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
+        * **build_topic_model** - Builds a hierarchical topic model over your data to discover patterns.
 
         **Returns:** A link to your map.
         '''
@@ -856,7 +874,6 @@ class AtlasClient:
         logger.info("Uploading embeddings to Nomic's neural database Atlas.")
 
         embeddings = embeddings.astype(np.float16)
-        shard_size = 1000
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
                 try:
@@ -882,12 +899,17 @@ class AtlasClient:
             response = self.create_index(project_id=project_id,
                                          index_name=index_name,
                                          colorable_fields=colorable_fields,
+                                         build_topic_model=build_topic_model,
                                          projection_n_neighbors=projection_n_neighbors,
                                          projection_epochs=projection_epochs,
                                          projection_spread=projection_spread)
         else:
             # otherwise refresh the maps
             self.refresh_maps(project_id=project_id)
+            return {'project_name': project_name,
+                    'project_id': project_id}
+
+
 
         return dict(response)
 
@@ -933,7 +955,8 @@ class AtlasClient:
         shard_size: int = 1000,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
-        projection_spread: float = DEFAULT_PROJECTION_SPREAD
+        projection_spread: float = DEFAULT_PROJECTION_SPREAD,
+        build_topic_model: bool = False
     ):
         '''
         Generates or updates a map of the given text.
@@ -954,6 +977,7 @@ class AtlasClient:
         * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
+        * **build_topic_model** - Builds a hierarchical topic model over your data to discover patterns.
 
         **Returns:** A link to your map.
         '''
@@ -1011,6 +1035,7 @@ class AtlasClient:
             response = self.create_index(project_id=project_id,
                                          index_name=index_name,
                                          colorable_fields=colorable_fields,
+                                         build_topic_model=build_topic_model,
                                          projection_n_neighbors=projection_n_neighbors,
                                          projection_epochs=projection_epochs,
                                          projection_spread=projection_spread)

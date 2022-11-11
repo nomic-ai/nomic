@@ -8,44 +8,35 @@ A minimal example of this for text projects is shown below:
     ``` py title="progressive_upload.py"
     from nomic import AtlasClient
     import numpy as np
+    import time
     from datasets import load_dataset
     
     atlas = AtlasClient()
     
-    dataset = load_dataset('wikipedia', '20220301.en')['train']
+    num_embeddings = 1000
+    embeddings = np.random.rand(num_embeddings, 10)
+    data = [{'upload': 0.0} for i in range(len(embeddings))]
     
-    max_documents = 1000
-    subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
-    documents = [dataset[i] for i in subset_idxs]
+    response = atlas.map_embeddings(embeddings=embeddings,
+                                    map_name='An Map That Gets Updated',
+                                    data=data,
+                                    colorable_fields=['upload'],
+                                    is_public=True,
+                                    reset_project_if_exists=True)
     
-    first_upload = documents[:500]
-    second_upload = documents[500:]
+    #second upload of data, shift the mean of the embeddings
+    embeddings = np.random.rand(num_embeddings, 10) + np.ones(shape=(num_embeddings, 10))
+    data = [{'upload': 1.0} for i in range(len(embeddings))]
     
-    response = atlas.map_text(data=first_upload,
-                              indexed_field='text',
-                              is_public=True,
-                              num_workers=10)
+    current_project = atlas.get_project(response['project_name'])
     
-    print('First upload response: ', response)
-    project_id = response['project_id']
-    
-    response = atlas.update_maps(project_id=project_id,
-                                 data=second_upload)
-    
-    print('Second upload response: ', response)
-    ```
-
-=== "Output"
-
-    ``` bash
-    2022-08-26 10:54:50.116 | INFO     | nomic.atlas:create_project:124 - Creating project `marked-quilt` in organization `brandon`
-    2022-08-26 10:54:52.271 | INFO     | nomic.atlas:map_text:701 - Uploading text to Nomic's neural database Atlas.
-    1it [00:04,  4.04s/it]
-    2022-08-26 10:54:56.316 | INFO     | nomic.atlas:map_text:713 - Text upload succeeded.
-    2022-08-26 10:54:57.948 | INFO     | nomic.atlas:create_index:400 - Created map `dizzy-hamburger`: https://staging-atlas.nomic.ai/map/778ba906-0348-4d1a-a59e-e5ff752c6bc8/c7a2c226-65f9-447c-9bc6-9c66bd59299e
-    First upload response:  {'map': 'https://atlas.nomic.ai/map/778ba906-0348-4d1a-a59e-e5ff752c6bc8/c7a2c226-65f9-447c-9bc6-9c66bd59299e', 'job_id': '4f33ec17-dba2-4ca9-9f81-a7bc303ee570', 'index_id': '9ae5f720-2fa5-4905-9a2a-b8874e1cf081', 'project_id': '778ba906-0348-4d1a-a59e-e5ff752c6bc8'}
-    2022-08-26 10:54:58.348 | INFO     | nomic.atlas:update_maps:606 - Uploading data to Nomic's neural database Atlas.
-    1it [00:05,  5.60s/it]
-    2022-08-26 10:55:03.953 | INFO     | nomic.atlas:update_maps:626 - Upload succeeded.
-    Second upload response:  ['daf2c1df-6041-482e-9927-1a930c430492']
+    while True:
+        time.sleep(10)
+        if atlas.is_project_accepting_data(project_id=current_project['id']):
+            response = atlas.map_embeddings(embeddings=embeddings,
+                                            map_name=current_project['project_name'],
+                                            colorable_fields=['upload'],
+                                            data=data,
+                                            )
+            break
     ```
