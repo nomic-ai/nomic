@@ -1,5 +1,5 @@
 # Updating Maps
-The nomic client also allows you to update existing maps with new data.
+To update a map with new data, simply send the new data to the project inside a map call.
 When you upload new data to a project, every index in that project will be updated with that new data.
 A minimal example of this for text projects is shown below:
 

@@ -568,6 +568,7 @@ class AtlasClient:
                      index_name: str,
                      indexed_field=None,
                      colorable_fields: list = [],
+                     multilingual: bool = False,
                      build_topic_model: bool = False,
                      projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS,
                      projection_epochs=DEFAULT_PROJECTION_EPOCHS,
@@ -582,6 +583,7 @@ class AtlasClient:
         * **index_name** - The name of the index
         * **indexed_field** - Default None. For text projects, name the data field corresponding to the text to be mapped.
         * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
+        * **multilingual** - Should the map take language into account? If true, points from different languages but semantically similar text are close together.
         * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
         * **num_workers** - The number of worker threads to upload embeddings with.
 
@@ -630,6 +632,10 @@ class AtlasClient:
             if indexed_field not in project['project_fields']:
                 raise Exception(f"Your index field is not valid. Valid options are: {project['project_fields']}")
 
+            model = 'NomicEmbed'
+            if multilingual:
+                model = 'NomicEmbedMultilingual'
+
             hyperparameters = {
                 'dataset_buffer_size': 1000,
                 'batch_size': 20,
@@ -640,7 +646,7 @@ class AtlasClient:
                 'index_name': index_name,
                 'indexed_field': indexed_field,
                 'atomizer_strategies': ['document', 'charchunk'],
-                'model': 'NomicEmbed',
+                'model': model,
                 'colorable_fields': colorable_fields,
                 'model_hyperparameters': json.dumps(hyperparameters),
                 'nearest_neighbor_index': 'HNSWIndex',
@@ -956,7 +962,8 @@ class AtlasClient:
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
         projection_spread: float = DEFAULT_PROJECTION_SPREAD,
-        build_topic_model: bool = False
+        build_topic_model: bool = False,
+        multilingual: bool = False
     ):
         '''
         Generates or updates a map of the given text.
@@ -978,6 +985,7 @@ class AtlasClient:
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
         * **build_topic_model** - Builds a hierarchical topic model over your data to discover patterns.
+        * **multilingual** - Should the map take language into account? If true, points from different languages but semantically similar text are close together.
 
         **Returns:** A link to your map.
         '''
@@ -1034,6 +1042,7 @@ class AtlasClient:
         if number_of_datums_before_upload == 0:
             response = self.create_index(project_id=project_id,
                                          index_name=index_name,
+                                         indexed_field=indexed_field,
                                          colorable_fields=colorable_fields,
                                          build_topic_model=build_topic_model,
                                          projection_n_neighbors=projection_n_neighbors,
