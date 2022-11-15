@@ -1048,11 +1048,16 @@ class AtlasClient:
                                          projection_n_neighbors=projection_n_neighbors,
                                          projection_epochs=projection_epochs,
                                          projection_spread=projection_spread)
+            return dict(response)
         else:
             # otherwise refresh the maps
             self.refresh_maps(project_id=project_id)
+            return {'project_name': project_name,
+                    'project_id': project_id}
 
         return dict(response)
+
+
 
 
     def delete_project(self, project_id: str):
