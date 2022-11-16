@@ -8,6 +8,8 @@ import concurrent.futures
 import json
 import uuid
 import gc
+import io
+import base64
 from typing import Dict, List, Optional
 from uuid import UUID
 
@@ -512,11 +514,14 @@ class AtlasClient:
 
             if get_object_size_in_bytes(data_shard) > 8000000:
                 raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
-            embedding_shard = embeddings[i : i + shard_size, :].tolist()
+            embedding_shard = embeddings[i : i + shard_size, :]
+
+            bytesio = io.BytesIO()
+            np.save(bytesio, embedding_shard)
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
                 headers=self.header,
-                json={'project_id': project_id, 'embeddings': embedding_shard, 'data': data_shard},
+                json={'project_id': project_id, 'embeddings': base64.b64encode(bytesio.getvalue()).decode('utf-8'), 'data': data_shard},
             )
             del embedding_shard
             return response
