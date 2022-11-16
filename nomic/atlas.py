@@ -433,7 +433,7 @@ class AtlasClient:
             data_shard = data[i : i + shard_size]
 
             if get_object_size_in_bytes(data_shard) > 8000000:
-                raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
+                raise Exception("Your metadata upload shards are too large. Try decreasing the shard size or removing un-needed fields from the metadata.")
             embedding_shard = embeddings[i : i + shard_size, :].tolist()
             response = requests.post(
                 self.atlas_api_path + upload_endpoint,
