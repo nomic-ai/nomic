@@ -15,18 +15,18 @@ example of how to manually create a project, add data and create indices [here](
 
 Read on to learn about how projects, indices, maps interact in Atlas.
 
-## Project
+## Atlas Project
 When you upload data to Atlas, your data is stored in a project.
 Projects allow you to manage access control to your data and can be used to make maps.
 You can make a project with the [`create_project`](atlas_client.md) method of the AtlasClient. Add data to your project with [`add_text`](atlas_client.md) or [`add_embeddings`](atlas_client.md)
 methods depending on your projects data modality.
 
-## Indices
-Indices are ways of organizing the data in a particular project.
-To organize your data onto a map, you need to build an index. You can build an index on a project with the [`create_index`](atlas_client.md) method by specifying
+## Atlas Index
+An Atlas Index is a way of organizing data in a particular project.
+To organize your data onto a map, you need to build an Atlas Index. You can build an index on a project with the [`create_index`](atlas_client.md) method by specifying
 the projects unique ID.
 
-## Maps
+## Atlas Map
 Maps are artifacts produced when your build an index on a project. When you build an index, you are returned a URL to
 the projects map. Alternatively, find your project on your [Atlas Dashboard](https://atlas.nomic.ai/dashboard) and go
 to its map.
