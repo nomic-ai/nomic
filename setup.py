@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 description = 'The offical Nomic python client.'
 setup(
     name='nomic',
-    version='1.0.25',
+    version='1.0.26',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
