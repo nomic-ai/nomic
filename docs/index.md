@@ -2,7 +2,7 @@
 [Nomic](https://home.nomic.ai) is the worlds first *information cartography* company. We allow you to effortlessly view, explore and interact with large collections of
 unstructured data.
 
-=== "Basic Example"
+=== "Mapping Embeddings"
 
     ``` py title="map_embeddings.py"
     from nomic import AtlasClient
