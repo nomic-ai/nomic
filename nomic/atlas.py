@@ -1052,7 +1052,8 @@ class AtlasClient:
                                          build_topic_model=build_topic_model,
                                          projection_n_neighbors=projection_n_neighbors,
                                          projection_epochs=projection_epochs,
-                                         projection_spread=projection_spread)
+                                         projection_spread=projection_spread,
+                                         multilingual=multilingual)
             return dict(response)
         else:
             # otherwise refresh the maps

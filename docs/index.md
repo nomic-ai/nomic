@@ -2,6 +2,29 @@
 [Nomic](https://home.nomic.ai) is the worlds first *information cartography* company. We allow you to effortlessly view, explore and interact with large collections of
 unstructured data.
 
+=== "Basic Example"
+
+    ``` py title="map_embeddings.py"
+    from nomic import AtlasClient
+    import numpy as np
+    
+    atlas = AtlasClient()
+    
+    num_embeddings = 10000
+    embeddings = np.random.rand(num_embeddings, 256)
+    
+    response = atlas.map_embeddings(embeddings=embeddings)
+    print(response)
+    ```
+
+=== "Output"
+
+    ``` bash
+    map='https://atlas.nomic.ai/map/74ebf36c-b1fa-4a9e-b091-dcfcc240857e/a9d2e4d0-f5c7-4640-8139-ff858496f45b'
+    job_id='ebd5e68e-35b8-4de7-acc4-7abc0c725ca3'
+    index_id='66ae0cdf-2d01-440e-9d39-2ef68c3ad445'
+    ```
+
 Learn how to use Nomics neural database Atlas to interact with your large collections of embeddings and text.
 
 ## Quickstart
