@@ -547,7 +547,7 @@ class AtlasClient:
                             return False
                         if 'Project transaction lock is held':
                             raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
-                    except requests.decoder.JSONDecodeError:
+                    except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
                         if response.status_code == 413:
                             logger.error("Shard upload failed: you are sending meta-data data is to large.")
                         else:
