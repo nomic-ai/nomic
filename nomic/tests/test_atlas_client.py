@@ -64,7 +64,7 @@ def test_map_embeddings_with_errors():
                                         is_public=True,
                                         reset_project_if_exists=True)
 
-    #fail on to large metadata
+    #fail on too large metadata
     with pytest.raises(Exception):
         embeddings = np.random.rand(1000, 10)
         data = [{'string': ''.join(['a'] * (1048576 // 10))} for _ in range(len(embeddings))]
