@@ -274,7 +274,7 @@ class AtlasClient:
             existing_project = search_results[0]
             return existing_project
         else:
-            raise Exception("Could not find project `{project_name} in organization `{organization_name}``")
+            raise Exception(f"Could not find project `{project_name} in organization `{organization_name}``")
 
     def _get_project_by_id(self, project_id: str):
         '''
