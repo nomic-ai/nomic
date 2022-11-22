@@ -533,6 +533,8 @@ class AtlasClient:
             close_pbar = True
             pbar = tqdm(total=int(embeddings.shape[0]) // shard_size)
         failed = 0
+        succeeded = 0
+        five_oh_four_errors = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
 
@@ -559,8 +561,12 @@ class AtlasClient:
                                 response.close()
                                 failed += shard_size
                             elif response.status_code == 504:
+                                five_oh_four_errors += shard_size
                                 start_point = futures[future]
-                                logger.warning(f"Connection failed for records {start_point}-{start_point + shard_size}, retrying.")
+                                logger.debug(f"Connection failed for records {start_point}-{start_point + shard_size}, retrying.")
+                                failure_fraction = five_oh_four_errors / (failed + succeeded + five_oh_four_errors)
+                                if failure_fraction > 0.25 and five_oh_four_errors > shard_size * 3:
+                                    raise RuntimeError("Nomic Server timing out on too many requests. Please try again later.")
                                 new_submission = executor.submit(send_request, start_point)
                                 futures[new_submission] = start_point
                                 response.close()
@@ -571,6 +577,7 @@ class AtlasClient:
                                 response.close()
                     else:
                         # A successful upload.
+                        succeeded += shard_size
                         pbar.update(1)
                         response.close()
 

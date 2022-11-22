@@ -2,6 +2,7 @@ import uuid
 import time
 import tempfile
 import datetime
+import requests
 
 from nomic import AtlasClient
 import pytest
@@ -97,12 +98,19 @@ def test_map_embeddings():
     project = atlas._get_project_by_id(project_id=project['id'])
     atlas_index_id = project['atlas_indices'][0]['id']
 
-    # Give teh cloud time to embed?
+    # Give the cloud time to embed?
     time.sleep(10)
     with tempfile.TemporaryDirectory() as td:
         embeddings = atlas.download_embeddings(project_id, atlas_index_id, td)
-    # Need a good assertion here, I'm not sure what the download format is though --Ben
-    #    assert len(embeddings) == num_embeddings
+
+    response = requests.get(
+        atlas.atlas_api_path + f"/v1/project/{project_id}",
+        headers=self.header,
+    )
+    project = response.json()
+
+    total_datums = project['total_datums_in_project']
+    assert total_datums == num_embeddings
     atlas.delete_project(project_id=response['project_id'])
 
 
