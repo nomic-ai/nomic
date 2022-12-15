@@ -176,7 +176,8 @@ def test_map_embedding_progressive():
                                             id_field='id',
                                             data=data,
                                             build_topic_model=False,
-                                            is_public=True
+                                            is_public=True,
+                                            add_datums_if_exists=True
                                             )
             return True
 
