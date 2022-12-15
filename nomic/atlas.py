@@ -671,6 +671,7 @@ class AtlasClient:
                 ),
                 'topic_model_hyperparameters': json.dumps(
                     {'build_topic_model': build_topic_model,
+                     'community_description_target_field': indexed_field
                      }
                 )
             }
