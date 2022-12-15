@@ -1197,3 +1197,34 @@ class AtlasClient:
             offset += len(content['datum_ids'])
 
             yield content['datum_ids'], content['embeddings']
+
+    def get_nearest_neighbors(self, atlas_index_id: str, queries: np.array, k: int):
+        '''
+        Returns the nearest neighbors and the distances associated with a set of vector queries
+
+        Args:
+            atlas_index_id: the atlas index to use for the search
+            queries: a 2d numpy array where each row corresponds to a query vetor
+            k: the number of neighbors to return for each point
+
+        Returns:
+            A dictionary with the following information:
+                neighbors: A set of ids corresponding to the nearest neighbors of each query
+                distances: A set of distances between each query and its neighbors
+        '''
+
+        if queries.ndim != 2:
+            raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
+
+        bytesio = io.BytesIO()
+        np.save(bytesio, queries)
+
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/data/get/embedding/query",
+            headers=self.header,
+            json={'atlas_index_id': atlas_index_id,
+                  'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                  'k': k},
+        )
+
+        return response.json()

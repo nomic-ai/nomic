@@ -96,7 +96,7 @@ def test_map_embeddings():
     project = atlas._get_project_by_id(project_id=project['id'])
     atlas_index_id = project['atlas_indices'][0]['id']
 
-    time.sleep(10)
+    time.sleep(30)
     with tempfile.TemporaryDirectory() as td:
         atlas.download_embeddings(project_id, atlas_index_id, td)
 
