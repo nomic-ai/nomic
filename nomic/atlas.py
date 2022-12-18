@@ -584,7 +584,8 @@ class AtlasClient:
                      build_topic_model: bool = False,
                      projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS,
                      projection_epochs=DEFAULT_PROJECTION_EPOCHS,
-                     projection_spread=DEFAULT_PROJECTION_SPREAD
+                     projection_spread=DEFAULT_PROJECTION_SPREAD,
+                     topic_label_field = None
                      ) -> CreateIndexResponse:
         '''
         Creates an index in the specified project
@@ -598,6 +599,7 @@ class AtlasClient:
         * **multilingual** - Should the map take language into account? If true, points from different languages but semantically similar text are close together.
         * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
         * **num_workers** - The number of worker threads to upload embeddings with.
+        * **topic_label_field** - A text field to estimate topic labels from.
 
         **Returns:** A link to your map.
         '''
@@ -624,6 +626,7 @@ class AtlasClient:
                 ),
                 'topic_model_hyperparameters': json.dumps(
                     {'build_topic_model': build_topic_model,
+                     'community_description_target_field': topic_label_field
                      }
                 )
             }
@@ -671,6 +674,7 @@ class AtlasClient:
                 ),
                 'topic_model_hyperparameters': json.dumps(
                     {'build_topic_model': build_topic_model,
+                        'community_description_target_field': indexed_field
                      }
                 )
             }
@@ -840,7 +844,8 @@ class AtlasClient:
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
         projection_spread: float = DEFAULT_PROJECTION_SPREAD,
-        build_topic_model: bool = False
+        build_topic_model: bool = False,
+        topic_label_field: str = None
     ):
         '''
         Generates a map of the given embeddings.
@@ -863,6 +868,7 @@ class AtlasClient:
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
         * **build_topic_model** - Builds a hierarchical topic model over your data to discover patterns.
+        * **topic_label_field** - A text field to estimate topic labels from.
 
         **Returns:** A link to your map.
         '''
@@ -930,7 +936,8 @@ class AtlasClient:
                                          build_topic_model=build_topic_model,
                                          projection_n_neighbors=projection_n_neighbors,
                                          projection_epochs=projection_epochs,
-                                         projection_spread=projection_spread)
+                                         projection_spread=projection_spread,
+                                         topic_label_field=topic_label_field)
         else:
             # otherwise refresh the maps
             self.refresh_maps(project_id=project_id)
