@@ -9,6 +9,7 @@ import json
 import uuid
 import gc
 import io
+import time
 import base64
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -141,7 +142,8 @@ class AtlasClient:
         modality: str,
         organization_name: str = None,
         is_public: bool = True,
-        reset_project_if_exists: bool = False
+        reset_project_if_exists: bool = False,
+        add_datums_if_exists: bool = False
     ):
         '''
         Creates an Atlas project.
@@ -157,6 +159,7 @@ class AtlasClient:
         * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
         * **reset_project_if_exists** - If the requested project exists in your organization, will delete it and re-create it.
+        * **add_datums_if_exists** - Add datums if the project already exists
 
         **Returns:** project_id on success.
 
@@ -205,8 +208,12 @@ class AtlasClient:
                 logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Clearing it of data by request.")
                 self.delete_project(project_id=existing_project_id)
             else:
-                logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Adding data to this project instead of creating a new one.")
-                return existing_project_id
+                if add_datums_if_exists:
+                    logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Adding data to this project instead of creating a new one.")
+                    return existing_project_id
+                else:
+                    raise ValueError(f"Project already exists with the name `{project_name}` in organization `{organization_name}`."
+                                     f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload.")
 
 
         logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
@@ -587,7 +594,7 @@ class AtlasClient:
             if failed:
                 logger.warning("Embedding upload partially succeeded.")
             else:
-                logger.warning("Embedding upload succeeded.")
+                logger.info("Embedding upload succeeded.")
 
         return True
 
@@ -599,7 +606,8 @@ class AtlasClient:
                      build_topic_model: bool = False,
                      projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS,
                      projection_epochs=DEFAULT_PROJECTION_EPOCHS,
-                     projection_spread=DEFAULT_PROJECTION_SPREAD
+                     projection_spread=DEFAULT_PROJECTION_SPREAD,
+                     topic_label_field = None
                      ) -> CreateIndexResponse:
         '''
         Creates an index in the specified project
@@ -611,6 +619,9 @@ class AtlasClient:
         * **indexed_field** - Default None. For text projects, name the data field corresponding to the text to be mapped.
         * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
         * **multilingual** - Should the map take language into account? If true, points from different languages but semantically similar text are close together.
+        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
+        * **num_workers** - The number of worker threads to upload embeddings with.
+        * **topic_label_field** - A text field to estimate topic labels from.
 
         **Returns:** A link to your map.
         '''
@@ -637,6 +648,7 @@ class AtlasClient:
                 ),
                 'topic_model_hyperparameters': json.dumps(
                     {'build_topic_model': build_topic_model,
+                     'community_description_target_field': topic_label_field
                      }
                 )
             }
@@ -684,6 +696,7 @@ class AtlasClient:
                 ),
                 'topic_model_hyperparameters': json.dumps(
                     {'build_topic_model': build_topic_model,
+                        'community_description_target_field': indexed_field
                      }
                 )
             }
@@ -706,21 +719,28 @@ class AtlasClient:
 
         index_id = job['index_id']
 
-        project = requests.get(
-            self.atlas_api_path + f"/v1/project/{project['id']}",
-            headers=self.header,
-        ).json()
+        def get_projection_id(project):
+            project = requests.get(
+                self.atlas_api_path + f"/v1/project/{project['id']}",
+                headers=self.header,
+            ).json()
 
-        projection_id = None
+            projection_id = None
+            for index in project['atlas_indices']:
+                if index['id'] == index_id:
+                    projection_id = index['projections'][0]['id']
+                    break
+            return projection_id
 
-        for index in project['atlas_indices']:
-            if index['id'] == index_id:
-                projection_id = index['projections'][0]['id']
-                break
+        projection_id = get_projection_id(project)
+
+        if not projection_id:
+            time.sleep(5)
+            projection_id = get_projection_id(project)
 
         to_return = {'job_id': job_id, 'index_id': index_id}
         if not projection_id:
-            logger.warning("Could not find a projection being built for this index.")
+            logger.warning("Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status.")
         else:
             if self.credentials['tenant'] == 'staging':
                 to_return['map'] = f"https://staging-atlas.nomic.ai/map/{project['id']}/{projection_id}"
@@ -841,11 +861,13 @@ class AtlasClient:
         map_description: str = None,
         organization_name: str = None,
         reset_project_if_exists: bool = False,
+        add_datums_if_exists: bool = False,
         shard_size: int = 1000,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
         projection_spread: float = DEFAULT_PROJECTION_SPREAD,
-        build_topic_model: bool = False
+        build_topic_model: bool = False,
+        topic_label_field: str = None
     ):
         '''
         Generates a map of the given embeddings.
@@ -862,11 +884,13 @@ class AtlasClient:
         * **map_description** - A description for your map.
         * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
+        * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.
         * **shard_size** - The AtlasClient sends your data in shards to Atlas. A smaller shard_size sends more requests. Decrease the shard_size if you hit data size errors during upload.
         * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
         * **build_topic_model** - Builds a hierarchical topic model over your data to discover patterns.
+        * **topic_label_field** - A text field to estimate topic labels from.
 
         **Returns:** A link to your map.
         '''
@@ -895,7 +919,8 @@ class AtlasClient:
             modality='embedding',
             is_public=is_public,
             organization_name=organization_name,
-            reset_project_if_exists=reset_project_if_exists
+            reset_project_if_exists=reset_project_if_exists,
+            add_datums_if_exists=add_datums_if_exists
         )
 
         project = self._get_project_by_id(project_id=project_id)
@@ -933,7 +958,8 @@ class AtlasClient:
                                          build_topic_model=build_topic_model,
                                          projection_n_neighbors=projection_n_neighbors,
                                          projection_epochs=projection_epochs,
-                                         projection_spread=projection_spread)
+                                         projection_spread=projection_spread,
+                                         topic_label_field=topic_label_field)
         else:
             # otherwise refresh the maps
             self.refresh_maps(project_id=project_id)
@@ -983,6 +1009,7 @@ class AtlasClient:
         map_description: str = None,
         organization_name: str = None,
         reset_project_if_exists: bool = False,
+        add_datums_if_exists: bool = False,
         shard_size: int = 1000,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
@@ -1005,7 +1032,7 @@ class AtlasClient:
         * **map_description** - A description for your map.
         * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
-        * **shard_size** - The AtlasClient sends your data in shards to Atlas. A smaller shard_size sends more requests. Decrease the shard_size if you hit data size errors during upload.
+        * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.        * **shard_size** - The AtlasClient sends your data in shards to Atlas. A smaller shard_size sends more requests. Decrease the shard_size if you hit data size errors during upload.
         * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
         * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
         * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
@@ -1199,3 +1226,42 @@ class AtlasClient:
             offset += len(content['datum_ids'])
 
             yield content['datum_ids'], content['embeddings']
+
+    def get_nearest_neighbors(self, atlas_index_id: str, queries: np.array, k: int):
+        '''
+        Returns the nearest neighbors and the distances associated with a set of vector queries
+
+        Args:
+            atlas_index_id: the atlas index to use for the search
+            queries: a 2d numpy array where each row corresponds to a query vetor
+            k: the number of neighbors to return for each point
+
+        Returns:
+            A dictionary with the following information:
+                neighbors: A set of ids corresponding to the nearest neighbors of each query
+                distances: A set of distances between each query and its neighbors
+        '''
+
+        if queries.ndim != 2:
+            raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
+
+        bytesio = io.BytesIO()
+        np.save(bytesio, queries)
+
+        status = 0
+        retries = 0
+        while status != 200 and retries < 10:
+            response = requests.post(
+                self.atlas_api_path + "/v1/project/data/get/embedding/query",
+                headers=self.header,
+                json={'atlas_index_id': atlas_index_id,
+                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                      'k': k},
+            )
+            status = response.status_code
+            retries += 1
+
+        if retries == 10:
+            raise AssertionError('Could not get response from server')
+
+        return response.json()

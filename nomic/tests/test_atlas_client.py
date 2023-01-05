@@ -97,8 +97,7 @@ def test_map_embeddings():
     project = atlas._get_project_by_id(project_id=project['id'])
     atlas_index_id = project['atlas_indices'][0]['id']
 
-    # Give teh cloud time to embed?
-    time.sleep(10)
+    time.sleep(60)
     with tempfile.TemporaryDirectory() as td:
         embeddings = atlas.download_embeddings(project_id, atlas_index_id, td)
     # Need a good assertion here, I'm not sure what the download format is though --Ben
@@ -179,7 +178,8 @@ def test_map_embedding_progressive():
                                             id_field='id',
                                             data=data,
                                             build_topic_model=False,
-                                            is_public=True
+                                            is_public=True,
+                                            add_datums_if_exists=True
                                             )
             return True
 
