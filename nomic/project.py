@@ -1,4 +1,4 @@
-from .atlas import AtlasClient, ATLAS_DEFAULT_ID_FIELD
+from .atlas import atlas, AtlasClass, ATLAS_DEFAULT_ID_FIELD
 from typing import Optional, Union
 from loguru import logger
 from pyarrow import compute as pc
@@ -6,7 +6,18 @@ import pyarrow as pa
 import requests
 import nomic
 
-class Project(object):
+class AtlasIndex(AtlasClass):
+  """
+  An AtlasIndex represents a single view of an Atlas Project at a point in time.
+
+  An AtlasIndex typically contains one or more *projections* which are 2d representations of
+  the points in the index that you can browse online.
+  """
+
+  pass
+
+
+class AtlasProject(AtlasClass):
     
   def __init__(self,
     name : str = None,
@@ -15,7 +26,6 @@ class Project(object):
     modality : Optional[str] = None,
     organization_name: Optional[str] = None,
     is_public: bool = True,
-    atlas_client : AtlasClient = None,
     project_id = None
     ):
     """
@@ -38,19 +48,16 @@ class Project(object):
     """
     assert name is not None or project_id is not None, "You must pass a name or project_id"
 
-    if atlas_client is None:
-      atlas_client = AtlasClient()
-    
-    self.atlas_client = atlas_client
+    super().__init__()
 
     if project_id is not None:
-      self.meta = self.atlas_client._get_project_by_id(project_id) 
+      self.meta = self._get_project_by_id(project_id) 
       self.name = self.meta['project_name']
       return
 
     self.name = name
     try:
-      self.meta = self.atlas_client.get_project(self.name)   
+      self.meta = self.get_project(self.name)   
     except Exception as e:
       if "Could not find project" in str(e):
         assert description is not None, "You must provide a description when creating a new project."
@@ -58,7 +65,7 @@ class Project(object):
         logger.info(f"Creating project: {self.name}")
         if unique_id_field is None:
           unique_id_field = ATLAS_DEFAULT_ID_FIELD
-        self.atlas_client.create_project(
+        atlas.create_project(
           self.name,
           description=description,
           unique_id_field=unique_id_field,
@@ -66,11 +73,11 @@ class Project(object):
           organization_name=organization_name,
           is_public=is_public,
           reset_project_if_exists=False)
-        self.meta = self.atlas_client.get_project(self.name)    
+        self.meta = self.get_project(self.name)    
 
   def project_info(self):
     response = requests.get(
-        self.atlas_client.atlas_api_path+ f"/v1/project/{self.id}",
+        self.atlas_api_path+ f"/v1/project/{self.id}",
         headers=self.header,
     )
     return response.json()
@@ -84,24 +91,27 @@ class Project(object):
     vs = []
     for index in self.indices:      
       for projection in index['projections']:
-        vs.append(nomic.Projection(self, projection['id']))
+        vs.append(nomic.AtlasProjection(self, projection['id']))
     return vs
 
   @property
   def header(self):
-    return self.atlas_client.header
+    return self.header
 
   @property
   def id(self):
     return self.meta['id']
 
+
+  @property
+  
   def __repr__(self):
     m = self.meta
     return f"Nomic project: <{m}>"
 
   def upload_embeddings(self, table : pa.Table, embedding_column : str = '_embedding'):
     """
-    Uploads an Arrow table to Atlas.
+    Uploads a single Arrow table to Atlas.
     """ 
     dimensions = table[embedding_column].type.list_size
     embs = pc.list_flatten(table[embedding_column]).to_numpy().reshape(-1, dimensions)

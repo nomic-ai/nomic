@@ -20,9 +20,13 @@ from loguru import logger
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 from datetime import date
+from abc import ABC
 
 from .utils import get_random_name
 from .cli import get_api_credentials, refresh_bearer_token, validate_api_http_response
+from .project import AtlasProject
+from .projection import AtlasProjection
+
 import sys
 # Uploads send several requests to allow for threadpool refreshing.
 # Threadpool hogs memory and new ones need to be created.
@@ -74,17 +78,18 @@ class CreateIndexResponse(BaseModel):
     project_name: str = Field(..., description="The name of the project that was created.")
 
 
-class AtlasClient:
-    """The Atlas Client"""
+class AtlasUser:
+    def __init__(self):
+        self.credentials = refresh_bearer_token()
 
+class AtlasClass(ABC):
     def __init__(self):
         '''
         Initializes the Atlas client.
 
         '''
 
-        refresh_bearer_token()
-        self.credentials = get_api_credentials()
+        self.credentials = refresh_bearer_token()
 
         if self.credentials['tenant'] == 'staging':
             hostname = 'staging-api-atlas.nomic.ai'
@@ -110,6 +115,10 @@ class AtlasClient:
                 "Could not find an authorization token. Run `nomic login` to authorize this client with the Nomic API."
             )
 
+    @property
+    def credentials(self):
+        return self.credentials
+
     def _get_current_user(self):
         response = requests.get(
             self.atlas_api_path + "/v1/user",
@@ -133,106 +142,6 @@ class AtlasClient:
         for field in colorable_fields:
             if field not in data[0]:
                 raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
-
-    def create_project(
-        self,
-        project_name: str,
-        description: str,
-        unique_id_field: str,
-        modality: str,
-        organization_name: str = None,
-        is_public: bool = True,
-        reset_project_if_exists: bool = False,
-        add_datums_if_exists: bool = False
-    ):
-        '''
-        Creates an Atlas project.
-        Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
-        If the organization already contains a project with this name, it will be returned instead.
-
-        **Parameters:**
-
-        * **project_name** - The name of the project.
-        * **description** - A description for the project.
-        * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
-        * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
-        * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
-        * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
-        * **reset_project_if_exists** - If the requested project exists in your organization, will delete it and re-create it.
-        * **add_datums_if_exists** - Add datums if the project already exists
-
-        **Returns:** project_id on success.
-
-        '''
-        supported_modalities = ['text', 'embedding']
-        if modality not in supported_modalities:
-            msg = 'Tried to create project with modality: {}, but Atlas only supports: {}'.format(
-                modality, supported_modalities
-            )
-            raise ValueError(msg)
-
-        if organization_name is None:
-            organization = self._get_current_users_main_organization()
-            organization_name = organization['nickname']
-            organization_id = organization['organization_id']
-        else:
-            organization_id_request = requests.get(
-                self.atlas_api_path + f"/v1/organization/search/{organization_name}", headers=self.header
-            )
-            if organization_id_request.status_code != 200:
-                user = self._get_current_user()
-                users_organizations = [org['nickname'] for org in user['organizations']]
-                raise Exception(
-                    f"No such organization exists: {organization_name}. You can add projects to the following organization: {users_organizations}"
-                )
-            organization_id = organization_id_request.json()['organization_id']
-
-
-        #check if this project already exists.
-        response = requests.post(
-            self.atlas_api_path + "/v1/project/search/name",
-            headers=self.header,
-            json={
-                'organization_name': organization_name,
-                'project_name': project_name
-            },
-        )
-        if response.status_code != 200:
-            raise Exception(f"Failed to create project: {response.json()}")
-        search_results = response.json()['results']
-
-        if search_results:
-            existing_project = search_results[0]
-            existing_project_id = existing_project['id']
-            if reset_project_if_exists:
-                logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Clearing it of data by request.")
-                self.delete_project(project_id=existing_project_id)
-            else:
-                if add_datums_if_exists:
-                    logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Adding data to this project instead of creating a new one.")
-                    return existing_project_id
-                else:
-                    raise ValueError(f"Project already exists with the name `{project_name}` in organization `{organization_name}`."
-                                     f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload.")
-
-
-        logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
-
-        response = requests.post(
-            self.atlas_api_path + "/v1/project/create",
-            headers=self.header,
-            json={
-                'organization_id': organization_id,
-                'project_name': project_name,
-                'description': description,
-                'unique_id_field': unique_id_field,
-                'modality': modality,
-                'is_public': is_public,
-            },
-        )
-        if response.status_code != 201:
-            raise Exception(f"Failed to create project: {response.json()}")
-        return response.json()['project_id']
 
     def _get_current_users_main_organization(self):
         '''
@@ -639,7 +548,7 @@ class AtlasClient:
                 'colorable_fields': colorable_fields,
                 'model_hyperparameters': None,
                 'nearest_neighbor_index': 'HNSWIndex',
-                'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
+                'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 300, 'M': 32}),
                 'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
                     {'n_neighbors': projection_n_neighbors,
@@ -1265,3 +1174,104 @@ class AtlasClient:
             raise AssertionError('Could not get response from server')
 
         return response.json()
+
+
+
+def create_project(
+    project_name: str,
+    description: str,
+    unique_id_field: str,
+    modality: str,
+    organization_name: str = None,
+    is_public: bool = True,
+    reset_project_if_exists: bool = False,
+    add_datums_if_exists: bool = False
+):
+    '''
+    Creates an Atlas project.
+    Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
+    If the organization already contains a project with this name, it will be returned instead.
+
+    **Parameters:**
+
+    * **project_name** - The name of the project.
+    * **description** - A description for the project.
+    * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
+    * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
+    * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+    * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
+    * **reset_project_if_exists** - If the requested project exists in your organization, will delete it and re-create it.
+    * **add_datums_if_exists** - Add datums if the project already exists
+
+    **Returns:** project_id on success.
+
+    '''
+    supported_modalities = ['text', 'embedding']
+    if modality not in supported_modalities:
+        msg = 'Tried to create project with modality: {}, but Atlas only supports: {}'.format(
+            modality, supported_modalities
+        )
+        raise ValueError(msg)
+
+    if organization_name is None:
+        organization = self._get_current_users_main_organization()
+        organization_name = organization['nickname']
+        organization_id = organization['organization_id']
+    else:
+        organization_id_request = requests.get(
+            self.atlas_api_path + f"/v1/organization/search/{organization_name}", headers=self.header
+        )
+        if organization_id_request.status_code != 200:
+            user = self._get_current_user()
+            users_organizations = [org['nickname'] for org in user['organizations']]
+            raise Exception(
+                f"No such organization exists: {organization_name}. You can add projects to the following organization: {users_organizations}"
+            )
+        organization_id = organization_id_request.json()['organization_id']
+
+
+    #check if this project already exists.
+    response = requests.post(
+        self.atlas_api_path + "/v1/project/search/name",
+        headers=self.header,
+        json={
+            'organization_name': organization_name,
+            'project_name': project_name
+        },
+    )
+    if response.status_code != 200:
+        raise Exception(f"Failed to create project: {response.json()}")
+    search_results = response.json()['results']
+
+    if search_results:
+        existing_project = search_results[0]
+        existing_project_id = existing_project['id']
+        if reset_project_if_exists:
+            logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Clearing it of data by request.")
+            self.delete_project(project_id=existing_project_id)
+        else:
+            if add_datums_if_exists:
+                logger.info(f"Found existing project `{project_name}` in organization `{organization_name}`. Adding data to this project instead of creating a new one.")
+                return existing_project_id
+            else:
+                raise ValueError(f"Project already exists with the name `{project_name}` in organization `{organization_name}`."
+                                    f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload.")
+
+
+    logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
+
+    response = requests.post(
+        self.atlas_api_path + "/v1/project/create",
+        headers=self.header,
+        json={
+            'organization_id': organization_id,
+            'project_name': project_name,
+            'description': description,
+            'unique_id_field': unique_id_field,
+            'modality': modality,
+            'is_public': is_public,
+        },
+    )
+    if response.status_code != 201:
+        raise Exception(f"Failed to create project: {response.json()}")
+    return response.json()['project_id']

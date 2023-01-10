@@ -6,16 +6,20 @@ import requests
 import io
 import json
 
-class Projection(object):
+from .atlas import AtlasClass
+
+
+class AtlasProjection(AtlasClass):
   def __init__(self,
-    project: Union[nomic.Project, str],
+    project: Union[nomic.AtlasProject, str],
     id : str,
     ):
     """
     Creates or loads an Atlas projection.
     """
+    super().__init__()
     if type(project) == str:
-      project = nomic.Project(project)
+      project = nomic.AtlasProject(project)
     self.project = project
     self.meta = None
     for index in project.indices:
