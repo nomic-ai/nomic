@@ -585,7 +585,8 @@ class AtlasClient:
                      projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS,
                      projection_epochs=DEFAULT_PROJECTION_EPOCHS,
                      projection_spread=DEFAULT_PROJECTION_SPREAD,
-                     topic_label_field = None
+                     topic_label_field = None,
+                     reuse_lm_from = None
                      ) -> CreateIndexResponse:
         '''
         Creates an index in the specified project
@@ -600,6 +601,7 @@ class AtlasClient:
         * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
         * **num_workers** - The number of worker threads to upload embeddings with.
         * **topic_label_field** - A text field to estimate topic labels from.
+        * **reuse_lm_from** - An optional index id from the same project whose atoms and embeddings should be reused. Text projects only.
 
         **Returns:** A link to your map.
         '''
@@ -663,6 +665,7 @@ class AtlasClient:
                 'atomizer_strategies': ['document', 'charchunk'],
                 'model': model,
                 'colorable_fields': colorable_fields,
+                'reuse_atoms_and_embeddings_from': reuse_lm_from,
                 'model_hyperparameters': json.dumps(hyperparameters),
                 'nearest_neighbor_index': 'HNSWIndex',
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
