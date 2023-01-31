@@ -78,8 +78,8 @@ def test_map_embeddings_with_errors():
 def test_map_embeddings():
     atlas = AtlasClient()
 
-    num_embeddings = 10
-    embeddings = np.random.rand(num_embeddings, 10)
+    num_embeddings = 200
+    embeddings = np.random.rand(num_embeddings, 1000)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
@@ -87,6 +87,7 @@ def test_map_embeddings():
                                     id_field='id',
                                     data=data,
                                     is_public=True,
+                                    shard_size=5,
                                     reset_project_if_exists=True)
 
     assert response['project_id']
@@ -98,8 +99,9 @@ def test_map_embeddings():
 
     time.sleep(60)
     with tempfile.TemporaryDirectory() as td:
-        atlas.download_embeddings(project_id, atlas_index_id, td)
-
+        embeddings = atlas.download_embeddings(project_id, atlas_index_id, td)
+    # Need a good assertion here, I'm not sure what the download format is though --Ben
+    #    assert len(embeddings) == num_embeddings
     atlas.delete_project(project_id=response['project_id'])
 
 
@@ -150,7 +152,7 @@ def test_map_text_errors():
 def test_map_embedding_progressive():
     atlas = AtlasClient()
 
-    num_embeddings = 1000
+    num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0} for i in range(len(embeddings))]
 

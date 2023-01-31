@@ -84,7 +84,7 @@ def refresh_bearer_token():
         credentials['access_token'] = bearer_token
         with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
             json.dump(credentials, file)
-
+    return credentials
 
 @click.command()
 @click.argument('command', nargs=1, default='')
