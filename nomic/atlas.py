@@ -657,6 +657,7 @@ class AtlasClient:
                 'dataset_buffer_size': 1000,
                 'batch_size': 20,
                 'polymerize_by': 'charchunk',
+                'norm': 'both',
             }
             text_build_template = {
                 'project_id': project['id'],
