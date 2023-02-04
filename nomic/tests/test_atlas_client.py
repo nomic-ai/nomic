@@ -94,7 +94,7 @@ def test_map_embeddings():
     assert response['project_id']
     project_id = response['project_id']
 
-    project = atlas.get_project('UNITTEST1')
+    project = atlas._get_project_by_id(project_id=project_id)
     atlas_index_id = project['atlas_indices'][0]['id']
 
     time.sleep(60)
