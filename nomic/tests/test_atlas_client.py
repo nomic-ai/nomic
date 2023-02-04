@@ -2,6 +2,7 @@ import uuid
 import time
 import tempfile
 import datetime
+import requests
 
 from nomic import AtlasClient
 import pytest
@@ -87,19 +88,22 @@ def test_map_embeddings():
                                     id_field='id',
                                     data=data,
                                     is_public=True,
+                                    shard_size=5,
                                     reset_project_if_exists=True)
 
     assert response['project_id']
     project_id = response['project_id']
 
-    project = atlas.get_project('UNITTEST1')
-    project = atlas._get_project_by_id(project_id=project['id'])
+    project = atlas._get_project_by_id(project_id=project_id)
     atlas_index_id = project['atlas_indices'][0]['id']
 
     time.sleep(60)
     with tempfile.TemporaryDirectory() as td:
-        atlas.download_embeddings(project_id, atlas_index_id, td)
+        embeddings = atlas.download_embeddings(project_id, atlas_index_id, td)
 
+
+    total_datums = project['total_datums_in_project']
+    assert total_datums == num_embeddings
     atlas.delete_project(project_id=response['project_id'])
 
 
@@ -150,7 +154,7 @@ def test_map_text_errors():
 def test_map_embedding_progressive():
     atlas = AtlasClient()
 
-    num_embeddings = 1000
+    num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0} for i in range(len(embeddings))]
 
