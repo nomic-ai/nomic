@@ -558,8 +558,10 @@ class AtlasClient:
                             logger.error(f"Shard upload failed: {response.json()}")
                             if 'more datums exceeds your organization limit' in response.json():
                                 return False
-                            if 'Project transaction lock is held':
+                            if 'Project transaction lock is held' in response.json():
                                 raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+                            if 'Insert failed due to ID conflict' in response.json():
+                                continue
                         except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
                             if response.status_code == 413:
                                 # Possibly split in two and retry?
@@ -847,8 +849,10 @@ class AtlasClient:
                             logger.error(f"Shard upload failed: {response.json()}")
                             if 'more datums exceeds your organization limit' in response.json():
                                 return False
-                            if 'Project transaction lock is held':
+                            if 'Project transaction lock is held' in response.json():
                                 raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+                            if 'Insert failed due to ID conflict' in response.json():
+                                continue
                         except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
                             if response.status_code == 413:
                                 # Possibly split in two and retry?
