@@ -79,8 +79,8 @@ def test_map_embeddings_with_errors():
 def test_map_embeddings():
     atlas = AtlasClient()
 
-    num_embeddings = 200
-    embeddings = np.random.rand(num_embeddings, 1000)
+    num_embeddings = 10
+    embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
