@@ -541,7 +541,7 @@ class AtlasClient:
             pbar = tqdm(total=int(embeddings.shape[0]) // shard_size)
         failed = 0
         succeeded = 0
-        five_oh_four_errors = 0
+        errors_504 = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
 
@@ -568,12 +568,12 @@ class AtlasClient:
                                 response.close()
                                 failed += shard_size
                             elif response.status_code == 504:
-                                five_oh_four_errors += shard_size
+                                errors_504 += shard_size
                                 start_point = futures[future]
                                 logger.debug(f"Connection failed for records {start_point}-{start_point + shard_size}, retrying.")
-                                failure_fraction = five_oh_four_errors / (failed + succeeded + five_oh_four_errors)
-                                if failure_fraction > 0.25 and five_oh_four_errors > shard_size * 3:
-                                    raise RuntimeError("Nomic Server timing out on too many requests. Please try again later.")
+                                failure_fraction = errors_504 / (failed + succeeded + errors_504)
+                                if failure_fraction > 0.25 and errors_504 > shard_size * 3:
+                                    raise RuntimeError("Atlas is under high load and cannot ingest datums at this time. Please try again later.")
                                 new_submission = executor.submit(send_request, start_point)
                                 futures[new_submission] = start_point
                                 response.close()
@@ -824,27 +824,61 @@ class AtlasClient:
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
         if pbar is None:
-            logger.info("Uploading text to Nomic.")
+            logger.info("Uploading embeddings to Nomic.")
             close_pbar = True
             pbar = tqdm(total=int(len(data)) // shard_size)
-
+        failed = 0
+        succeeded = 0
+        errors_504 = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
-            for future in concurrent.futures.as_completed(futures):
-                response = future.result()
-                pbar.update(1)
-                if response.status_code != 200:
-                    try:
-                        logger.error(f"Shard upload failed: {response.json()}")
-                        if 'more datums exceeds your organization limit' in response.json():
-                            return False
-                        if 'Project transaction lock is held':
-                            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
-                    except requests.exceptions.JSONDecodeError:
-                        logger.error(f"Shard upload failed: {response}")
-                        continue
 
-                    failed.append(futures[future])
+            while futures:
+                # check for status of the futures which are currently working
+                done, not_done = concurrent.futures.wait(
+                    futures,
+                    return_when=concurrent.futures.FIRST_COMPLETED)
+                # process any completed futures
+                for future in done:
+                    response = future.result()
+                    if response.status_code != 200:
+                        try:
+                            logger.error(f"Shard upload failed: {response.json()}")
+                            if 'more datums exceeds your organization limit' in response.json():
+                                return False
+                            if 'Project transaction lock is held':
+                                raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+                        except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
+                            if response.status_code == 413:
+                                # Possibly split in two and retry?
+                                logger.error("Shard upload failed: you are sending meta-data that is too large.")
+                                pbar.update(1)
+                                response.close()
+                                failed += shard_size
+                            elif response.status_code == 504:
+                                errors_504 += shard_size
+                                start_point = futures[future]
+                                logger.debug(f"Connection failed for records {start_point}-{start_point + shard_size}, retrying.")
+                                failure_fraction = errors_504 / (failed + succeeded + errors_504)
+                                if failure_fraction > 0.25 and errors_504 > shard_size * 3:
+                                    raise RuntimeError("Atlas is under high load and cannot ingest datums at this time. Please try again later.")
+                                new_submission = executor.submit(send_request, start_point)
+                                futures[new_submission] = start_point
+                                response.close()
+                            else:
+                                logger.error(f"Shard upload failed: {response}")
+                                failed += shard_size
+                                pbar.update(1)
+                                response.close()
+                    else:
+                        # A successful upload.
+                        succeeded += shard_size
+                        pbar.update(1)
+                        response.close()
+
+                    # remove the now completed future
+                    del futures[future]
+
         # close the progress bar if this method was called with no external progresbar
         if close_pbar:
             pbar.close()

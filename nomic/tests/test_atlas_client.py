@@ -95,15 +95,12 @@ def test_map_embeddings():
     project_id = response['project_id']
 
     project = atlas.get_project('UNITTEST1')
-    project = atlas._get_project_by_id(project_id=project['id'])
     atlas_index_id = project['atlas_indices'][0]['id']
 
     time.sleep(60)
     with tempfile.TemporaryDirectory() as td:
         embeddings = atlas.download_embeddings(project_id, atlas_index_id, td)
 
-
-    project = atlas.get_project('UNITTEST1')
 
     total_datums = project['total_datums_in_project']
     assert total_datums == num_embeddings
