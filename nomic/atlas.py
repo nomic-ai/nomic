@@ -536,7 +536,7 @@ class AtlasClient:
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
         if pbar is None:
-            logger.info("Uploading embeddings to Nomic.")
+            logger.info("Uploading embeddings to Atlas.")
             close_pbar = True
             pbar = tqdm(total=int(embeddings.shape[0]) // shard_size)
         failed = 0
@@ -824,7 +824,7 @@ class AtlasClient:
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
         if pbar is None:
-            logger.info("Uploading embeddings to Nomic.")
+            logger.info("Uploading text to Atlas.")
             close_pbar = True
             pbar = tqdm(total=int(len(data)) // shard_size)
         failed = 0
@@ -971,7 +971,7 @@ class AtlasClient:
         number_of_datums_before_upload = project['total_datums_in_project']
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
-        logger.info("Uploading embeddings to Nomic's neural database Atlas.")
+        logger.info("Uploading embeddings to Atlas.")
 
         embeddings = embeddings.astype(np.float16)
         with tqdm(total=len(data) // shard_size) as pbar:
@@ -1114,7 +1114,7 @@ class AtlasClient:
         number_of_datums_before_upload = project['total_datums_in_project']
 
 
-        logger.info("Uploading text to Nomic's neural database Atlas.")
+        logger.info("Uploading text to Atlas.")
 
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
