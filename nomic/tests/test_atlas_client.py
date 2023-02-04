@@ -102,11 +102,8 @@ def test_map_embeddings():
     with tempfile.TemporaryDirectory() as td:
         embeddings = atlas.download_embeddings(project_id, atlas_index_id, td)
 
-    response = requests.get(
-        atlas.atlas_api_path + f"/v1/project/{project_id}",
-        headers=self.header,
-    )
-    project = response.json()
+
+    project = atlas.get_project('UNITTEST1')
 
     total_datums = project['total_datums_in_project']
     assert total_datums == num_embeddings
