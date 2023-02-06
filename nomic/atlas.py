@@ -193,8 +193,7 @@ class AtlasClass(object):
             existing_project = search_results[0]
             return existing_project
         else:
-            raise Exception(
-                "Could not find project `{project_name} in organization `{organization_name}``")
+            raise Exception(f"Could not find project `{project_name} in organization `{organization_name}``")
 
     def _get_project_by_id(self, project_id: str):
         '''
@@ -456,10 +455,12 @@ class AtlasClass(object):
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
         if pbar is None:
-            logger.info("Uploading embeddings to Nomic.")
+            logger.info("Uploading embeddings to Atlas.")
             close_pbar = True
             pbar = tqdm(total=int(embeddings.shape[0]) // shard_size)
         failed = 0
+        succeeded = 0
+        errors_504 = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {executor.submit(send_request, i): i for i in range(
                 0, len(data), shard_size)}
@@ -478,9 +479,10 @@ class AtlasClass(object):
                                 f"Shard upload failed: {response.json()}")
                             if 'more datums exceeds your organization limit' in response.json():
                                 return False
-                            if 'Project transaction lock is held':
-                                raise Exception(
-                                    "Project is currently indexing and cannot ingest new datums. Try again later.")
+                            if 'Project transaction lock is held' in response.json():
+                                raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+                            if 'Insert failed due to ID conflict' in response.json():
+                                continue
                         except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
                             if response.status_code == 413:
                                 # Possibly split in two and retry?
@@ -490,11 +492,13 @@ class AtlasClass(object):
                                 response.close()
                                 failed += shard_size
                             elif response.status_code == 504:
+                                errors_504 += shard_size
                                 start_point = futures[future]
-                                logger.warning(
-                                    f"Connection failed for records {start_point}-{start_point + shard_size}, retrying.")
-                                new_submission = executor.submit(
-                                    send_request, start_point)
+                                logger.debug(f"Connection failed for records {start_point}-{start_point + shard_size}, retrying.")
+                                failure_fraction = errors_504 / (failed + succeeded + errors_504)
+                                if failure_fraction > 0.25 and errors_504 > shard_size * 3:
+                                    raise RuntimeError("Atlas is under high load and cannot ingest datums at this time. Please try again later.")
+                                new_submission = executor.submit(send_request, start_point)
                                 futures[new_submission] = start_point
                                 response.close()
                             else:
@@ -505,6 +509,7 @@ class AtlasClass(object):
                                 response.close()
                     else:
                         # A successful upload.
+                        succeeded += shard_size
                         pbar.update(1)
                         response.close()
 
@@ -522,6 +527,297 @@ class AtlasClass(object):
                 logger.warning("Embedding upload partially succeeded.")
             else:
                 logger.info("Embedding upload succeeded.")
+
+        return True
+
+    def create_index(self, project_id: str,
+                     index_name: str,
+                     indexed_field=None,
+                     colorable_fields: list = [],
+                     multilingual: bool = False,
+                     build_topic_model: bool = False,
+                     projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS,
+                     projection_epochs=DEFAULT_PROJECTION_EPOCHS,
+                     projection_spread=DEFAULT_PROJECTION_SPREAD,
+                     topic_label_field = None,
+                     reuse_lm_from = None
+                     ) -> CreateIndexResponse:
+        '''
+        Creates an index in the specified project
+
+        **Parameters:**
+
+        * **project_id** - The ID of the project this index is being built under.
+        * **index_name** - The name of the index
+        * **indexed_field** - Default None. For text projects, name the data field corresponding to the text to be mapped.
+        * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
+        * **multilingual** - Should the map take language into account? If true, points from different languages but semantically similar text are close together.
+        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
+        * **num_workers** - The number of worker threads to upload embeddings with.
+        * **topic_label_field** - A text field to estimate topic labels from.
+        * **reuse_lm_from** - An optional index id from the same project whose atoms and embeddings should be reused. Text projects only.
+
+        **Returns:** A link to your map.
+        '''
+        assert_valid_project_id(project_id)
+
+        project = self._get_project_by_id(project_id=project_id)
+
+        if project['modality'] == 'embedding':
+            embedding_build_template = {
+                'project_id': project['id'],
+                'index_name': index_name,
+                'indexed_field': None,
+                'atomizer_strategies': None,
+                'model': None,
+                'colorable_fields': colorable_fields,
+                'model_hyperparameters': None,
+                'nearest_neighbor_index': 'HNSWIndex',
+                'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
+                'projection': 'NomicProject',
+                'projection_hyperparameters': json.dumps(
+                    {'n_neighbors': projection_n_neighbors,
+                     'n_epochs': projection_epochs,
+                     'spread': projection_spread}
+                ),
+                'topic_model_hyperparameters': json.dumps(
+                    {'build_topic_model': build_topic_model,
+                     'community_description_target_field': topic_label_field
+                     }
+                )
+            }
+
+            response = requests.post(
+                self.atlas_api_path + "/v1/project/index/create",
+                headers=self.header,
+                json=embedding_build_template,
+            )
+
+            print(response.json())
+            job_id = response.json()['job_id']
+
+        elif project['modality'] == 'text':
+            if indexed_field is None:
+                raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
+
+            if indexed_field not in project['project_fields']:
+                raise Exception(f"Your index field is not valid. Valid options are: {project['project_fields']}")
+
+            model = 'NomicEmbed'
+            if multilingual:
+                model = 'NomicEmbedMultilingual'
+
+            hyperparameters = {
+                'dataset_buffer_size': 1000,
+                'batch_size': 20,
+                'polymerize_by': 'charchunk',
+                'norm': 'both',
+            }
+            text_build_template = {
+                'project_id': project['id'],
+                'index_name': index_name,
+                'indexed_field': indexed_field,
+                'atomizer_strategies': ['document', 'charchunk'],
+                'model': model,
+                'colorable_fields': colorable_fields,
+                'reuse_atoms_and_embeddings_from': reuse_lm_from,
+                'model_hyperparameters': json.dumps(hyperparameters),
+                'nearest_neighbor_index': 'HNSWIndex',
+                'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
+                'projection': 'NomicProject',
+                'projection_hyperparameters': json.dumps(
+                    {'n_neighbors': projection_n_neighbors,
+                     'n_epochs': projection_epochs,
+                     'spread': projection_spread}
+                ),
+                'topic_model_hyperparameters': json.dumps(
+                    {'build_topic_model': build_topic_model,
+                        'community_description_target_field': indexed_field
+                     }
+                )
+            }
+            response = requests.post(
+                self.atlas_api_path + "/v1/project/index/create",
+                headers=self.header,
+                json=text_build_template,
+            )
+            if response.status_code != 200:
+                logger.info('Create project failed with code: {}'.format(response.status_code))
+                logger.info('Additional info: {}'.format(response.json()))
+                raise Exception(response.json['detail'])
+
+            job_id = response.json()['job_id']
+
+        job = requests.get(
+            self.atlas_api_path + f"/v1/project/index/job/{job_id}",
+            headers=self.header,
+        ).json()
+
+        index_id = job['index_id']
+
+        def get_projection_id(project):
+            project = requests.get(
+                self.atlas_api_path + f"/v1/project/{project['id']}",
+                headers=self.header,
+            ).json()
+
+            projection_id = None
+            for index in project['atlas_indices']:
+                if index['id'] == index_id:
+                    projection_id = index['projections'][0]['id']
+                    break
+            return projection_id
+
+        projection_id = get_projection_id(project)
+
+        if not projection_id:
+            time.sleep(5)
+            projection_id = get_projection_id(project)
+
+        to_return = {'job_id': job_id, 'index_id': index_id}
+        if not projection_id:
+            logger.warning("Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status.")
+        else:
+            if self.credentials['tenant'] == 'staging':
+                to_return['map'] = f"https://staging-atlas.nomic.ai/map/{project['id']}/{projection_id}"
+            else:
+                to_return['map'] = f"https://atlas.nomic.ai/map/{project['id']}/{projection_id}"
+            logger.info(f"Created map `{index_name}` in project `{project['project_name']}`: {to_return['map']}")
+        to_return['project_id'] = project['id']
+        to_return['project_name'] = project['project_name']
+        return CreateIndexResponse(**to_return)
+
+    def add_text(self, project_id: str, data: List[Dict], shard_size=1000, num_workers=10, replace_empty_string_values_with_string_null=True, pbar=None):
+        '''
+        Adds data to a text project.
+
+        **Parameters:**
+
+        * **project_id** - The id of the project you are adding embeddings to.
+        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
+        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
+        * **num_workers** - The number of worker threads to upload embeddings with.
+        * **replace_empty_string_values_with_string_null** - Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
+
+        **Returns:** True on success.
+        '''
+        assert_valid_project_id(project_id)
+
+
+        # Each worker currently is to slow beyond a shard_size of 5000
+        shard_size = min(shard_size, 5000)
+
+        # Check if this is a progressive project
+        response = requests.get(
+            self.atlas_api_path+ f"/v1/project/{project_id}",
+            headers=self.header,
+        )
+
+        project = response.json()
+        if project['modality'] != 'text':
+            msg = 'Cannot add text to project with modality: {}'.format(project['modality'])
+            raise ValueError(msg)
+
+        progressive = len(project['atlas_indices']) > 0
+
+        if project['insert_update_delete_lock']:
+            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+
+        try:
+            self._validate_and_correct_user_supplied_metadata(data=data, project=project,
+                                                              replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null)
+        except BaseException as e:
+            raise e
+
+        upload_endpoint = "/v1/project/data/add/json/initial"
+        if progressive:
+            upload_endpoint = "/v1/project/data/add/json/progressive"
+
+        # Actually do the upload
+        def send_request(i):
+            data_shard = data[i : i + shard_size]
+            if get_object_size_in_bytes(data_shard) > 8000000:
+                raise Exception("Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata.")
+            response = requests.post(
+                self.atlas_api_path + upload_endpoint,
+                headers=self.header,
+                json={'project_id': project_id, 'data': data_shard},
+            )
+            return response
+
+        failed = []
+
+        # if this method is being called internally, we pass a global progress bar
+        close_pbar = False
+        if pbar is None:
+            logger.info("Uploading text to Atlas.")
+            close_pbar = True
+            pbar = tqdm(total=int(len(data)) // shard_size)
+        failed = 0
+        succeeded = 0
+        errors_504 = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
+
+            while futures:
+                # check for status of the futures which are currently working
+                done, not_done = concurrent.futures.wait(
+                    futures,
+                    return_when=concurrent.futures.FIRST_COMPLETED)
+                # process any completed futures
+                for future in done:
+                    response = future.result()
+                    if response.status_code != 200:
+                        try:
+                            logger.error(f"Shard upload failed: {response.json()}")
+                            if 'more datums exceeds your organization limit' in response.json():
+                                return False
+                            if 'Project transaction lock is held' in response.json():
+                                raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+                            if 'Insert failed due to ID conflict' in response.json():
+                                continue
+                        except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
+                            if response.status_code == 413:
+                                # Possibly split in two and retry?
+                                logger.error("Shard upload failed: you are sending meta-data that is too large.")
+                                pbar.update(1)
+                                response.close()
+                                failed += shard_size
+                            elif response.status_code == 504:
+                                errors_504 += shard_size
+                                start_point = futures[future]
+                                logger.debug(f"Connection failed for records {start_point}-{start_point + shard_size}, retrying.")
+                                failure_fraction = errors_504 / (failed + succeeded + errors_504)
+                                if failure_fraction > 0.25 and errors_504 > shard_size * 3:
+                                    raise RuntimeError("Atlas is under high load and cannot ingest datums at this time. Please try again later.")
+                                new_submission = executor.submit(send_request, start_point)
+                                futures[new_submission] = start_point
+                                response.close()
+                            else:
+                                logger.error(f"Shard upload failed: {response}")
+                                failed += shard_size
+                                pbar.update(1)
+                                response.close()
+                    else:
+                        # A successful upload.
+                        succeeded += shard_size
+                        pbar.update(1)
+                        response.close()
+
+                    # remove the now completed future
+                    del futures[future]
+
+        # close the progress bar if this method was called with no external progresbar
+        if close_pbar:
+            pbar.close()
+
+        if failed:
+            logger.warning(f"Failed to upload {len(failed)*shard_size} datums")
+        if close_pbar:
+            if failed:
+                logger.warning("Text upload partially succeeded.")
+            else:
+                logger.info("Text upload succeeded.")
 
         return True
 
@@ -604,7 +900,7 @@ class AtlasClass(object):
         number_of_datums_before_upload = project['total_datums_in_project']
 
         # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
-        logger.info("Uploading embeddings to Nomic's neural database Atlas.")
+        logger.info("Uploading embeddings to Atlas.")
 
         embeddings = embeddings.astype(np.float16)
         with tqdm(total=len(data) // shard_size) as pbar:
@@ -743,7 +1039,8 @@ class AtlasClass(object):
         project = self._get_project_by_id(project_id=project_id)
         number_of_datums_before_upload = project['total_datums_in_project']
 
-        logger.info("Uploading text to Nomic's neural database Atlas.")
+
+        logger.info("Uploading text to Atlas.")
 
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):

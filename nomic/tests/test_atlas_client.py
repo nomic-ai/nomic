@@ -2,6 +2,7 @@ import uuid
 import time
 import tempfile
 import datetime
+import requests
 
 from nomic import AtlasClient
 import pytest
@@ -78,8 +79,8 @@ def test_map_embeddings_with_errors():
 def test_map_embeddings():
     atlas = AtlasClient()
 
-    num_embeddings = 200
-    embeddings = np.random.rand(num_embeddings, 1000)
+    num_embeddings = 10
+    embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
     response = atlas.map_embeddings(embeddings=embeddings,
@@ -93,15 +94,16 @@ def test_map_embeddings():
     assert response['project_id']
     project_id = response['project_id']
 
-    project = atlas.get_project('UNITTEST1')
-    project = atlas._get_project_by_id(project_id=project['id'])
+    project = atlas._get_project_by_id(project_id=project_id)
     atlas_index_id = project['atlas_indices'][0]['id']
 
     time.sleep(60)
     with tempfile.TemporaryDirectory() as td:
         embeddings = atlas.download_embeddings(project_id, atlas_index_id, td)
-    # Need a good assertion here, I'm not sure what the download format is though --Ben
-    #    assert len(embeddings) == num_embeddings
+
+
+    total_datums = project['total_datums_in_project']
+    assert total_datums == num_embeddings
     atlas.delete_project(project_id=response['project_id'])
 
 
