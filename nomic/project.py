@@ -43,6 +43,8 @@ class AtlasProject(AtlasClass):
         organization_name: Optional[str] = None,
         is_public: bool = True,
         project_id=None,
+        reset_project_if_exists=False,
+        add_datums_if_exists=False
     ):
 
         """
@@ -59,7 +61,9 @@ class AtlasProject(AtlasClass):
         * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user account's default organization.
         * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
         * **reset_project_if_exists** - If the requested project exists in your organization, will delete it and re-create it.
-        * **project_id** - An alternative way to retrieve a project is by passing the project_id directly. This only works if a project exissts.
+        * **project_id** - An alternative way to retrieve a project is by passing the project_id directly. This only works if a project exists.
+        * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
+        * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.
         **Returns:** project_id on success.
 
         """
@@ -73,35 +77,42 @@ class AtlasProject(AtlasClass):
             return
 
         self.name = name
-        try:
-            proj = self.get_project(self.name)
-            self.meta = self._get_project_by_id(proj['id'])
 
-        except Exception as e:
-            if "Could not find project" in str(e):
-                assert description is not None, "You must provide a description when creating a new project."
-                assert modality is not None, "You must provide a modality when creating a new project."
-                logger.info(f"Creating project: {self.name}")
-                if unique_id_field is None:
-                    unique_id_field = ATLAS_DEFAULT_ID_FIELD
-                self.create_project(
-                    self.name,
-                    description=description,
-                    unique_id_field=unique_id_field,
-                    modality=modality,
-                    organization_name=organization_name,
-                    is_public=is_public,
-                    reset_project_if_exists=False,
-                )
-                proj = self.get_project(self.name)
-                self.meta = self._get_project_by_id(proj['id'])
-            else:
-                raise
+        self.create_project(
+            project_name=self.name,
+            description=description,
+            unique_id_field=unique_id_field,
+            modality=modality,
+            organization_name=organization_name,
+            is_public=is_public,
+            reset_project_if_exists=reset_project_if_exists,
+            add_datums_if_exists=add_datums_if_exists,
+        )
+        proj = self.get_project(self.name)
+        self.meta = self._get_project_by_id(proj['id'])
+
 
     def delete(self):
-        self.delete_project(project_id=self.id)
+        '''
+        Deletes an atlas project with all associated metadata.
 
-    @staticmethod
+        **Parameters:**
+
+        * **project_id** - The id of the project you want to delete.
+        '''
+        organization = self._get_current_users_main_organization()
+        organization_name = organization['nickname']
+
+        project = self.meta
+
+        logger.info(f"Deleting project `{project['project_name']}` from organization `{organization_name}`")
+
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/remove",
+            headers=self.header,
+            json={'project_id': project.id},
+        )
+
     def create_project(
         self,
         project_name: str,
@@ -172,7 +183,7 @@ class AtlasProject(AtlasClass):
                 logger.info(
                     f"Found existing project `{project_name}` in organization `{organization_name}`. Clearing it of data by request."
                 )
-                self.delete_project(project_id=existing_project_id)
+                self.delete()
             else:
                 if add_datums_if_exists:
                     logger.info(
@@ -678,6 +689,32 @@ class AtlasProject(AtlasClass):
                 logger.info("Embedding upload succeeded.")
 
         return True
+
+
+    def refresh_maps(self):
+        '''
+        Refresh all maps in a project with the latest state.
+
+        **Parameters:**
+
+        * **project_id** - The id of the project whose maps will be refreshed.
+
+        **Returns:** a list of jobs
+        '''
+
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/update_indices",
+            headers=self.header,
+            json={
+                'project_id': self.id,
+            },
+        )
+
+        project = self.meta
+
+        logger.info(f"Updating maps in project `{project['project_name']}`")
+
+        return self
 
     # def upload_embeddings(self, table: pa.Table, embedding_column: str = '_embedding'):
     #     """
