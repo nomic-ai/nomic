@@ -1,6 +1,5 @@
 # Nomic
-[Nomic](https://home.nomic.ai) is the worlds first *information cartography* company. We allow you to effortlessly view, explore and interact with large collections of
-unstructured data.
+[Nomic](https://home.nomic.ai) is the worlds first *information cartography* company. Our first tool, Atlas, allows you to interact with internet scale datasets in your web browser.
 
 === "Mapping Embeddings"
 
@@ -25,7 +24,7 @@ unstructured data.
     index_id='66ae0cdf-2d01-440e-9d39-2ef68c3ad445'
     ```
 
-Learn how to use Nomics neural database Atlas to interact with your large collections of embeddings and text.
+Learn how to use Atlas to interact with your large collections of embeddings and text.
 
 ## Quickstart
 Install the Nomic client with:
@@ -55,7 +54,11 @@ You are ready to interact with Nomic services. Continue on to [make your first n
 
 ## Example maps
 
+[Twitter](https://atlas.nomic.ai/map/twitter)
+
 [Stable Diffusion](https://atlas.nomic.ai/map/809ef16a-5b2d-4291-b772-a913f4c8ee61/9ed7d171-650b-4526-85bf-3592ee51ea31) (6.4 Million datums)
+
+[NeurIPS Proceedings](https://atlas.nomic.ai/map/neurips)
 
 [ICLR 2018-2023 Submissions](https://atlas.nomic.ai/map/b06c5cd7-6946-43ed-b515-7934970c8ed7/6e643208-03fb-4b94-ae01-69ce5395ee5b)
 
