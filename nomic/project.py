@@ -556,7 +556,7 @@ class AtlasProject(AtlasClass):
         * **topic_label_field** - A text field to estimate topic labels from.
         * **reuse_lm_from** - An optional index id from the same project whose atoms and embeddings should be reused. Text projects only.
 
-        **Returns:** A link to your map.
+        **Returns:** an AtlasMap
         '''
         self._latest_project_state()
 
