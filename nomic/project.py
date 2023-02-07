@@ -24,7 +24,7 @@ import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
 from .settings import *
-from .utils import assert_valid_project_id, get_object_size_in_bytes, get_random_name
+from .utils import assert_valid_project_id, get_object_size_in_bytes
 
 
 class CreateIndexResponse(BaseModel):
@@ -558,6 +558,13 @@ class AtlasProject(AtlasClass):
 
         **Returns:** A link to your map.
         '''
+        self._latest_project_state()
+
+        #for large projects, alter the default projection configurations.
+        if self.total_datums >= 1_000_000:
+            if projection_epochs == DEFAULT_PROJECTION_EPOCHS and projection_n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS:
+                projection_n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
+                projection_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
 
         if self.modality == 'embedding':
             build_template = {
