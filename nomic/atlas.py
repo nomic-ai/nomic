@@ -134,7 +134,6 @@ def map_embeddings(
 
 
 def map_text(
-    self,
     data: List[Dict],
     indexed_field: str,
     id_field: str = None,

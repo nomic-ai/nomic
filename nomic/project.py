@@ -721,7 +721,7 @@ class AtlasProject(AtlasClass):
         try:
             self._validate_and_correct_user_supplied_metadata(
                 data=data,
-                project=project,
+                project=self,
                 replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null,
             )
         except BaseException as e:
