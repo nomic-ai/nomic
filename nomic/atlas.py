@@ -63,8 +63,8 @@ def map_embeddings(
         id_field = ATLAS_DEFAULT_ID_FIELD
 
     project_name = get_random_name()
-    description = project_name
-    index_name = get_random_name()
+    description = 'A description for your map.'
+    index_name = project_name
 
     if map_name:
         project_name = map_name
@@ -114,7 +114,7 @@ def map_embeddings(
 
     # make a new index if there were no datums in the project before
     if number_of_datums_before_upload == 0:
-        create_index_response = project.create_index(
+        projection = project.create_index(
             index_name=index_name,
             colorable_fields=colorable_fields,
             build_topic_model=build_topic_model,
@@ -123,13 +123,12 @@ def map_embeddings(
             projection_spread=projection_spread,
             topic_label_field=topic_label_field,
         )
+        logger.info(str(projection))
     else:
         # otherwise refresh the maps
         project.refresh_maps()
-        return project
 
     project = project._latest_project_state()
-    logger.info(dict(create_index_response))
     return project
 
 
@@ -180,8 +179,8 @@ def map_text(
         id_field = ATLAS_DEFAULT_ID_FIELD
 
     project_name = get_random_name()
-    description = project_name
-    index_name = get_random_name()
+    description = 'A description for your map.'
+    index_name = project_name
 
     if map_name:
         project_name = map_name
@@ -225,7 +224,7 @@ def map_text(
 
     # make a new index if there were no datums in the project before
     if number_of_datums_before_upload == 0:
-        response = project.create_index(
+        projection = project.create_index(
             index_name=index_name,
             indexed_field=indexed_field,
             colorable_fields=colorable_fields,
@@ -235,12 +234,10 @@ def map_text(
             projection_spread=projection_spread,
             multilingual=multilingual,
         )
-        return dict(response)
+        logger.info(str(projection))
     else:
         # otherwise refresh the maps
         project.refresh_maps()
-        return project
 
-    logger.info(dict(response))
-
+    project = project._latest_project_state()
     return project

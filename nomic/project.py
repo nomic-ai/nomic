@@ -5,18 +5,18 @@ import io
 import json
 import os
 import pickle
-import sys
 import time
 import uuid
 from datetime import date
-from typing import Dict, List, Optional, Union
-from uuid import UUID
+from pathlib import Path
+from typing import Dict, List, Optional
 
 import numpy as np
 import pyarrow as pa
 import requests
 from loguru import logger
 from pyarrow import compute as pc
+from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 
@@ -25,16 +25,6 @@ import nomic
 from .cli import refresh_bearer_token, validate_api_http_response
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
-
-
-class CreateIndexResponse(BaseModel):
-    map: Optional[str] = Field(
-        None, description="A link to the map this index creates. May take some time to be ready so check the job state."
-    )
-    job_id: str = Field(..., description="The job_id to track the progress of the index build.")
-    index_id: str = Field(..., description="The unique identifier of the index being built.")
-    project_id: str = Field(..., description="The id of the project this map is being created in")
-    project_name: str = Field(..., description="The name of the project that was created.")
 
 
 class AtlasUser:
@@ -49,13 +39,17 @@ class AtlasClass(object):
         '''
 
         if self.credentials['tenant'] == 'staging':
-            hostname = 'staging-api-atlas.nomic.ai'
+            api_hostname = 'staging-api-atlas.nomic.ai'
+            web_hostname = 'staging-atlas.nomic.ai'
         elif self.credentials['tenant'] == 'production':
-            hostname = 'api-atlas.nomic.ai'
+            api_hostname = 'api-atlas.nomic.ai'
+            web_hostname = 'atlas.nomic.ai'
         else:
             raise ValueError("Invalid tenant.")
 
-        self.atlas_api_path = f"https://{hostname}"
+        self.atlas_api_path = f"https://{api_hostname}"
+        self.web_path = f"https://{web_hostname}"
+
         token = self.credentials['token']
         self.token = token
 
@@ -301,15 +295,79 @@ class AtlasClass(object):
         return {'organization_id': organization_id, 'organization_name': organization_name}
 
 
-class AtlasIndex(AtlasClass):
+class AtlasIndex:
     """
     An AtlasIndex represents a single view of an Atlas Project at a point in time.
 
-    An AtlasIndex typically contains one or more *projections* which are 2d representations of
+    An AtlasIndex typically contains one or more *projections* which are 2D representations of
     the points in the index that you can browse online.
     """
 
-    pass
+    def __init__(self, atlas_index_id, name, projections):
+        '''Initializes an Atlas index. Atlas indices organize data and store views of the data as maps.'''
+        self.id = atlas_index_id
+        self.name = name
+        self.projections = projections
+
+
+class AtlasProjection:
+    '''
+    This class should not be instantiated by a user.
+    Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
+    '''
+
+    def __init__(self, project, atlas_index_id: str, projection_id: str, name):
+        """
+        Creates or loads an Atlas projection.
+        """
+        self.project = project
+        self.id = projection_id
+        self.atlas_index_id = atlas_index_id
+        self.name = name
+
+    @property
+    def map_link(self):
+        '''
+        Retrieves a map link.
+        '''
+        return f"{self.project.web_path}/map/{self.project.id}/{self.id}"
+
+    def __str__(self):
+        '''User friendly version of the projection class'''
+        return f"{self.name}: {self.map_link}"
+
+    def __repr__(self):
+        '''Computer friendly version of the projection class.'''
+        return {
+            "map": self.map_link,
+            "projection_id": self.projection_id,
+            "atlas_index_id": self.atlas_index_id,
+            "project_id": self.project.id,
+            "name": self.name,
+        }
+
+    def _download_feather(self, dest="tiles"):
+        """
+        Downloads the feather tree.
+
+        """
+        dest = Path(dest)
+        root = f'https://staging-api-atlas.nomic.ai/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
+        quads = [f'0/0/0']
+        while len(quads) > 0:
+            quad = quads.pop(0) + ".feather"
+            path = dest / quad
+            if not path.exists():
+                data = requests.get(root + quad)
+                readable = io.BytesIO(data.content)
+                readable.seek(0)
+                tb = feather.read_table(readable)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                feather.write_feather(tb, path)
+            schema = ipc.open_file(path).schema
+            kids = schema.metadata.get(b'children')
+            children = json.loads(kids)
+            quads.extend(children)
 
 
 class AtlasProject(AtlasClass):
@@ -433,7 +491,7 @@ class AtlasProject(AtlasClass):
                     return project_id
                 else:
                     raise ValueError(
-                        f"Project already exists with the name `{project_name}` in organization `{organization_name}`."
+                        f"Project already exists with the name `{project_name}` in organization `{organization_name}`. "
                         f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload."
                     )
 
@@ -461,9 +519,6 @@ class AtlasProject(AtlasClass):
             raise Exception(f"Failed to create project: {response.json()}")
         return response.json()['project_id']
 
-    def project_info(self):
-        return self._latest_project_state().meta
-
     def _latest_project_state(self):
         response = requests.get(
             self.atlas_api_path + f"/v1/project/{self.id}",
@@ -474,15 +529,27 @@ class AtlasProject(AtlasClass):
 
     @property
     def indices(self):
-        return self.project_info()['atlas_indices']
+        self._latest_project_state()
+        output = []
+        for index in self.meta['atlas_indices']:
+            projections = []
+            for projection in index['projections']:
+                projection = AtlasProjection(
+                    project=self, projection_id=projection['id'], atlas_index_id=index['id'], name=index['index_name']
+                )
+                projections.append(projection)
+            index = AtlasIndex(atlas_index_id=index['id'], name=index['index_name'], projections=projections)
+            output.append(index)
+
+        return output
 
     @property
     def projections(self):
-        vs = []
+        output = []
         for index in self.indices:
-            for projection in index['projections']:
-                vs.append(nomic.AtlasProjection(self, projection['id']))
-        return vs
+            for projection in index.projections:
+                output.append(projection)
+        return output
 
     @property
     def id(self):
@@ -528,6 +595,57 @@ class AtlasProject(AtlasClass):
         self._latest_project_state()
         return not self.is_locked
 
+    def get_map(self, name=None, atlas_index_id=None, projection_id=None):
+        '''
+        Gets a map.
+
+        If the project has one index and one map, returns the map (common workflow).
+        If the project has multiple indices, select the projection in the one whose name matches 'name'
+        If atlas_index_id is specified, ignores above and only returns successfully if a map with the corresponding atlas_index_id exists.
+        If projection_id is specified, ignores above and only returns successfully if a map with the corresponding projection_id exists.
+
+        Args:
+            name: The name of your map. This will usually be your projects name but can be different if you build multiple maps in your project.
+            atlas_index_id: If atlas_index_id is specified, will only return a map if there is one built under the index with id atlas_index_id.
+            atlas_index_id: If projection_id is specified, will only return a map if there is one built under the index with id projection_id.
+
+        Returns:
+            ValueError if a map cannot be found, otherwise the projection corresponding to the map.
+
+        '''
+
+        indices = self.indices
+
+        if atlas_index_id is not None:
+            for index in indices:
+                if index.id == atlas_index_id:
+                    if len(index.projections) == 0:
+                        raise ValueError(f"No map found under index with atlas_index_id='{atlas_index_id}'")
+                    return index.projections[0]
+            raise ValueError(f"Could not find a map with atlas_index_id='{atlas_index_id}'")
+
+        if projection_id is not None:
+            for index in indices:
+                for projection in index.projections:
+                    if projection.id == projection_id:
+                        return projection
+            raise ValueError(f"Could not find a map with projection_id='{atlas_index_id}'")
+
+        if len(indices) == 0:
+            raise ValueError("You have no maps built in your project")
+        if len(indices) > 1 and name is None:
+            raise ValueError("You have multiple maps in this project, specify a name.")
+
+        if len(indices) == 1:
+            if len(indices.projections) == 1:
+                return indices.projections[0]
+
+        for index in indices:
+            if index.name == name:
+                return index.projections[0]
+
+        raise ValueError(f"Could not find a map named {name} in your project.")
+
     def create_index(
         self,
         index_name: str,
@@ -540,7 +658,7 @@ class AtlasProject(AtlasClass):
         projection_spread=DEFAULT_PROJECTION_SPREAD,
         topic_label_field=None,
         reuse_lm_from=None,
-    ) -> CreateIndexResponse:
+    ) -> AtlasProjection:
         '''
         Creates an index in the specified project
 
@@ -560,9 +678,12 @@ class AtlasProject(AtlasClass):
         '''
         self._latest_project_state()
 
-        #for large projects, alter the default projection configurations.
+        # for large projects, alter the default projection configurations.
         if self.total_datums >= 1_000_000:
-            if projection_epochs == DEFAULT_PROJECTION_EPOCHS and projection_n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS:
+            if (
+                projection_epochs == DEFAULT_PROJECTION_EPOCHS
+                and projection_n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS
+            ):
                 projection_n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
                 projection_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
 
@@ -644,39 +765,50 @@ class AtlasProject(AtlasClass):
         index_id = job['index_id']
 
         def get_projection_id():
-            self._latest_project_state()
-
             projection_id = None
             for index in self.indices:
-                if index['id'] == index_id:
-                    projection_id = index['projections'][0]['id']
+                if index.id == index_id:
+                    projection_id = index.projections[0].id
                     break
             return projection_id
 
-        projection_id = get_projection_id()
-
-        if not projection_id:
+        try:
+            projection = self.get_map(atlas_index_id=index_id)
+        except ValueError:
+            # give some delay
             time.sleep(5)
-            projection_id = get_projection_id()
+            try:
+                projection = self.get_map(atlas_index_id=index_id)
+            except ValueError:
+                projection = None
 
-        to_return = {'job_id': job_id, 'index_id': index_id}
-        if not projection_id:
+        # to_return = {'job_id': job_id, 'index_id': index_id}
+        # if projection is None:
+        #     logger.warning(
+        #         "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
+        #     )
+        # else:
+        #     if self.credentials['tenant'] == 'staging':
+        #         to_return['map'] = f"https://staging-atlas.nomic.ai/map/{self.id}/{projection.id}"
+        #     else:
+        #         to_return['map'] = f"https://atlas.nomic.ai/map/{self.id}/{projection.id}"
+        #     logger.info(f"Created map `{index_name}` in project `{self.name}`: {to_return['map']}")
+        # to_return['project_id'] = self.id
+        # to_return['project_name'] = self.name
+        if projection is None:
             logger.warning(
                 "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
             )
-        else:
-            if self.credentials['tenant'] == 'staging':
-                to_return['map'] = f"https://staging-atlas.nomic.ai/map/{self.id}/{projection_id}"
-            else:
-                to_return['map'] = f"https://atlas.nomic.ai/map/{self.id}/{projection_id}"
-            logger.info(f"Created map `{index_name}` in project `{self.name}`: {to_return['map']}")
-        to_return['project_id'] = self.id
-        to_return['project_name'] = self.name
-        return CreateIndexResponse(**to_return)
+        logger.info(f"Created map `{projection.name}` in project `{self.name}`: {projection.map_link}")
+
+        return projection
 
     def __repr__(self):
         m = self.meta
         return f"Nomic project: <{m}>"
+
+    def __str__(self):
+        return "\n".join([str(projection) for index in self.indices for projection in index.projections])
 
     def add_text(
         self,
