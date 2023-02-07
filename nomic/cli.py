@@ -1,9 +1,9 @@
 import json
 import os
+import time
 from pathlib import Path
 
 import click
-import time
 import requests
 from rich.console import Console
 

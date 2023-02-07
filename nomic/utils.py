@@ -1,7 +1,8 @@
-from wonderwords import RandomWord
 import gc
 import sys
 from uuid import UUID
+
+from wonderwords import RandomWord
 
 
 def get_random_name():

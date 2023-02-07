@@ -1,18 +1,17 @@
-import uuid
-import time
-import tempfile
 import datetime
+import random
+import tempfile
+import time
+import uuid
+
+import numpy as np
+import pytest
 import requests
 
-from nomic import AtlasClient
-import pytest
-import random
-import time
-import numpy as np
+from nomic import AtlasProject, atlas
 
 
 def test_map_embeddings_with_errors():
-    atlas = AtlasClient()
 
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
@@ -69,13 +68,11 @@ def test_map_embeddings_with_errors():
 
 
 def test_map_embeddings():
-    atlas = AtlasClient()
-
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
-    response = atlas.map_embeddings(
+    project = atlas.map_embeddings(
         embeddings=embeddings,
         map_name='UNITTEST1',
         id_field='id',
@@ -85,40 +82,33 @@ def test_map_embeddings():
         reset_project_if_exists=True,
     )
 
-    assert response['project_id']
-    project_id = response['project_id']
+    atlas_index_id = project.indices[0]['id']
 
-    project = atlas._get_project_by_id(project_id=project_id)
-    atlas_index_id = project['atlas_indices'][0]['id']
-
-    time.sleep(60)
+    time.sleep(10)
     with tempfile.TemporaryDirectory() as td:
-        embeddings = atlas.download_embeddings(project_id, atlas_index_id, td)
+        embeddings = project.download_embeddings(atlas_index_id, td)
 
-    total_datums = project['total_datums_in_project']
-    assert total_datums == num_embeddings
-    atlas.delete_project(project_id=response['project_id'])
+    assert project.total_datums == num_embeddings
+    project.delete()
 
 
 def test_date_metadata():
-    atlas = AtlasClient()
-
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'my_date': datetime.datetime(2022, 1, i).isoformat()} for i in range(1, len(embeddings) + 1)]
 
-    response = atlas.map_embeddings(
+    project = atlas.map_embeddings(
         embeddings=embeddings, map_name='UNITTEST1', data=data, is_public=True, reset_project_if_exists=True
     )
 
-    assert response['project_id']
+    assert project.id
 
-    atlas.delete_project(project_id=response['project_id'])
+    project.delete()
 
     # put an invalid iso timestamp after the first valid isotimestamp , make sure the client fails
     with pytest.raises(Exception):
         data[1]['my_date'] = data[1]['my_date'] + 'asdf'
-        response = atlas.map_embeddings(
+        project = atlas.map_embeddings(
             embeddings=embeddings,
             map_name='UNITTEST1',
             id_field='id',
@@ -129,11 +119,10 @@ def test_date_metadata():
 
 
 def test_map_text_errors():
-    atlas = AtlasClient()
 
     # no indexed field
     with pytest.raises(Exception):
-        response = atlas.map_text(
+        project = atlas.map_text(
             data=[{'key': 'a'}],
             indexed_field='text',
             is_public=True,
@@ -145,13 +134,12 @@ def test_map_text_errors():
 
 
 def test_map_embedding_progressive():
-    atlas = AtlasClient()
 
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0} for i in range(len(embeddings))]
 
-    response = atlas.map_embeddings(
+    project = atlas.map_embeddings(
         embeddings=embeddings,
         map_name='UNITTEST1',
         id_field='id',
@@ -164,14 +152,14 @@ def test_map_embedding_progressive():
     embeddings = np.random.rand(num_embeddings, 10) + np.ones(shape=(num_embeddings, 10))
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0} for i in range(len(embeddings))]
 
-    current_project = atlas.get_project(response['project_name'])
+    current_project = AtlasProject(name=project.name)
 
     while True:
         time.sleep(10)
-        if atlas.is_project_accepting_data(project_id=current_project['id']):
-            response = atlas.map_embeddings(
+        if project.is_accepting_data():
+            project = atlas.map_embeddings(
                 embeddings=embeddings,
-                map_name=current_project['project_name'],
+                map_name=current_project.name,
                 colorable_fields=['upload'],
                 id_field='id',
                 data=data,
@@ -179,4 +167,5 @@ def test_map_embedding_progressive():
                 is_public=True,
                 add_datums_if_exists=True,
             )
+            project.delete()
             return True

@@ -1,18 +1,18 @@
-from typing import Union
-from pathlib import Path
-from pyarrow import feather, ipc
-import nomic
-import requests
 import io
 import json
+from pathlib import Path
+from typing import Union
 
-from .atlas import AtlasClass
+import requests
+from pyarrow import feather, ipc
+
+from .project import AtlasClass, AtlasProject
 
 
 class AtlasProjection(AtlasClass):
     def __init__(
         self,
-        project: Union[nomic.AtlasProject, str],
+        project: Union[AtlasProject, str],
         id: str,
     ):
         """
@@ -20,7 +20,7 @@ class AtlasProjection(AtlasClass):
         """
         super().__init__()
         if type(project) == str:
-            project = nomic.AtlasProject(project)
+            project = AtlasProject(project)
         self.project = project
         self.meta = None
         for index in project.indices:
