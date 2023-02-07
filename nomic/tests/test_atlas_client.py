@@ -156,7 +156,7 @@ def test_map_embedding_progressive():
 
     while True:
         time.sleep(10)
-        if project.is_accepting_data():
+        if project.is_accepting_data:
             project = atlas.map_embeddings(
                 embeddings=embeddings,
                 map_name=current_project.name,
