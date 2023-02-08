@@ -379,7 +379,7 @@ class AtlasProjection:
         '''
         self.project._latest_project_state()
 
-        total_datums = self.total_datums
+        total_datums = self.project.total_datums
         if self.is_locked:
             raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
 
