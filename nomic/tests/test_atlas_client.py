@@ -89,6 +89,10 @@ def test_map_embeddings():
         embeddings = map.download_embeddings(td)
 
     assert project.total_datums == num_embeddings
+
+    project = AtlasProject(name='UNITTEST1')
+
+
     project.delete()
 
 

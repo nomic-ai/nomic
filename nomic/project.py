@@ -245,6 +245,43 @@ class AtlasClass(object):
                         f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
                     )
 
+    def _get_organization(self, organization_name=None, organization_id=None):
+        '''
+        Get organization.
+
+        Args:
+            organization_name:
+            organization_id:
+
+        Returns:
+
+        '''
+
+        if organization_name is None:
+            if organization_id is None: #default to current users organization (the one with their name)
+                organization = self._get_current_users_main_organization()
+                organization_name = organization['nickname']
+                organization_id = organization['organization_id']
+            else:
+                raise NotImplementedError("Getting organization by a specific ID is not yet implemented.")
+
+        else:
+            organization_id_request = requests.get(
+                self.atlas_api_path + f"/v1/organization/search/{organization_name}", headers=self.header
+            )
+            if organization_id_request.status_code != 200:
+                user = self._get_current_user()
+                users_organizations = [org['nickname'] for org in user['organizations']]
+                raise Exception(
+                    f"No such organization exists: {organization_name}. You have access to the following organizations: {users_organizations}"
+                )
+            organization_id = organization_id_request.json()['organization_id']
+
+        return organization_name, organization_id
+
+
+
+
     def _get_existing_project_by_name(self, project_name, organization_name):
         '''
         Retrieves an existing project by name in a given organization
@@ -256,22 +293,6 @@ class AtlasClass(object):
             The project id
 
         '''
-        if organization_name is None:
-            organization = self._get_current_users_main_organization()
-            organization_name = organization['nickname']
-            organization_id = organization['organization_id']
-
-        else:
-            organization_id_request = requests.get(
-                self.atlas_api_path + f"/v1/organization/search/{organization_name}", headers=self.header
-            )
-            if organization_id_request.status_code != 200:
-                user = self._get_current_user()
-                users_organizations = [org['nickname'] for org in user['organizations']]
-                raise Exception(
-                    f"No such organization exists: {organization_name}. You can add projects to the following organization: {users_organizations}"
-                )
-            organization_id = organization_id_request.json()['organization_id']
 
         # check if this project already exists.
         response = requests.post(
@@ -490,6 +511,8 @@ class AtlasProject(AtlasClass):
             self.meta = self._get_project_by_id(project_id)
             return self
 
+
+
         project_id = self.create_project(
             project_name=name,
             description=description,
@@ -594,6 +617,9 @@ class AtlasProject(AtlasClass):
         return response.json()['project_id']
 
     def _latest_project_state(self):
+        '''
+        Refreshes the projects state. Try to call this sparingly but use it when you need it.
+        '''
         response = requests.get(
             self.atlas_api_path + f"/v1/project/{self.id}",
             headers=self.header,
@@ -602,7 +628,7 @@ class AtlasProject(AtlasClass):
         return self
 
     @property
-    def indices(self):
+    def indices(self) -> List[AtlasIndex]:
         self._latest_project_state()
         output = []
         for index in self.meta['atlas_indices']:
@@ -618,7 +644,7 @@ class AtlasProject(AtlasClass):
         return output
 
     @property
-    def projections(self):
+    def projections(self) -> List[AtlasProjection]:
         output = []
         for index in self.indices:
             for projection in index.projections:
@@ -631,20 +657,20 @@ class AtlasProject(AtlasClass):
         return self.meta['id']
 
     @property
-    def id_field(self):
+    def id_field(self) -> str:
         return self.meta['unique_id_field']
 
     @property
-    def total_datums(self):
+    def total_datums(self) -> int:
         '''The total number of data points in the project.'''
         return self.meta['total_datums_in_project']
 
     @property
-    def modality(self):
+    def modality(self) -> str:
         return self.meta['modality']
 
     @property
-    def name(self):
+    def name(self) -> str:
         '''The name of the project.'''
         return self.meta['project_name']
 
@@ -661,26 +687,27 @@ class AtlasProject(AtlasClass):
         return self.meta['insert_update_delete_lock']
 
     @property
-    def is_accepting_data(self):
+    def is_accepting_data(self) -> bool:
         '''
         Checks if the project can accept data. Projects cannot accept data when they are being indexed.
-        **Returns:** True if project is unlocked for data additions, false otherwise.
+
+        Returns:
+            True if project is unlocked for data additions, false otherwise.
         '''
         self._latest_project_state()
         return not self.is_locked
 
-    def get_map(self, name=None, atlas_index_id=None, projection_id=None):
+    def get_map(self, name: str = None, atlas_index_id: str = None, projection_id: str = None) -> AtlasProjection:
         '''
         Retrieves a Map
 
-        **Parameters:**
+        Args:
+            name: The name of your map. This defaults to your projects name but can be different if you build multiple maps in your project.
+            atlas_index_id: If specified, will only return a map if there is one built under the index with the id atlas_index_id.
+            projection_id: If projection_id is specified, will only return a map if there is one built under the index with id projection_id.
 
-        * **name** - The name of your map. This defaults to your projects name but can be different if you build multiple maps in your project.
-        * **atlas_index_id** - (optional) If atlas_index_id is specified, will only return a map if there is one built under the index with id atlas_index_id.
-        * **projection_id** - (optional) If projection_id is specified, will only return a map if there is one built under the index with id projection_id.
-
-        **Returns:** ValueError if a map cannot be found, otherwise the projection corresponding to the map.
-
+        Returns:
+            The map or a ValueError.
         '''
 
         indices = self.indices
@@ -718,33 +745,36 @@ class AtlasProject(AtlasClass):
     def create_index(
         self,
         index_name: str,
-        indexed_field=None,
+        indexed_field: str = None,
         colorable_fields: list = [],
         multilingual: bool = False,
         build_topic_model: bool = False,
-        projection_n_neighbors=DEFAULT_PROJECTION_N_NEIGHBORS,
-        projection_epochs=DEFAULT_PROJECTION_EPOCHS,
-        projection_spread=DEFAULT_PROJECTION_SPREAD,
-        topic_label_field=None,
-        reuse_lm_from=None,
+        projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
+        projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
+        projection_spread: float = DEFAULT_PROJECTION_SPREAD,
+        topic_label_field: str = None,
+        reuse_embeddings_from_index: str = None,
     ) -> AtlasProjection:
         '''
-        Creates an index in the specified project
+        Creates an index in the specified project.
 
-        **Parameters:**
+        Args:
+            index_name: The name of the index
+            indexed_field: For text projects, name the data field corresponding to the text to be mapped.
+            colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
+            multilingual: Should the map take language into account? If true, points from different languages but semantically similar text are close together.
+            build_topic_model: Should a topic model be built?
+            projection_n_neighbors: A projection hyperparameter
+            projection_epochs: A projection hyperparameter
+            projection_spread: A projection hyperparameter
+            topic_label_field: A text field in your metadata to estimate topic labels from. Defaults to the indexed_field for text projects if not specified.
+            reuse_embeddings_from_index: the name of the index to reuse embeddings from.
 
-        * **project_id** - The ID of the project this index is being built under.
-        * **index_name** - The name of the index
-        * **indexed_field** - Default None. For text projects, name the data field corresponding to the text to be mapped.
-        * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-        * **multilingual** - Should the map take language into account? If true, points from different languages but semantically similar text are close together.
-        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
-        * **num_workers** - The number of worker threads to upload embeddings with.
-        * **topic_label_field** - A text field to estimate topic labels from.
-        * **reuse_lm_from** - An optional index id from the same project whose atoms and embeddings should be reused. Text projects only.
+        Returns:
+            The projection this index has built.
 
-        **Returns:** an AtlasMap
         '''
+
         self._latest_project_state()
 
         # for large projects, alter the default projection configurations.
@@ -777,6 +807,20 @@ class AtlasProject(AtlasClass):
             }
 
         elif self.modality == 'text':
+
+            #find the index id of the index with name reuse_embeddings_from_index
+            reuse_embedding_from_index_id = None
+            indices = self.indices
+            if reuse_embeddings_from_index is not None:
+                for index in indices:
+                    if index.name == reuse_embeddings_from_index:
+                        reuse_embedding_from_index_id = index.id
+                        break
+                if reuse_embedding_from_index_id is None:
+                    raise Exception(f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}")
+
+
+
             if indexed_field is None:
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
@@ -794,7 +838,7 @@ class AtlasProject(AtlasClass):
                 'atomizer_strategies': ['document', 'charchunk'],
                 'model': model,
                 'colorable_fields': colorable_fields,
-                'reuse_atoms_and_embeddings_from': reuse_lm_from,
+                'reuse_atoms_and_embeddings_from': reuse_embedding_from_index_id,
                 'model_hyperparameters': json.dumps(
                     {
                         'dataset_buffer_size': 1000,
@@ -851,19 +895,6 @@ class AtlasProject(AtlasClass):
             except ValueError:
                 projection = None
 
-        # to_return = {'job_id': job_id, 'index_id': index_id}
-        # if projection is None:
-        #     logger.warning(
-        #         "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
-        #     )
-        # else:
-        #     if self.credentials['tenant'] == 'staging':
-        #         to_return['map'] = f"https://staging-atlas.nomic.ai/map/{self.id}/{projection.id}"
-        #     else:
-        #         to_return['map'] = f"https://atlas.nomic.ai/map/{self.id}/{projection.id}"
-        #     logger.info(f"Created map `{index_name}` in project `{self.name}`: {to_return['map']}")
-        # to_return['project_id'] = self.id
-        # to_return['project_name'] = self.name
         if projection is None:
             logger.warning(
                 "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
@@ -882,22 +913,23 @@ class AtlasProject(AtlasClass):
     def add_text(
         self,
         data: List[Dict],
-        shard_size=1000,
-        num_workers=10,
-        replace_empty_string_values_with_string_null=True,
+        shard_size: int = 1000,
+        num_workers: int = 10,
+        replace_empty_string_values_with_string_null: bool = True,
         pbar=None,
-    ):
+    ) -> bool:
         '''
         Adds data to a text project.
 
-        **Parameters:**
+        Args:
+            data: An [N,] element list of dictionaries containing metadata for each embedding.
+            shard_size: Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
+            num_workers: The number of worker threads to upload embeddings with.
+            replace_empty_string_values_with_string_null: Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
 
-        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
-        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
-        * **num_workers** - The number of worker threads to upload embeddings with.
-        * **replace_empty_string_values_with_string_null** - Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
+        Returns:
+            True on success.
 
-        **Returns:** True on success.
         '''
 
         # Each worker currently is to slow beyond a shard_size of 5000
@@ -1028,23 +1060,24 @@ class AtlasProject(AtlasClass):
         self,
         embeddings: np.array,
         data: List[Dict],
-        shard_size=1000,
-        num_workers=10,
-        replace_empty_string_values_with_string_null=True,
+        shard_size: int = 1000,
+        num_workers: int = 10,
+        replace_empty_string_values_with_string_null: bool = True,
         pbar=None,
-    ):
+    ) -> bool:
         '''
         Adds embeddings to an embedding project. Pair each embedding with meta-data to explore your embeddings.
 
-        **Parameters:**
+        Args:
+            embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
+            data: An [N,] element list of dictionaries containing metadata for each embedding.
+            shard_size: Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
+            num_workers: The number of worker threads to upload embeddings with.
+            replace_empty_string_values_with_string_null: Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
 
-        * **embeddings** - An [N,d] numpy array containing the batch of N embeddings to add.
-        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
-        * **shard_size** - Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
-        * **num_workers** - The number of worker threads to upload embeddings with.
-        * **replace_empty_string_values_with_string_null** - Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
+        Returns:
+            True on success.
 
-        **Returns:** True on success.
         '''
 
         # Each worker currently is to slow beyond a shard_size of 5000
@@ -1183,14 +1216,12 @@ class AtlasProject(AtlasClass):
         '''
         Updates a project's maps with new data.
 
-        **Parameters:**
+        Args:
+            data: An [N,] element list of dictionaries containing metadata for each embedding.
+            embeddings: An [N, d] matrix of embeddings for updating embedding projects. Leave as None to update text projects.
+            shard_size: Data is uploaded in parallel by many threads. Adjust the number of datums to upload by each worker.
+            num_workers: The number of workers to use when sending data.
 
-        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
-        * **embedding** - (Default None) An [N, d] matrix of embeddings for updating embedding projects. Leave as None to update text projects.
-        * **shard_size** - Data is uploaded in parallel by many threads. Adjust the number of datums to upload by each worker.
-        * **num_workers** - The number of workers to use when sending data.
-
-        **Returns:** job_ids: The ids of the update jobs
         '''
 
         # Validate data
@@ -1249,13 +1280,13 @@ class AtlasProject(AtlasClass):
 
         return self
 
-    def get_tags(self):
+    def get_tags(self) -> Dict[str, str]:
         '''
         Retrieves back all tags made in the web browser for a specific project and map.
 
-        **Returns:** A dictionary mapping datum ids to tags.
+        Returns:
+            A dictionary mapping datum ids to tags.
         '''
-
         # now get the tags
         datums_and_tags = requests.post(
             self.atlas_api_path + '/v1/project/tag/read/all_by_datum',

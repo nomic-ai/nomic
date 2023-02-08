@@ -63,7 +63,7 @@ plugins:
         python:
           options:
             show_root_heading: True
-            heading_level: 5
+            heading_level: 4
             show_root_full_path: false
             docstring_section_style: list
 
