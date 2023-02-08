@@ -560,7 +560,7 @@ class AtlasProject(AtlasClass):
             else:
                 if add_datums_if_exists:
                     logger.info(
-                        f"Found existing project `{project_name}` in organization `{organization_name}`. Adding data to this project instead of creating a new one."
+                        f"Using existing project `{project_name}` in organization `{organization_name}`."
                     )
                     return project_id
                 else:
