@@ -388,7 +388,7 @@ class AtlasProjection:
 
         def download_shard(offset, check_access=False):
             response = requests.get(
-                self.project.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{self.atlas_index_id}/{offset}/{limit}",
+                self.project.atlas_api_path + f"/v1/project/data/get/embedding/{self.project.id}/{self.atlas_index_id}/{offset}/{limit}",
                 headers=self.project.header,
             )
 
