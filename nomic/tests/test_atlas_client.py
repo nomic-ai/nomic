@@ -94,9 +94,9 @@ def test_map_embeddings():
     map = project.get_map(name='UNITTEST1')
 
     project.create_index(name='My new index')
-
-    # neighbors = map.get_nearest_neighbors(queries=np.random.rand(1, 10), k=2)
-    # print(neighbors)
+    time.sleep(5)
+    result = map.get_nearest_neighbors(queries=np.random.rand(1, 10), k=2)
+    assert len(result['neighbors'][0]) == 2
 
     for map in project.projections:
         assert map.map_link
@@ -198,4 +198,6 @@ def test_interactive_workflow():
                    build_topic_model=True
                    )
 
+    assert p.total_datums == 100
+    p.get_tags()
     p.delete()

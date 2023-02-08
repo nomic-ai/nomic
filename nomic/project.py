@@ -134,7 +134,7 @@ class AtlasClass(object):
         )
 
         if response.status_code != 200:
-            raise Exception(f"Could not access project: {response.json()}")
+            raise Exception(f"Could not access project with id {project_id}: {response.json()}")
 
         return response.json()
 
@@ -490,6 +490,9 @@ class AtlasProjection:
                 distances: A set of distances between each query and its neighbors
         '''
 
+        if self.project.is_locked:
+            raise ValueError("Your map cannot be queried for nearest neighbors while it builds. Check the dashboard to see your map builds progress.")
+
         if queries.ndim != 2:
             raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
 
@@ -555,7 +558,7 @@ class AtlasProject(AtlasClass):
 
         if project_id is not None:
             self.meta = self._get_project_by_id(project_id)
-            return self
+            return
 
 
         results = self._get_existing_project_by_name(project_name=name, organization_name=organization_name)
@@ -568,15 +571,12 @@ class AtlasProject(AtlasClass):
                     f"Found existing project `{name}` in organization `{organization_name}`. Clearing it of data by request."
                 )
                 self._delete_project_by_id(project_id=project_id)
-                time.sleep(5)
                 project_id = None
             else:
                 if add_datums_if_exists:
                     logger.info(
                         f"Using existing project `{name}` in organization `{organization_name}`."
                     )
-                    self.meta = self._get_project_by_id(project_id=project_id)
-                    return
                 else:
                     raise ValueError(
                         f"Project already exists with the name `{name}` in organization `{organization_name}`. "
@@ -642,10 +642,6 @@ class AtlasProject(AtlasClass):
         **Returns:** project_id on success.
 
         '''
-
-        results = self._get_existing_project_by_name(project_name=project_name, organization_name=organization_name)
-        if 'project_id' in results:
-            raise Exception(f"Project already exists with the name '{project_name}'")
 
         organization_name, organization_id = self._get_organization(organization_name=organization_name)
 
@@ -744,6 +740,7 @@ class AtlasProject(AtlasClass):
 
     @property
     def is_locked(self):
+        self._latest_project_state()
         return self.meta['insert_update_delete_lock']
 
     @property
