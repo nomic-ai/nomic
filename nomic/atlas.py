@@ -22,7 +22,7 @@ def map_embeddings(
     map_description: str = None,
     is_public: bool = True,
     colorable_fields: list = [],
-    build_topic_model: bool = False,
+    build_topic_model: bool = True,
     topic_label_field: str = None,
     num_workers: int = 10,
     organization_name: str = None,
@@ -47,7 +47,10 @@ def map_embeddings(
         reset_project_if_exists: If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         add_datums_if_exists: If specifying an existing project and you want to add data to it, set this to true.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.
-        topic_label_field:The metadata field to estimate topic labels from. Usually the field you embedded.
+        topic_label_field: The metadata field to estimate topic labels from. Usually the field you embedded.
+        projection_n_neighbors: The number of neighbors to build.
+        projection_epochs: The number of epochs to build the map with.
+        projection_spread: The spread of the map.
 
     Returns:
         An AtlasProject that now contains your map.
@@ -162,6 +165,9 @@ def map_text(
         organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         reset_project_if_exists: If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         add_datums_if_exists: If specifying an existing project and you want to add data to it, set this to true.
+        projection_n_neighbors: The number of neighbors to build.
+        projection_epochs: The number of epochs to build the map with.
+        projection_spread: The spread of the map.
 
     Returns:
         The AtlasProject containing your map.
