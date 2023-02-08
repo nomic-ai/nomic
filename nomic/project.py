@@ -283,15 +283,16 @@ class AtlasClass(object):
 
 
 
-    def _get_existing_project_by_name(self, project_name, organization_name):
+    def _get_existing_project_by_name(self, project_name, organization_name) -> Dict:
         '''
-        Retrieves an existing project by name in a given organization
+        Utility method for instantiating an AtlasProject.
+        Retrieves an existing project by name in a given organization. Fail
         Args:
             project_name: the project name
             organization_name: the organization name
 
         Returns:
-            The project id
+            A dictionary containg the project_id, organization_id and organization_name
 
         '''
 
@@ -304,7 +305,7 @@ class AtlasClass(object):
             json={'organization_name': organization_name, 'project_name': project_name},
         )
         if response.status_code != 200:
-            raise Exception(f"Failed to create project: {response.json()}")
+            raise Exception(f"Failed to find project: {response.json()}")
         search_results = response.json()['results']
 
         if search_results:
@@ -566,22 +567,22 @@ class AtlasProject(AtlasClass):
 
         if 'project_id' in results: #project already exists
             project_id = results['project_id']
-            if reset_project_if_exists:
+            if reset_project_if_exists: #reset the project
                 logger.info(
                     f"Found existing project `{name}` in organization `{organization_name}`. Clearing it of data by request."
                 )
                 self._delete_project_by_id(project_id=project_id)
                 project_id = None
+            elif not add_datums_if_exists: #prevent adding datums to existing project explicitly
+                raise ValueError(
+                    f"Project already exists with the name `{name}` in organization `{organization_name}`. "
+                    f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload."
+                )
             else:
-                if add_datums_if_exists:
-                    logger.info(
-                        f"Using existing project `{name}` in organization `{organization_name}`."
-                    )
-                else:
-                    raise ValueError(
-                        f"Project already exists with the name `{name}` in organization `{organization_name}`. "
-                        f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload."
-                    )
+                logger.info(
+                    f"Loading existing project `{name}` from organization `{organization_name}`."
+                )
+
 
 
         if project_id is None: #if there is no existing project, make a new one.
