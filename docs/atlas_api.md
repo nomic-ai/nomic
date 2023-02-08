@@ -47,3 +47,9 @@ or in a Jupyter Notebook to access your web based map interactions.
 ::: nomic.project.AtlasProject
     options:
         show_root_heading: True
+
+
+## AtlasProjection API
+::: nomic.project.AtlasProjection
+    options:
+        show_root_heading: True

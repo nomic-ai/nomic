@@ -9,7 +9,7 @@ import time
 import uuid
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Iterable
 
 import numpy as np
 import pyarrow as pa
@@ -245,15 +245,16 @@ class AtlasClass(object):
                         f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
                     )
 
-    def _get_organization(self, organization_name=None, organization_id=None):
+    def _get_organization(self, organization_name=None, organization_id=None) -> Tuple[str, str]:
         '''
         Get organization.
 
         Args:
-            organization_name:
-            organization_id:
+            organization_name: the name of the organization
+            organization_id: the id of the organization
 
         Returns:
+            The organization_name and organization_id if one was found.
 
         '''
 
@@ -294,6 +295,8 @@ class AtlasClass(object):
 
         '''
 
+        organization_name, organization_id = self._get_organization(organization_name=organization_name)
+
         # check if this project already exists.
         response = requests.post(
             self.atlas_api_path + "/v1/project/search/name",
@@ -333,13 +336,14 @@ class AtlasIndex:
 
 class AtlasProjection:
     '''
+    Wrapper class to manage map operations.
     This class should not be instantiated directly.
     Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
     '''
 
     def __init__(self, project, atlas_index_id: str, projection_id: str, name):
         """
-        Creates or loads an Atlas projection.
+        Creates an AtlasProjection.
         """
         self.project = project
         self.id = projection_id
@@ -354,11 +358,9 @@ class AtlasProjection:
         return f"{self.project.web_path}/map/{self.project.id}/{self.id}"
 
     def __str__(self):
-        '''User friendly version of the projection class'''
         return f"{self.name}: {self.map_link}"
 
     def __repr__(self):
-        '''Computer friendly version of the projection class.'''
         return {
             "map": self.map_link,
             "projection_id": self.projection_id,
@@ -367,7 +369,7 @@ class AtlasProjection:
             "name": self.name,
         }
 
-    def _download_feather(self, dest="tiles"):
+    def _download_feather(self, dest: str = "tiles"):
         """
         Downloads the feather tree.
 
@@ -390,13 +392,16 @@ class AtlasProjection:
             children = json.loads(kids)
             quads.extend(children)
 
-    def download_embeddings(self, save_directory, num_workers=10):
+    def download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
         Downloads a mapping from datum_id to embedding in shards to the provided directory
 
-        **Parameters:**
+        Args:
+            save_directory: The directory to save your embeddings.
+        Returns:
+            True on success
 
-        * **save_directory** - the path to save your embeddings
+
         '''
         self.project._latest_project_state()
 
@@ -441,11 +446,16 @@ class AtlasProjection:
                     _ = future.result()
                     pbar.update(1)
 
-    def get_embedding_iterator(self):
-        '''
-        Returns an iterable of datum_ids and embeddings from the given index
+        return True
 
-        **Returns:** Iterable[Tuple[datum_ids, embeddings]]
+
+    def get_embedding_iterator(self) -> Iterable[Tuple[str, str]]:
+        '''
+        Iterate through embeddings of your datums.
+
+        Returns:
+            A iterable mapping datum ids to their embeddings.
+
         '''
 
         if self.is_locked:
@@ -467,6 +477,42 @@ class AtlasProjection:
             offset += len(content['datum_ids'])
 
             yield content['datum_ids'], content['embeddings']
+
+    def get_nearest_neighbors(self, queries: np.array, k: int):
+        '''
+        Returns the nearest neighbors and the distances associated with a set of vector queries
+        Args:
+            queries: a 2d numpy array where each row corresponds to a query vetor
+            k: the number of neighbors to return for each point
+        Returns:
+            A dictionary with the following information:
+                neighbors: A set of ids corresponding to the nearest neighbors of each query
+                distances: A set of distances between each query and its neighbors
+        '''
+
+        if queries.ndim != 2:
+            raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
+
+        bytesio = io.BytesIO()
+        np.save(bytesio, queries)
+
+        status = 0
+        retries = 0
+        while status != 200 and retries < 10:
+            response = requests.post(
+                self.project.atlas_api_path + "/v1/project/data/get/embedding/query",
+                headers=self.project.header,
+                json={'atlas_index_id': self.atlas_index_id,
+                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                      'k': k},
+            )
+            status = response.status_code
+            retries += 1
+
+        if retries == 10:
+            raise AssertionError('Could not get response from server')
+
+        return response.json()
 
 
 class AtlasProject(AtlasClass):
@@ -513,7 +559,7 @@ class AtlasProject(AtlasClass):
 
 
 
-        project_id = self.create_project(
+        project_id = self._create_project(
             project_name=name,
             description=description,
             unique_id_field=unique_id_field,
@@ -539,7 +585,7 @@ class AtlasProject(AtlasClass):
 
         return False
 
-    def create_project(
+    def _create_project(
         self,
         project_name: str,
         description: str,
@@ -569,6 +615,7 @@ class AtlasProject(AtlasClass):
         **Returns:** project_id on success.
 
         '''
+
         results = self._get_existing_project_by_name(project_name=project_name, organization_name=organization_name)
         organization_name = results['organization_name']
         organization_id = results['organization_id']
