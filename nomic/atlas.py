@@ -110,7 +110,7 @@ def map_embeddings(
     # make a new index if there were no datums in the project before
     if number_of_datums_before_upload == 0:
         projection = project.create_index(
-            index_name=index_name,
+            name=index_name,
             colorable_fields=colorable_fields,
             build_topic_model=build_topic_model,
             projection_n_neighbors=projection_n_neighbors,
@@ -217,7 +217,7 @@ def map_text(
     # make a new index if there were no datums in the project before
     if number_of_datums_before_upload == 0:
         projection = project.create_index(
-            index_name=index_name,
+            name=index_name,
             indexed_field=indexed_field,
             colorable_fields=colorable_fields,
             build_topic_model=build_topic_model,

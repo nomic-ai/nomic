@@ -519,7 +519,7 @@ class AtlasProject(AtlasClass):
     def __init__(
         self,
         name: Optional[str] = None,
-        description: Optional[str] = None,
+        description: Optional[str] = 'A description for your map.',
         unique_id_field: Optional[str] = None,
         modality: Optional[str] = None,
         organization_name: Optional[str] = None,
@@ -558,17 +558,48 @@ class AtlasProject(AtlasClass):
             return self
 
 
+        results = self._get_existing_project_by_name(project_name=name, organization_name=organization_name)
+        organization_name = results['organization_name']
 
-        project_id = self._create_project(
-            project_name=name,
-            description=description,
-            unique_id_field=unique_id_field,
-            modality=modality,
-            organization_name=organization_name,
-            is_public=is_public,
-            reset_project_if_exists=reset_project_if_exists,
-            add_datums_if_exists=add_datums_if_exists,
-        )
+        if 'project_id' in results: #project already exists
+            project_id = results['project_id']
+            if reset_project_if_exists:
+                logger.info(
+                    f"Found existing project `{name}` in organization `{organization_name}`. Clearing it of data by request."
+                )
+                self._delete_project_by_id(project_id=project_id)
+                time.sleep(5)
+                project_id = None
+            else:
+                if add_datums_if_exists:
+                    logger.info(
+                        f"Using existing project `{name}` in organization `{organization_name}`."
+                    )
+                    self.meta = self._get_project_by_id(project_id=project_id)
+                    return
+                else:
+                    raise ValueError(
+                        f"Project already exists with the name `{name}` in organization `{organization_name}`. "
+                        f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload."
+                    )
+
+
+        if project_id is None: #if there is no existing project, make a new one.
+
+            if unique_id_field is None:
+                raise ValueError("You must specify a unique_id_field when creating a new project.")
+
+            if modality is None:
+                raise ValueError("You must specify a modality when creating a new project.")
+
+            project_id = self._create_project(
+                project_name=name,
+                description=description,
+                unique_id_field=unique_id_field,
+                modality=modality,
+                organization_name=organization_name,
+                is_public=is_public
+            )
 
         self.meta = self._get_project_by_id(project_id=project_id)
 
@@ -592,9 +623,7 @@ class AtlasProject(AtlasClass):
         unique_id_field: str,
         modality: str,
         organization_name: Optional[str] = None,
-        is_public: bool = True,
-        reset_project_if_exists: bool = False,
-        add_datums_if_exists: bool = False,
+        is_public: bool = True
     ):
         '''
         Creates an Atlas project.
@@ -609,35 +638,16 @@ class AtlasProject(AtlasClass):
         * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
         * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
-        * **reset_project_if_exists** - If the requested project exists in your organization, will delete it and re-create it.
-        * **add_datums_if_exists** - Add datums if the project already exists
 
         **Returns:** project_id on success.
 
         '''
 
         results = self._get_existing_project_by_name(project_name=project_name, organization_name=organization_name)
-        organization_name = results['organization_name']
-        organization_id = results['organization_id']
-
         if 'project_id' in results:
-            project_id = results['project_id']
-            if reset_project_if_exists:
-                logger.info(
-                    f"Found existing project `{project_name}` in organization `{organization_name}`. Clearing it of data by request."
-                )
-                self._delete_project_by_id(project_id=project_id)
-            else:
-                if add_datums_if_exists:
-                    logger.info(
-                        f"Using existing project `{project_name}` in organization `{organization_name}`."
-                    )
-                    return project_id
-                else:
-                    raise ValueError(
-                        f"Project already exists with the name `{project_name}` in organization `{organization_name}`. "
-                        f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload."
-                    )
+            raise Exception(f"Project already exists with the name '{project_name}'")
+
+        organization_name, organization_id = self._get_organization(organization_name=organization_name)
 
         supported_modalities = ['text', 'embedding']
         if modality not in supported_modalities:
@@ -645,6 +655,9 @@ class AtlasProject(AtlasClass):
                 modality, supported_modalities
             )
             raise ValueError(msg)
+
+        if unique_id_field is None:
+            raise ValueError("You must specify a unique id field")
         logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
 
         response = requests.post(
@@ -791,7 +804,7 @@ class AtlasProject(AtlasClass):
 
     def create_index(
         self,
-        index_name: str,
+        name: str,
         indexed_field: str = None,
         colorable_fields: list = [],
         multilingual: bool = False,
@@ -806,7 +819,7 @@ class AtlasProject(AtlasClass):
         Creates an index in the specified project.
 
         Args:
-            index_name: The name of the index
+            name: The name of the index and the map.
             indexed_field: For text projects, name the data field corresponding to the text to be mapped.
             colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
             multilingual: Should the map take language into account? If true, points from different languages but semantically similar text are close together.
@@ -836,7 +849,7 @@ class AtlasProject(AtlasClass):
         if self.modality == 'embedding':
             build_template = {
                 'project_id': self.id,
-                'index_name': index_name,
+                'index_name': name,
                 'indexed_field': None,
                 'atomizer_strategies': None,
                 'model': None,
@@ -880,7 +893,7 @@ class AtlasProject(AtlasClass):
 
             build_template = {
                 'project_id': self.id,
-                'index_name': index_name,
+                'index_name': name,
                 'indexed_field': indexed_field,
                 'atomizer_strategies': ['document', 'charchunk'],
                 'model': model,
@@ -913,7 +926,7 @@ class AtlasProject(AtlasClass):
         if response.status_code != 200:
             logger.info('Create project failed with code: {}'.format(response.status_code))
             logger.info('Additional info: {}'.format(response.json()))
-            raise Exception(response.json['detail'])
+            raise Exception(response.json()['detail'])
 
         job_id = response.json()['job_id']
 

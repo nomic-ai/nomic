@@ -11,60 +11,60 @@ import requests
 from nomic import AtlasProject, atlas
 
 
-# def test_map_embeddings_with_errors():
-#
-#     num_embeddings = 10
-#     embeddings = np.random.rand(num_embeddings, 10)
-#
-#     # test nested dictionaries
-#     with pytest.raises(Exception):
-#         data = [{'hello': {'hello'}} for i in range(len(embeddings))]
-#         response = atlas.map_embeddings(
-#             embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
-#         )
-#
-#     # test underscore
-#     with pytest.raises(Exception):
-#         data = [{'__hello': {'hello'}} for i in range(len(embeddings))]
-#         response = atlas.map_embeddings(
-#             embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
-#         )
-#
-#     # test non-matching keys across metadatums
-#     with pytest.raises(Exception):
-#         data = [{'hello': 'a'} for i in range(len(embeddings))]
-#         data[1]['goodbye'] = 'b'
-#         response = atlas.map_embeddings(
-#             embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
-#         )
-#
-#     # test to long ids
-#     with pytest.raises(Exception):
-#         data = [{'id': str(uuid.uuid4()) + 'a'} for i in range(len(embeddings))]
-#         response = atlas.map_embeddings(
-#             embeddings=embeddings,
-#             data=data,
-#             map_name='UNITTEST1',
-#             id_field='id',
-#             is_public=True,
-#             reset_project_if_exists=True,
-#         )
-#
-#     # test duplicate keys error
-#     with pytest.raises(Exception):
-#         data = [{'b': 'a'} for i in range(len(embeddings))]
-#         data[1]['goodbye'] = 'b'
-#         response = atlas.map_embeddings(
-#             embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
-#         )
-#
-#     # fail on to large metadata
-#     with pytest.raises(Exception):
-#         embeddings = np.random.rand(1000, 10)
-#         data = [{'string': ''.join(['a'] * (1048576 // 10))} for _ in range(len(embeddings))]
-#         response = atlas.map_embeddings(
-#             embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
-#         )
+def test_map_embeddings_with_errors():
+
+    num_embeddings = 10
+    embeddings = np.random.rand(num_embeddings, 10)
+
+    # test nested dictionaries
+    with pytest.raises(Exception):
+        data = [{'hello': {'hello'}} for i in range(len(embeddings))]
+        response = atlas.map_embeddings(
+            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+        )
+
+    # test underscore
+    with pytest.raises(Exception):
+        data = [{'__hello': {'hello'}} for i in range(len(embeddings))]
+        response = atlas.map_embeddings(
+            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+        )
+
+    # test non-matching keys across metadatums
+    with pytest.raises(Exception):
+        data = [{'hello': 'a'} for i in range(len(embeddings))]
+        data[1]['goodbye'] = 'b'
+        response = atlas.map_embeddings(
+            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+        )
+
+    # test to long ids
+    with pytest.raises(Exception):
+        data = [{'id': str(uuid.uuid4()) + 'a'} for i in range(len(embeddings))]
+        response = atlas.map_embeddings(
+            embeddings=embeddings,
+            data=data,
+            map_name='UNITTEST1',
+            id_field='id',
+            is_public=True,
+            reset_project_if_exists=True,
+        )
+
+    # test duplicate keys error
+    with pytest.raises(Exception):
+        data = [{'b': 'a'} for i in range(len(embeddings))]
+        data[1]['goodbye'] = 'b'
+        response = atlas.map_embeddings(
+            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+        )
+
+    # fail on to large metadata
+    with pytest.raises(Exception):
+        embeddings = np.random.rand(1000, 10)
+        data = [{'string': ''.join(['a'] * (1048576 // 10))} for _ in range(len(embeddings))]
+        response = atlas.map_embeddings(
+            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+        )
 
 
 def test_map_embeddings():
@@ -181,3 +181,21 @@ def test_map_embedding_progressive():
             )
             project.delete()
             return True
+
+
+def test_interactive_workflow():
+
+    p = AtlasProject(name='UNITTEST1',
+                     modality='text',
+                     unique_id_field='id',
+                     reset_project_if_exists=True
+                     )
+
+    p.add_text(data=[{'text': 'hello', 'id': i} for i in range(100)])
+
+    p.create_index(name='UNITTEST1',
+                   indexed_field='text',
+                   build_topic_model=True
+                   )
+
+    p.delete()
