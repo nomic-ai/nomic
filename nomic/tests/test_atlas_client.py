@@ -82,7 +82,7 @@ def test_map_embeddings():
         reset_project_if_exists=True,
     )
 
-    atlas_index_id = project.indices[0]['id']
+    atlas_index_id = project.indices[0].id
 
     time.sleep(10)
     with tempfile.TemporaryDirectory() as td:
