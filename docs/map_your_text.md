@@ -1,42 +1,41 @@
 # Map your text
-Map your text with Atlas by sending over lists of JSON files. Atlas handles the embedding for you. Alternatively, embed text with an external model and send the embeddings.
-
+Map your text documents with Atlas using the `map_text` function.
+Atlas will ingest your documents, organize them with state-of-the-art AI and then serve you back an interactive map.
+Any interaction you do with your data (e.g. tagging) can be accessed programmatically with Atlas Python API.
 
 ## Map text with Atlas
-Send over lists of JSON or Python dictionaries via the `AtlasClient` and Atlas makes a map. When sending text
-you should specify an `indexed_field`. This lets Atlas know what metadata field to use when building and organizing the map.
+When sending text you should specify an `indexed_field` in the `map_text` function. This lets Atlas know what metadata field to use when building your map.
 
 === "Atlas Embed"
 
-    ``` py title="map_text_with_nomic.py"
-    from nomic import AtlasClient
+    ``` py title="map_text_with_atlas.py"
+    from nomic import atlas
     import numpy as np
     from datasets import load_dataset
     
-    atlas = AtlasClient()
+    #Make a dataset with the shape [{'col1': 'val', 'col2': 'val', ...}, etc]
+    #Tip: if you're working with a pandas dataframe
+    #     use pandas.DataFrame.to_dict('records')
+
+    dataset = load_dataset('ag_news')['train']
     
-    #make a dataset with the shape [{'col1': 'val', 'col2': 'val', ...}, etc]
-    #tip: if you're working with a pandas dataframe, use pandas.DataFrame.to_dict('records')
     max_documents = 10000
-    dataset = load_dataset("sentiment140")['train']
-    documents = [dataset[i] for i in np.random.randint(len(dataset), size=max_documents).tolist()]
+    subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
+    documents = [dataset[i] for i in subset_idxs]
     
     response = atlas.map_text(data=documents,
                               indexed_field='text',
-                              is_public=True,
-                              map_name='10k subsample of sentiment140',
-                              map_description="A 10,000 point sample of the huggingface sentiment140 dataset embedded with Nomic's text embedder.",
-                              organization_name=None, #defaults to your current user.
-                              num_workers=10)
+                              map_name='News 10k Example',
+                              colorable_fields=['label'],
+                              map_description='News 10k Example.'
+                              )
     print(response)
     ```
 
 === "Output"
 
     ``` bash
-    map='https://atlas.nomic.ai/map/ff2f89df-451e-49c4-b7a3-a608d7375961/f433cbd1-e728-49da-8c83-685cd613788b'
-    job_id='b4f97377-e2aa-4305-8bc6-db7f5f6eeabf'
-    index_id='46445e68-8c9f-470a-aa82-847e78c0f10e'
+    https://atlas.nomic.ai/map/ff2f89df-451e-49c4-b7a3-a608d7375961/f433cbd1-e728-49da-8c83-685cd613788b
     ```
 
 
@@ -57,13 +56,11 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
 === "HuggingFace Example"
 
     ``` py title="map_with_huggingface.py"
-    from nomic import AtlasClient
+    from nomic import atlas
     from transformers import AutoTokenizer, AutoModel
     import numpy as np
     import torch
     from datasets import load_dataset
-    
-    atlas = AtlasClient()
     
     #make dataset
     max_documents = 10000
@@ -99,9 +96,7 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
 === "Output"
 
     ``` bash
-    map='https://atlas.nomic.ai/map/60e57e91-c573-4d1f-85ac-2f00f2a075ae/f5bf58cf-f40b-439d-bd0d-d3a4a8b98496'
-    job_id='f898193b-99bf-4640-9f5c-ab5318eb8c2e'
-    index_id='536841ff-e0b5-4dcc-8547-cfdc825e6e94'
+    https://atlas.nomic.ai/map/60e57e91-c573-4d1f-85ac-2f00f2a075ae/f5bf58cf-f40b-439d-bd0d-d3a4a8b98496
     ```
 
 
@@ -123,12 +118,11 @@ Add your Cohere API key to the below example to see how their large language mod
 === "Co:here Example"
 
     ``` py title="map_hf_dataset_with_cohere.py"
-    from nomic import AtlasClient
+    from nomic import atlas
     from nomic import CohereEmbedder
     import numpy as np
     from datasets import load_dataset
-    
-    atlas = AtlasClient()
+
     cohere_api_key = ''
     
     dataset = load_dataset("sentiment140")['train']
@@ -163,7 +157,5 @@ Add your Cohere API key to the below example to see how their large language mod
 === "Output"
 
     ``` bash
-    map='https://atlas.nomic.ai/map/ff2f89df-451e-49c4-b7a3-a608d7375961/f433cbd1-e728-49da-8c83-685cd613788b'
-    job_id='b4f97377-e2aa-4305-8bc6-db7f5f6eeabf'
-    index_id='46445e68-8c9f-470a-aa82-847e78c0f10e'
+    https://atlas.nomic.ai/map/ff2f89df-451e-49c4-b7a3-a608d7375961/f433cbd1-e728-49da-8c83-685cd613788b
     ```

@@ -21,10 +21,8 @@ accessible by authenticated individuals in your Nomic organization. Public maps 
 === "Atlas Client Private Map Example"
 
     ``` py title="map_embeddings_private.py"
-    from nomic import AtlasClient
+    from nomic import atlas
     import numpy as np
-    
-    atlas = AtlasClient()
     
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)
@@ -35,6 +33,15 @@ accessible by authenticated individuals in your Nomic organization. Public maps 
                                     )
     print(response)
     ```
+
+## How do I login from the client?
+You can login to your Atlas account from the python client by getting an API key. If you are logged into the Atlas
+dashboard in your web browser you can find it [here](https://atlas.nomic.ai/cli-login).
+Either login in a command shell by running `nomic login` or in Python file with:
+```py
+import nomic
+nomic.login('Nomic API KEY')
+```
 
 ## Making maps under an organization
 If you are added to a Nomic organization by someone (such as your employer), you can create projects under them

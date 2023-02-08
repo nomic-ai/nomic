@@ -1,10 +1,9 @@
-from nomic import AtlasClient
+from nomic import atlas
 from transformers import AutoTokenizer, AutoModel
 import numpy as np
 import torch
 from datasets import load_dataset
 
-atlas = AtlasClient()
 
 #make dataset
 max_documents = 10000
@@ -31,7 +30,6 @@ print(embeddings.shape)
 response = atlas.map_embeddings(embeddings=embeddings,
                                 data=documents,
                                 colorable_fields=['sentiment'],
-                                is_public=True,
                                 map_name="Huggingface Model Example",
                                 map_description="An example of building a text map with a huggingface model.")
 

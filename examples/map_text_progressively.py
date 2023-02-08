@@ -1,10 +1,8 @@
-from nomic import AtlasClient
+from nomic import atlas
 import numpy as np
 from datasets import load_dataset
 
-atlas = AtlasClient()
-
-dataset = load_dataset('wikipedia', '20220301.en')['train']
+dataset = load_dataset('ag_news')['train']
 
 max_documents = 1000
 subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
@@ -15,12 +13,10 @@ second_upload = documents[500:]
 
 response = atlas.map_text(data=first_upload,
                           indexed_field='text',
-                          is_public=True,
+                          map_name='News 10k Example Progressive',
                           num_workers=10)
 
-print('First upload response: ', response)
-project_id = response['project_id']
-response = atlas.update_maps(project_id=project_id,
-                             data=second_upload)
+print(response)
+response = atlas.update_maps(data=second_upload)
 
-print('Second upload response: ', response)
+print(response)

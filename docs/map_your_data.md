@@ -1,22 +1,21 @@
 # Map your embeddings
 Atlas ingests unstructured data such as embeddings or text and organizes them.
-Once your data is in Atlas, you can view *all of it* at once on an interactive map.
+Once your data is in Atlas, you can view *all of it* at once on an interactive map. Any interaction you do on the
+map (e.g. tagging, topic labeling, vector search) you can programmatically access in this Python client.
 
 
 ## Your first neural map
 
-The following code snippet shows you how to map your embeddings with Atlas - Nomic's neural database.
+The following code snippet shows you how to map your embeddings with Atlas.
 Upload 10,000 random embeddings and see them instantly organized on an interactive map.
 
-[Random Embedding Map](https://atlas.nomic.ai/map/74ebf36c-b1fa-4a9e-b091-dcfcc240857e/a9d2e4d0-f5c7-4640-8139-ff858496f45b)
+[Random Embedding Map](https://atlas.nomic.ai/map/82e15baf-5de2-4191-bc60-61ce9d76bd17/91e63b2d-b8af-4de2-a4d2-e6e96d879274)
 
 === "Basic Example"
 
     ``` py title="map_embeddings.py"
-    from nomic import AtlasClient
+    from nomic import atlas
     import numpy as np
-    
-    atlas = AtlasClient()
     
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)
@@ -28,12 +27,10 @@ Upload 10,000 random embeddings and see them instantly organized on an interacti
 === "Output"
 
     ``` bash
-    map='https://atlas.nomic.ai/map/74ebf36c-b1fa-4a9e-b091-dcfcc240857e/a9d2e4d0-f5c7-4640-8139-ff858496f45b'
-    job_id='ebd5e68e-35b8-4de7-acc4-7abc0c725ca3'
-    index_id='66ae0cdf-2d01-440e-9d39-2ef68c3ad445'
+    https://atlas.nomic.ai/map/82e15baf-5de2-4191-bc60-61ce9d76bd17/91e63b2d-b8af-4de2-a4d2-e6e96d879274
     ```
 
-## Colorful Maps
+## Add some colors
 
 Now let's color add colors. To do this, specify the `data` key in the map call. This field should contain a list
 of dictionaries - one for each of your embeddings.
@@ -41,11 +38,9 @@ of dictionaries - one for each of your embeddings.
 === "Advanced Example"
 
     ``` py title="map_embeddings.py"
-    from nomic import AtlasClient
+    from nomic import atlas
     import numpy as np
-    
-    atlas = AtlasClient()
-    
+
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)
     
@@ -64,7 +59,5 @@ of dictionaries - one for each of your embeddings.
 === "Output"
 
     ``` bash
-    map='https://atlas.nomic.ai/map/74ebf36c-b1fa-4a9e-b091-dcfcc240857e/a9d2e4d0-f5c7-4640-8139-ff858496f45b'
-    job_id='ebd5e68e-35b8-4de7-acc4-7abc0c725ca3'
-    index_id='66ae0cdf-2d01-440e-9d39-2ef68c3ad445'
+    https://atlas.nomic.ai/map/74ebf36c-b1fa-4a9e-b091-dcfcc240857e/a9d2e4d0-f5c7-4640-8139-ff858496f45b
     ```

@@ -1,7 +1,6 @@
-from nomic import AtlasClient
+from nomic import atlas
 import numpy as np
 
-atlas = AtlasClient()
 
 num_embeddings = 1000
 embeddings = np.random.rand(num_embeddings, 256)
@@ -17,9 +16,7 @@ response = atlas.map_embeddings(embeddings=first_upload_embeddings,
                                 is_public=True)
 
 print('First upload response: ', response)
-project_id = response['project_id']
-
-response = atlas.update_maps(project_id=project_id,
-                             embeddings=second_upload_embeddings,
+response = atlas.update_maps(embeddings=second_upload_embeddings,
                              data=second_upload_data)
+
 print('Second upload response: ', response)

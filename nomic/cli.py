@@ -1,30 +1,27 @@
 import json
 import os
+import time
 from pathlib import Path
 
 import click
-import time
 import requests
 from rich.console import Console
 
 tenants = {
-    'staging': {
-        'frontend_domain': 'staging-atlas.nomic.ai',
-        'api_domain': 'staging-api-atlas.nomic.ai'
-    },
-    'production': {
-        'frontend_domain': 'atlas.nomic.ai',
-        'api_domain': 'api-atlas.nomic.ai'
-    },
+    'staging': {'frontend_domain': 'staging-atlas.nomic.ai', 'api_domain': 'staging-api-atlas.nomic.ai'},
+    'production': {'frontend_domain': 'atlas.nomic.ai', 'api_domain': 'api-atlas.nomic.ai'},
 }
 
 nomic_base_path = f'{str(Path.home())}/.nomic'
+
+
 
 def validate_api_http_response(response):
     if response.status_code >= 500 and response.status_code < 600:
         raise Exception("Cannot contact establish a connection with Nomic services.")
 
     return response
+
 
 def get_api_credentials():
     if not os.path.exists(os.path.join(nomic_base_path, 'credentials')):
@@ -35,7 +32,7 @@ def get_api_credentials():
         return credentials
 
 
-def login(token, tenant):
+def login(token, tenant='production'):
     environment = tenants[tenant]
     auth0_auth_endpoint = f"https://{environment['frontend_domain']}/cli-login"
 
@@ -55,25 +52,25 @@ def login(token, tenant):
     if not os.path.exists(nomic_base_path):
         os.mkdir(nomic_base_path)
 
-    response = requests.get(
-        'https://'+environment['api_domain'] + f"/v1/user/token/refresh/{token}"
-    )
+    response = requests.get('https://' + environment['api_domain'] + f"/v1/user/token/refresh/{token}")
     response = validate_api_http_response(response)
-
 
     if not response.status_code == 200:
         raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
 
     bearer_token = response.json()['access_token']
     with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
-        json.dump({'refresh_token': token, 'token': bearer_token, 'tenant': tenant, 'expires': time.time()+80000}, file)
+        json.dump(
+            {'refresh_token': token, 'token': bearer_token, 'tenant': tenant, 'expires': time.time() + 80000}, file
+        )
+
 
 def refresh_bearer_token():
     credentials = get_api_credentials()
     if time.time() >= credentials['expires']:
         environment = tenants[credentials['tenant']]
         response = requests.get(
-            'https://'+environment['api_domain'] + f"/v1/user/token/refresh/{credentials['refresh_token']}"
+            'https://' + environment['api_domain'] + f"/v1/user/token/refresh/{credentials['refresh_token']}"
         )
         response = validate_api_http_response(response)
 
@@ -84,6 +81,7 @@ def refresh_bearer_token():
         credentials['access_token'] = bearer_token
         with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
             json.dump(credentials, file)
+    return credentials
 
 
 @click.command()
