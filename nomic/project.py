@@ -352,7 +352,7 @@ class AtlasProjection:
 
         """
         dest = Path(dest)
-        root = f'https://staging-api-atlas.nomic.ai/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
+        root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         while len(quads) > 0:
             quad = quads.pop(0) + ".feather"
