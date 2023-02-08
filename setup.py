@@ -24,7 +24,8 @@ setup(
         'pydantic',
         'wonderwords',
         'tqdm',
-        'cohere'
+        'cohere',
+        'pyarrow'
     ],
     extras_require={
         'dev': [
