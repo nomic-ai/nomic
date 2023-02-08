@@ -706,8 +706,8 @@ class AtlasProject(AtlasClass):
             raise ValueError("You have multiple maps in this project, specify a name.")
 
         if len(indices) == 1:
-            if len(indices.projections) == 1:
-                return indices.projections[0]
+            if len(indices[0].projections) == 1:
+                return indices[0].projections[0]
 
         for index in indices:
             if index.name == name:
