@@ -82,7 +82,7 @@ def test_map_embeddings():
         reset_project_if_exists=True,
     )
 
-    map = project.get_map('UNITTEST1')
+    map = project.get_map(name='UNITTEST1')
 
     time.sleep(10)
     with tempfile.TemporaryDirectory() as td:
