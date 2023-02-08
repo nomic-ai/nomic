@@ -93,7 +93,7 @@ def test_map_embeddings():
     project = AtlasProject(name='UNITTEST1')
     map = project.get_map(name='UNITTEST1')
 
-    project.create_index(index_name='My new index')
+    project.create_index(name='My new index')
 
     # neighbors = map.get_nearest_neighbors(queries=np.random.rand(1, 10), k=2)
     # print(neighbors)
