@@ -15,6 +15,7 @@ tenants = {
 nomic_base_path = f'{str(Path.home())}/.nomic'
 
 
+
 def validate_api_http_response(response):
     if response.status_code >= 500 and response.status_code < 600:
         raise Exception("Cannot contact establish a connection with Nomic services.")
@@ -31,7 +32,7 @@ def get_api_credentials():
         return credentials
 
 
-def login(token, tenant):
+def login(token, tenant='production'):
     environment = tenants[tenant]
     auth0_auth_endpoint = f"https://{environment['frontend_domain']}/cli-login"
 
