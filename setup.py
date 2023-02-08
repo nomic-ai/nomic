@@ -35,7 +35,8 @@ setup(
             "myst-parser",
             "mkdocs-material",
             "mkautodoc",
-            "twine"
+            "twine",
+            "mkdocstrings[python]"
         ],
     },
     entry_points={

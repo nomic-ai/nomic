@@ -148,7 +148,7 @@ def map_text(
     projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
-    build_topic_model: bool = False,
+    build_topic_model: bool = True,
     multilingual: bool = False,
 ):
     '''
@@ -158,7 +158,7 @@ def map_text(
 
     * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
     * **indexed_field** - The name the data field corresponding to the text to be mapped.
-    * **id_field** - Specify your datas unique id field. ID fields can be up 36 characters in length. If not specified, one will be created for you named `id_`.
+    * **id_field** - Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
     * **colorable_fields** - The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
     * **is_public** - Should this embedding map be public? Private maps can only be accessed by members of your organization.
     * **num_workers** - The number of workers to use when sending data.
@@ -166,12 +166,13 @@ def map_text(
     * **map_description** - A description for your map.
     * **organization_name** - *(optional)* The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
     * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
-    * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.        * **shard_size** - The AtlasClient sends your data in shards to Atlas. A smaller shard_size sends more requests. Decrease the shard_size if you hit data size errors during upload.
+    * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.
+    * **shard_size** - The AtlasClient sends your data in shards to Atlas. A smaller shard_size sends more requests. Decrease the shard_size if you hit data size errors during upload.
     * **projection_n_neighbors** - *(optional)* The number of neighbors to use in the projection
     * **projection_epochs** - *(optional)* The number of epochs to use in the projection.
     * **projection_spread** - *(optional)* The effective scale of embedded points. Determines how clumped the map is.
     * **build_topic_model** - Builds a hierarchical topic model over your data to discover patterns.
-    * **multilingual** - Should the map take language into account? If true, points from different languages but semantically similar text are close together.
+    * **multilingual** - Should the map take language into account? If true, points from different with semantically similar text are considered similar.
 
     **Returns:** A link to your map.
     '''

@@ -312,7 +312,7 @@ class AtlasIndex:
 
 class AtlasProjection:
     '''
-    This class should not be instantiated by a user.
+    This class should not be instantiated directly.
     Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
     '''
 
@@ -428,10 +428,6 @@ class AtlasProject(AtlasClass):
     def delete(self):
         '''
         Deletes an atlas project with all associated metadata.
-
-        **Parameters:**
-
-        * **project_id** - The id of the project you want to delete.
         '''
         organization = self._get_current_users_main_organization()
         organization_name = organization['nickname']
@@ -553,6 +549,7 @@ class AtlasProject(AtlasClass):
 
     @property
     def id(self):
+        '''The UUID of the project.'''
         return self.meta['id']
 
     @property
@@ -561,6 +558,7 @@ class AtlasProject(AtlasClass):
 
     @property
     def total_datums(self):
+        '''The total number of data points in the project.'''
         return self.meta['total_datums_in_project']
 
     @property
@@ -569,6 +567,7 @@ class AtlasProject(AtlasClass):
 
     @property
     def name(self):
+        '''The name of the project.'''
         return self.meta['project_name']
 
     @property
@@ -587,9 +586,6 @@ class AtlasProject(AtlasClass):
     def is_accepting_data(self):
         '''
         Checks if the project can accept data. Projects cannot accept data when they are being indexed.
-
-        **Parameters:**
-
         **Returns:** True if project is unlocked for data additions, false otherwise.
         '''
         self._latest_project_state()
@@ -597,20 +593,15 @@ class AtlasProject(AtlasClass):
 
     def get_map(self, name=None, atlas_index_id=None, projection_id=None):
         '''
-        Gets a map.
+        Retrieves a Map
 
-        If the project has one index and one map, returns the map (common workflow).
-        If the project has multiple indices, select the projection in the one whose name matches 'name'
-        If atlas_index_id is specified, ignores above and only returns successfully if a map with the corresponding atlas_index_id exists.
-        If projection_id is specified, ignores above and only returns successfully if a map with the corresponding projection_id exists.
+        **Parameters:**
 
-        Args:
-            name: The name of your map. This will usually be your projects name but can be different if you build multiple maps in your project.
-            atlas_index_id: If atlas_index_id is specified, will only return a map if there is one built under the index with id atlas_index_id.
-            atlas_index_id: If projection_id is specified, will only return a map if there is one built under the index with id projection_id.
+        * **name** - The name of your map. This defaults to your projects name but can be different if you build multiple maps in your project.
+        * **atlas_index_id** - (optional) If atlas_index_id is specified, will only return a map if there is one built under the index with id atlas_index_id.
+        * **projection_id** - (optional) If projection_id is specified, will only return a map if there is one built under the index with id projection_id.
 
-        Returns:
-            ValueError if a map cannot be found, otherwise the projection corresponding to the map.
+        **Returns:** ValueError if a map cannot be found, otherwise the projection corresponding to the map.
 
         '''
 
@@ -1105,15 +1096,67 @@ class AtlasProject(AtlasClass):
 
         return True
 
-    def refresh_maps(self):
+
+    def update_maps(self,
+                    data: List[Dict],
+                    embeddings: Optional[np.array]=None,
+                    shard_size: int = 1000,
+                    num_workers: int = 10):
         '''
-        Refresh all maps in a project with the latest state.
+        Updates a project's maps with new data.
 
         **Parameters:**
 
-        * **project_id** - The id of the project whose maps will be refreshed.
+        * **data** - An [N,] element list of dictionaries containing metadata for each embedding.
+        * **embedding** - (Default None) An [N, d] matrix of embeddings for updating embedding projects. Leave as None to update text projects.
+        * **shard_size** - Data is uploaded in parallel by many threads. Adjust the number of datums to upload by each worker.
+        * **num_workers** - The number of workers to use when sending data.
 
-        **Returns:** a list of jobs
+        **Returns:** job_ids: The ids of the update jobs
+        '''
+
+        # Validate data
+        if self.modality == 'embedding' and embeddings is None:
+            msg = 'Please specify embeddings for updating an embedding project'
+            raise ValueError(msg)
+
+        if self.modality == 'text' and embeddings is not None:
+            msg = 'Please dont specify embeddings for updating a text project'
+            raise ValueError(msg)
+
+        if embeddings is not None and len(data) != embeddings.shape[0]:
+            msg = 'Expected data and embeddings to be the same length but found lengths {} and {} respectively.'.format()
+            raise ValueError(msg)
+
+
+        # Add new data
+        logger.info("Uploading data to Nomic's neural database Atlas.")
+        with tqdm(total=len(data) // shard_size) as pbar:
+            for i in range(0, len(data), MAX_MEMORY_CHUNK):
+                if self.modality == 'embedding':
+                    self.add_embeddings(
+                        embeddings=embeddings[i: i + MAX_MEMORY_CHUNK, :],
+                        data=data[i: i + MAX_MEMORY_CHUNK],
+                        shard_size=shard_size,
+                        num_workers=num_workers,
+                        pbar=pbar,
+                    )
+                else:
+                    self.add_text(
+                        data=data[i: i + MAX_MEMORY_CHUNK],
+                        shard_size=shard_size,
+                        num_workers=num_workers,
+                        pbar=pbar,
+                    )
+        logger.info("Upload succeeded.")
+
+        #Update maps
+        # finally, update all the indices
+        return self.refresh_maps()
+
+    def refresh_maps(self):
+        '''
+        Refresh all maps in a project with the latest state.
         '''
 
         response = requests.post(
@@ -1128,13 +1171,14 @@ class AtlasProject(AtlasClass):
 
         return self
 
-    def download_embeddings(self, atlas_index_id, output_dir, num_workers=10):
+    def download_embeddings(self, atlas_index_id, save_directory, num_workers=10):
         '''
         Downloads a mapping from datum_id to embedding in shards to the provided directory
 
-        Args:
-            atlas_index_id: the id of the index whose ambient embeddings you want
-            output_dir: the directory to save shards to
+        **Parameters:**
+
+        * **atlas_index_id** - the id of the index whose ambient embeddings you want
+        * **save_directory** - the id of the index whose ambient embeddings you want
         '''
         self._latest_project_state()
 
@@ -1160,7 +1204,7 @@ class AtlasProject(AtlasClass):
                 content = response.json()
 
                 shard_name = '{}_{}_{}.pkl'.format(atlas_index_id, offset, offset + limit)
-                shard_path = os.path.join(output_dir, shard_name)
+                shard_path = os.path.join(save_directory, shard_name)
                 with open(shard_path, 'wb') as f:
                     pickle.dump(content, f)
 
@@ -1183,11 +1227,11 @@ class AtlasProject(AtlasClass):
         '''
         Returns an iterable of datum_ids and embeddings from the given index
 
-        Args:
-            atlas_index_id: the id of the index whose ambient embeddings you want
+        **Parameters:**
 
-        Returns:
-            Iterable[Tuple[datum_ids, embeddings]]
+        * **atlas_index_id** - the id of the index whose ambient embeddings you want
+
+        **Returns:** Iterable[Tuple[datum_ids, embeddings]]
         '''
 
         if self.is_locked:

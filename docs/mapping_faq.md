@@ -21,10 +21,8 @@ accessible by authenticated individuals in your Nomic organization. Public maps 
 === "Atlas Client Private Map Example"
 
     ``` py title="map_embeddings_private.py"
-    from nomic import AtlasClient
+    from nomic import atlas
     import numpy as np
-    
-    atlas = AtlasClient()
     
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)

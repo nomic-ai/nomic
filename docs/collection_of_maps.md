@@ -1,5 +1,9 @@
 # Collection of Maps
-[Stable Diffusion](https://atlas.nomic.ai/map/809ef16a-5b2d-4291-b772-a913f4c8ee61/9ed7d171-650b-4526-85bf-3592ee51ea31) (6.4 Million datums)
+[Twitter](https://atlas.nomic.ai/map/twitter) (5.4 million tweets)
+
+[Stable Diffusion](https://atlas.nomic.ai/map/stablediffusion) (6.4 million images)
+
+[NeurIPS Proceedings](https://atlas.nomic.ai/map/neurips) (16,623 documents)
 
 [ICLR 2018-2023 Submissions](https://atlas.nomic.ai/map/b06c5cd7-6946-43ed-b515-7934970c8ed7/6e643208-03fb-4b94-ae01-69ce5395ee5b)
 

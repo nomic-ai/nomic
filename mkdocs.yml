@@ -1,9 +1,9 @@
-site_name: Nomic Documentation
+site_name: Atlas Documentation
 repo_url: https://github.com/nomic-ai/nomic
 repo_name: nomic-ai/nomic
 edit_uri: edit/main/docs/
 site_description: Nomic Client Documentation
-copyright: Copyright &copy; 2022 Nomic, Inc
+copyright: Copyright &copy; 2023 Nomic, Inc
 use_directory_urls: false
 
 nav:
@@ -15,7 +15,7 @@ nav:
     - 'map_your_video.md'
     - 'map_your_audio.md'
     - 'API Reference':
-      - 'atlas_client.md'
+      - 'atlas_api.md'
       - 'embedder.md'
     - 'FAQ and Releases':
       - 'how_does_atlas_work.md'
@@ -56,7 +56,16 @@ markdown_extensions:
   - admonition
   - codehilite:
       css_class: highlight
-  - mkautodoc
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: True
+            heading_level: 5
+            show_root_full_path: false
+            docstring_section_style: list
 
 extra_css:
     - css/custom.css
