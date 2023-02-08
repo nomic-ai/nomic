@@ -369,6 +369,84 @@ class AtlasProjection:
             children = json.loads(kids)
             quads.extend(children)
 
+    def download_embeddings(self, save_directory, num_workers=10):
+        '''
+        Downloads a mapping from datum_id to embedding in shards to the provided directory
+
+        **Parameters:**
+
+        * **save_directory** - the path to save your embeddings
+        '''
+        self.project._latest_project_state()
+
+        total_datums = self.total_datums
+        if self.is_locked:
+            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+
+        offset = 0
+        limit = EMBEDDING_PAGINATION_LIMIT
+
+        def download_shard(offset, check_access=False):
+            response = requests.get(
+                self.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{self.atlas_index_id}/{offset}/{limit}",
+                headers=self.header,
+            )
+
+            if response.status_code != 200:
+                raise Exception(response.json())
+
+            if check_access:
+                return
+            try:
+                content = response.json()
+
+                shard_name = '{}_{}_{}.pkl'.format(self.atlas_index_id, offset, offset + limit)
+                shard_path = os.path.join(save_directory, shard_name)
+                with open(shard_path, 'wb') as f:
+                    pickle.dump(content, f)
+
+            except Exception as e:
+                logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
+
+        download_shard(0, check_access=True)
+
+        with tqdm(total=total_datums // limit) as pbar:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+                futures = {
+                    executor.submit(download_shard, cur_offset): cur_offset
+                    for cur_offset in range(0, total_datums, limit)
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    _ = future.result()
+                    pbar.update(1)
+
+    def get_embedding_iterator(self):
+        '''
+        Returns an iterable of datum_ids and embeddings from the given index
+
+        **Returns:** Iterable[Tuple[datum_ids, embeddings]]
+        '''
+
+        if self.is_locked:
+            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+
+        offset = 0
+        limit = EMBEDDING_PAGINATION_LIMIT
+        while True:
+            response = requests.get(
+                self.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{self.atlas_index_id}/{offset}/{limit}",
+                headers=self.header,
+            )
+            if response.status_code != 200:
+                raise Exception(response.json()['detail'])
+
+            content = response.json()
+            if len(content['datum_ids']) == 0:
+                break
+            offset += len(content['datum_ids'])
+
+            yield content['datum_ids'], content['embeddings']
+
 
 class AtlasProject(AtlasClass):
     def __init__(
@@ -1170,89 +1248,6 @@ class AtlasProject(AtlasClass):
         logger.info(f"Updating maps in project `{self.name}`")
 
         return self
-
-    def download_embeddings(self, atlas_index_id, save_directory, num_workers=10):
-        '''
-        Downloads a mapping from datum_id to embedding in shards to the provided directory
-
-        **Parameters:**
-
-        * **atlas_index_id** - the id of the index whose ambient embeddings you want
-        * **save_directory** - the id of the index whose ambient embeddings you want
-        '''
-        self._latest_project_state()
-
-        total_datums = self.total_datums
-        if self.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
-
-        offset = 0
-        limit = EMBEDDING_PAGINATION_LIMIT
-
-        def download_shard(offset, check_access=False):
-            response = requests.get(
-                self.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{atlas_index_id}/{offset}/{limit}",
-                headers=self.header,
-            )
-
-            if response.status_code != 200:
-                raise Exception(response.json())
-
-            if check_access:
-                return
-            try:
-                content = response.json()
-
-                shard_name = '{}_{}_{}.pkl'.format(atlas_index_id, offset, offset + limit)
-                shard_path = os.path.join(save_directory, shard_name)
-                with open(shard_path, 'wb') as f:
-                    pickle.dump(content, f)
-
-            except Exception as e:
-                logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
-
-        download_shard(0, check_access=True)
-
-        with tqdm(total=total_datums // limit) as pbar:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-                futures = {
-                    executor.submit(download_shard, cur_offset): cur_offset
-                    for cur_offset in range(0, total_datums, limit)
-                }
-                for future in concurrent.futures.as_completed(futures):
-                    _ = future.result()
-                    pbar.update(1)
-
-    def get_embedding_iterator(self, atlas_index_id):
-        '''
-        Returns an iterable of datum_ids and embeddings from the given index
-
-        **Parameters:**
-
-        * **atlas_index_id** - the id of the index whose ambient embeddings you want
-
-        **Returns:** Iterable[Tuple[datum_ids, embeddings]]
-        '''
-
-        if self.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
-
-        offset = 0
-        limit = EMBEDDING_PAGINATION_LIMIT
-        while True:
-            response = requests.get(
-                self.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{atlas_index_id}/{offset}/{limit}",
-                headers=self.header,
-            )
-            if response.status_code != 200:
-                raise Exception(response.json()['detail'])
-
-            content = response.json()
-            if len(content['datum_ids']) == 0:
-                break
-            offset += len(content['datum_ids'])
-
-            yield content['datum_ids'], content['embeddings']
 
     def get_tags(self):
         '''
