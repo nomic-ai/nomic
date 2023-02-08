@@ -1254,27 +1254,12 @@ class AtlasProject(AtlasClass):
 
             yield content['datum_ids'], content['embeddings']
 
-    def get_tags(self, index_name=None):
+    def get_tags(self):
         '''
         Retrieves back all tags made in the web browser for a specific project and map.
 
-        **Parameters:**
-
-        * **index_name** - The name of the atlas index in the project.
-
         **Returns:** A dictionary mapping datum ids to tags.
         '''
-
-        if len(self.indices) == 0:
-            raise Exception(f'There are no indices in the project `{self.name}`.')
-
-        target_index = None
-        for index in self.indices:
-            if index['index_name'] == index_name:
-                target_index = index
-                break
-        if target_index is None:
-            target_index = self.indices[0]
 
         # now get the tags
         datums_and_tags = requests.post(
@@ -1282,7 +1267,6 @@ class AtlasProject(AtlasClass):
             headers=self.header,
             json={
                 'project_id': self.id,
-                'atlas_index_id': target_index['id'],
             },
         ).json()['results']
 
