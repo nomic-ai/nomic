@@ -380,7 +380,7 @@ class AtlasProjection:
         self.project._latest_project_state()
 
         total_datums = self.project.total_datums
-        if self.is_locked:
+        if self.project.is_locked:
             raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
 
         offset = 0
@@ -388,8 +388,8 @@ class AtlasProjection:
 
         def download_shard(offset, check_access=False):
             response = requests.get(
-                self.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{self.atlas_index_id}/{offset}/{limit}",
-                headers=self.header,
+                self.project.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{self.atlas_index_id}/{offset}/{limit}",
+                headers=self.project.header,
             )
 
             if response.status_code != 200:
