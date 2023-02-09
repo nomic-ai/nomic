@@ -10,6 +10,7 @@ import uuid
 from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Iterable
+from contextlib import contextmanager
 
 import numpy as np
 import pyarrow as pa
@@ -337,7 +338,7 @@ class AtlasIndex:
 
 class AtlasProjection:
     '''
-    Wrapper class to manage map operations.
+    Manages operations on maps such as text/vector search.
     This class should not be instantiated directly.
     Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
     '''
@@ -709,7 +710,7 @@ class AtlasProject(AtlasClass):
         return output
 
     @property
-    def id(self):
+    def id(self) -> str:
         '''The UUID of the project.'''
         return self.meta['id']
 
@@ -754,6 +755,17 @@ class AtlasProject(AtlasClass):
         '''
         self._latest_project_state()
         return not self.is_locked
+
+
+    @contextmanager
+    def block_until_accepting_data(self):
+        '''Blocks thread execution until project is in a state where it can ingest data.'''
+        while True:
+            if self.is_accepting_data:
+                logger.info("Project is ready to accept data.")
+                yield self
+                break
+            time.sleep(5)
 
     def get_map(self, name: str = None, atlas_index_id: str = None, projection_id: str = None) -> AtlasProjection:
         '''
@@ -1272,7 +1284,7 @@ class AtlasProject(AtlasClass):
                     shard_size: int = 1000,
                     num_workers: int = 10):
         '''
-        Updates a project's maps with new data.
+        Utility method to update a projects maps by adding the given data.
 
         Args:
             data: An [N,] element list of dictionaries containing metadata for each embedding.
@@ -1321,9 +1333,10 @@ class AtlasProject(AtlasClass):
         # finally, update all the indices
         return self.refresh_maps()
 
-    def refresh_maps(self):
+    def rebuild_maps(self):
         '''
-        Refresh all maps in a project with the latest state.
+        Rebuilds all maps in a project with the latest state project data state. Maps will not be rebuilt to
+        reflect the additions, deletions or updates you have made to your data until this method is called.
         '''
 
         response = requests.post(
@@ -1335,8 +1348,6 @@ class AtlasProject(AtlasClass):
         )
 
         logger.info(f"Updating maps in project `{self.name}`")
-
-        return self
 
     def get_tags(self) -> Dict[str, str]:
         '''
@@ -1354,11 +1365,13 @@ class AtlasProject(AtlasClass):
             },
         ).json()['results']
 
-        datum_to_labels = {}
+        label_to_datums = {}
         for item in datums_and_tags:
-            datum_to_labels[item['datum_id']] = item['labels']
-
-        return datums_and_tags
+            for label in item['labels']:
+                if label not in label_to_datums:
+                    label_to_datums[label] = []
+                label_to_datums[label].append(item['datum_id'])
+        return label_to_datums
 
     # def upload_embeddings(self, table: pa.Table, embedding_column: str = '_embedding'):
     #     """
