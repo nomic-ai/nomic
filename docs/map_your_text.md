@@ -78,7 +78,7 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
         for i in range(0, len(documents), batch_size):
             batch = [document['text'] for document in documents[i:i+batch_size]]
             encoded_input = tokenizer(batch, return_tensors='pt', padding=True)
-            cls_embeddings = model(**encoded_input)['last_hidden_state'][:, 0] #
+            cls_embeddings = model(**encoded_input)['last_hidden_state'][:, 0]
             embeddings.append(cls_embeddings)
     
     embeddings = torch.cat(embeddings).numpy()
@@ -86,7 +86,6 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
     response = atlas.map_embeddings(embeddings=embeddings,
                                     data=documents,
                                     colorable_fields=['sentiment'],
-                                    is_public=True,
                                     map_name="Huggingface Model Example",
                                     map_description="An example of building a text map with a huggingface model.")
     
@@ -135,9 +134,7 @@ Add your Cohere API key to the below example to see how their large language mod
     
     print(f"Embedding {len(documents)} documents with Cohere API")
     embeddings = embedder.embed(texts=[document['user'] for document in documents],
-                                model='small',
-                                num_workers=10,
-                                shard_size=1000,)
+                                model='small')
     
     if len(embeddings) != len(documents):
         raise Exception("Embedding job failed")
@@ -146,11 +143,9 @@ Add your Cohere API key to the below example to see how their large language mod
     response = atlas.map_embeddings(embeddings=np.array(embeddings),
                                     data=documents,
                                     colorable_fields=['sentiment'],
-                                    is_public=True,
                                     map_name='Sentiment 140',
                                     map_description='A 10,000 point sample of the huggingface sentiment140 dataset embedded with the co:here small model.',
-                                    organization_name=None, #defaults to your current user.
-                                    num_workers=20)
+                                    )
     print(response)
     ```
 
