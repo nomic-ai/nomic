@@ -39,7 +39,7 @@ Follow the instructions to obtain your access token. Enter your access token wit
 nomic login [token]
 ```
 
-You are ready to interact with Atlas. Continue on to [make your first neural map](map_your_data.md).
+You are ready to interact with Atlas. Continue on to [make your first map](map_your_data.md).
 
 ## Resources:
 

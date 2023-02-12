@@ -9,7 +9,7 @@ import time
 import uuid
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Iterable
+from typing import Dict, List, Optional, Tuple, Iterable, Union
 from contextlib import contextmanager
 
 import numpy as np
@@ -480,7 +480,7 @@ class AtlasProjection:
 
             yield content['datum_ids'], content['embeddings']
 
-    def get_nearest_neighbors(self, queries: np.array, k: int):
+    def get_nearest_neighbors(self, queries: np.array, k: int) -> Dict[str, List]:
         '''
         Returns the nearest neighbors and the distances associated with a set of vector queries
         Args:
@@ -975,10 +975,61 @@ class AtlasProject(AtlasClass):
 
     def __repr__(self):
         m = self.meta
-        return f"Nomic project: <{m}>"
+        return f"AtlasProject: <{m}>"
 
     def __str__(self):
         return "\n".join([str(projection) for index in self.indices for projection in index.projections])
+
+
+    def get_data(self, ids: List[str]) -> List[Dict]:
+        '''
+        Retrieve the contents of the data given ids
+
+        Args:
+            ids: a list of datum ids
+
+        Returns:
+            A list of dictionaries corresponding
+
+        '''
+
+        if not isinstance(ids, list):
+            raise ValueError("You must specify a list of ids when getting data.")
+
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/data/get",
+            headers=self.header,
+            json={'project_id': self.id, 'datum_ids': ids},
+        )
+
+        if response.status_code == 200:
+            return [item for item in response.json()['datums']]
+        else:
+            raise Exception(response.json())
+
+    def delete_data(self, ids: List[str]) -> bool:
+        '''
+        Deletes the specified datums from the project.
+
+        Args:
+            ids: A list of datum ids to delete
+
+        Returns:
+
+        '''
+        if not isinstance(ids, list):
+            raise ValueError("You must specify a list of ids when deleting datums.")
+
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/data/delete",
+            headers=self.header,
+            json={'project_id': self.id, 'datum_ids': ids},
+        )
+
+        if response.status_code == 200:
+            return True
+        else:
+            raise Exception(response.json())
 
     def add_text(
         self,

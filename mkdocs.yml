@@ -12,11 +12,11 @@ nav:
     - 'map_your_text.md'
     - 'dynamic_maps.md'
     - 'map_your_images.md'
-    - 'map_your_video.md'
-    - 'map_your_audio.md'
     - 'API Reference':
       - 'atlas_api.md'
-      - 'embedder.md'
+    - 'Tutorials':
+      - 'data_cleaning_in_atlas.md'
+      - 'vector_search_in_atlas.md'
     - 'FAQ and Releases':
       - 'how_does_atlas_work.md'
       - 'collection_of_maps.md'

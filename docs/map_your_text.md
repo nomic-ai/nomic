@@ -1,7 +1,7 @@
 # Map your text
 Map your text documents with Atlas using the `map_text` function.
 Atlas will ingest your documents, organize them with state-of-the-art AI and then serve you back an interactive map.
-Any interaction you do with your data (e.g. tagging) can be accessed programmatically with Atlas Python API.
+Any interaction you do with your data (e.g. tagging) can be accessed programmatically with the Atlas Python API.
 
 ## Map text with Atlas
 When sending text you should specify an `indexed_field` in the `map_text` function. This lets Atlas know what metadata field to use when building your map.
@@ -23,19 +23,18 @@ When sending text you should specify an `indexed_field` in the `map_text` functi
     subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
     documents = [dataset[i] for i in subset_idxs]
     
-    response = atlas.map_text(data=documents,
+    project = atlas.map_text(data=documents,
                               indexed_field='text',
                               map_name='News 10k Example',
                               colorable_fields=['label'],
                               map_description='News 10k Example.'
                               )
-    print(response)
     ```
 
 === "Output"
 
     ``` bash
-    https://atlas.nomic.ai/map/ff2f89df-451e-49c4-b7a3-a608d7375961/f433cbd1-e728-49da-8c83-685cd613788b
+    https://atlas.nomic.ai/map/0642e9a1-12d9-4504-a987-9ca50ecd5327/699afdee-cea0-4805-9c84-12eca6dbebf8
     ```
 
 

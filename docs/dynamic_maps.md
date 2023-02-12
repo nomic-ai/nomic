@@ -30,28 +30,32 @@ the embedding was part of the first or second set of data added to the project.
     
     num_embeddings = 1000
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'upload': '2'} for i in range(len(embeddings))]
+    data = [{'upload': '1', 'id': i} for i in range(len(embeddings))]
     
     project = atlas.map_embeddings(embeddings=embeddings,
-                                    data=data,
-                                    map_name='A Map That Gets Updated',
-                                    colorable_fields=['upload'])
+                                   data=data,
+                                   id_field='id',
+                                   map_name='A Map That Gets Updated',
+                                   colorable_fields=['upload'],
+                                   reset_project_if_exists=True)
+
     map = project.get_map('A Map That Gets Updated')
     print(map)
     ```
 
 The second upload will contain 1000 random embeddings of dimension 10 but with a shifted mean. The resulting
-map has two cluster: one cluster for the first upload with mean zero and the second
+map contains two clusters: one cluster for the first upload with mean zero vectors and the second
 cluster corresponding to vectors with the shifted mean.
 === "Second upload"
 
     ``` py
-    #embeddings with shifted mean.
+    total_datums = project.total_datums
+
+    # embeddings with shifted mean.
     embeddings += np.ones(shape=(num_embeddings, 10))
-    data = [{'upload': '2'} for i in range(len(embeddings))]
+    data = [{'upload': '2', 'id': total_datums+i} for i in range(len(embeddings))]
     
-    
-    with project.block_until_accepting_data() as project:
+    with project.block_until_accepting_data():
         project.add_embeddings(embeddings=embeddings, data=data)
         project.rebuild_maps()
     ```
@@ -62,4 +66,18 @@ cluster corresponding to vectors with the shifted mean.
     This context manager will block the currently running thread until all maps in your project are done building. For large projects,
     this may take a long time.
 
+
+## Deleting Data
+You can delete data with the `delete_data` method on an AtlasProject.
+
+Following the previous example:
+=== "Deleting data"
+
+    ``` py
+    with project.block_until_accepting_data():
+        project.delete_data(ids=[i for i in range(1100, 2000)])
+        project.rebuild_maps()
+    ```
+
+One cluster in your map should now be 1/10 the size of the other cluster.
 

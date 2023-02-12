@@ -29,19 +29,31 @@ import numpy as np
 
 num_embeddings = 1000
 embeddings = np.random.rand(num_embeddings, 10)
-data = [{'upload': '1'} for i in range(len(embeddings))]
+data = [{'upload': '1', 'id': i} for i in range(len(embeddings))]
 
 project = atlas.map_embeddings(embeddings=embeddings,
                                data=data,
+                               id_field='id',
                                map_name='A Map That Gets Updated',
-                               colorable_fields=['upload'])
+                               colorable_fields=['upload'],
+                               reset_project_if_exists=True)
 map = project.get_map('A Map That Gets Updated')
 print(map)
 
+total_datums = project.total_datums
 # embeddings with shifted mean.
 embeddings += np.ones(shape=(num_embeddings, 10))
-data = [{'upload': '2'} for i in range(len(embeddings))]
+data = [{'upload': '2', 'id': total_datums+i} for i in range(len(embeddings))]
 
-with project.block_until_accepting_data() as project:
+with project.block_until_accepting_data():
     project.add_embeddings(embeddings=embeddings, data=data)
     project.rebuild_maps()
+
+
+
+with project.block_until_accepting_data():
+    project.delete_data(ids=[i for i in range(1100, 2000)])
+    project.rebuild_maps()
+
+
+print(project.get_data(ids=[i for i in range(0, 1000)]))
