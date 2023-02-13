@@ -1,22 +1,24 @@
 from nomic import atlas
 import numpy as np
 
+from nomic import atlas
+import numpy as np
 
 num_embeddings = 1000
-embeddings = np.random.rand(num_embeddings, 256)
-data = [{'id': i} for i in range(len(embeddings))]
+embeddings = np.random.rand(num_embeddings, 10)
+data = [{'upload': '1'} for i in range(len(embeddings))]
 
-first_upload_embeddings = embeddings[:500, :]
-second_upload_embeddings = embeddings[500:, :]
-first_upload_data = data[:500]
-second_upload_data = data[500:]
+project = atlas.map_embeddings(embeddings=embeddings,
+                               data=data,
+                               map_name='A Map That Gets Updated',
+                               colorable_fields=['upload'])
+map = project.get_map('A Map That Gets Updated')
+print(map)
 
-response = atlas.map_embeddings(embeddings=first_upload_embeddings,
-                                data=first_upload_data,
-                                is_public=True)
+# embeddings with shifted mean.
+embeddings += np.ones(shape=(num_embeddings, 10))
+data = [{'upload': '2'} for i in range(len(embeddings))]
 
-print('First upload response: ', response)
-response = atlas.update_maps(embeddings=second_upload_embeddings,
-                             data=second_upload_data)
-
-print('Second upload response: ', response)
+with project.block_until_accepting_data() as project:
+    project.add_embeddings(embeddings=embeddings, data=data)
+    project.rebuild_maps()

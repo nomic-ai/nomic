@@ -20,8 +20,7 @@ Upload 10,000 random embeddings and see them instantly organized on an interacti
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)
     
-    response = atlas.map_embeddings(embeddings=embeddings)
-    print(response)
+    project = atlas.map_embeddings(embeddings=embeddings)
     ```
 
 === "Output"
@@ -32,12 +31,13 @@ Upload 10,000 random embeddings and see them instantly organized on an interacti
 
 ## Add some colors
 
-Now let's color add colors. To do this, specify the `data` key in the map call. This field should contain a list
-of dictionaries - one for each of your embeddings.
+Now let's add colors. To do this, specify the `data` key in the map call. This field should contain a list
+of dictionaries - one for each of your embeddings. In the `map_embeddings` call, specify the key you want to
+be able to color by. In our example, this key is `category`.
 
 === "Advanced Example"
 
-    ``` py title="map_embeddings.py"
+    ``` py title="map_embeddings_with_colors.py"
     from nomic import atlas
     import numpy as np
 
@@ -48,16 +48,9 @@ of dictionaries - one for each of your embeddings.
     data = [{'category': categories[i % len(categories)], 'id': i}
                 for i in range(len(embeddings))]
     
-    response = atlas.map_embeddings(embeddings=embeddings,
+    project = atlas.map_embeddings(embeddings=embeddings,
                                     data=data,
                                     id_field='id',
                                     colorable_fields=['category']
                                     )
-    print(response)
-    ```
-
-=== "Output"
-
-    ``` bash
-    https://atlas.nomic.ai/map/74ebf36c-b1fa-4a9e-b091-dcfcc240857e/a9d2e4d0-f5c7-4640-8139-ff858496f45b
     ```

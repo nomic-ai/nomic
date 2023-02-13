@@ -11,12 +11,13 @@ documents = [dataset[i] for i in subset_idxs]
 first_upload = documents[:500]
 second_upload = documents[500:]
 
-response = atlas.map_text(data=first_upload,
+project = atlas.map_text(data=first_upload,
                           indexed_field='text',
-                          map_name='News 10k Example Progressive',
+                          map_name='News 1k Example Progressive',
                           num_workers=10)
 
-print(response)
-response = atlas.update_maps(data=second_upload)
+print(project.maps)
 
-print(response)
+with project.block_until_accepting_data():
+    project.add_text(data=second_upload)
+    project.rebuild_maps()

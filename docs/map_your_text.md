@@ -1,7 +1,7 @@
 # Map your text
 Map your text documents with Atlas using the `map_text` function.
 Atlas will ingest your documents, organize them with state-of-the-art AI and then serve you back an interactive map.
-Any interaction you do with your data (e.g. tagging) can be accessed programmatically with Atlas Python API.
+Any interaction you do with your data (e.g. tagging) can be accessed programmatically with the Atlas Python API.
 
 ## Map text with Atlas
 When sending text you should specify an `indexed_field` in the `map_text` function. This lets Atlas know what metadata field to use when building your map.
@@ -23,19 +23,18 @@ When sending text you should specify an `indexed_field` in the `map_text` functi
     subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
     documents = [dataset[i] for i in subset_idxs]
     
-    response = atlas.map_text(data=documents,
+    project = atlas.map_text(data=documents,
                               indexed_field='text',
                               map_name='News 10k Example',
                               colorable_fields=['label'],
                               map_description='News 10k Example.'
                               )
-    print(response)
     ```
 
 === "Output"
 
     ``` bash
-    https://atlas.nomic.ai/map/ff2f89df-451e-49c4-b7a3-a608d7375961/f433cbd1-e728-49da-8c83-685cd613788b
+    https://atlas.nomic.ai/map/0642e9a1-12d9-4504-a987-9ca50ecd5327/699afdee-cea0-4805-9c84-12eca6dbebf8
     ```
 
 
@@ -78,7 +77,7 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
         for i in range(0, len(documents), batch_size):
             batch = [document['text'] for document in documents[i:i+batch_size]]
             encoded_input = tokenizer(batch, return_tensors='pt', padding=True)
-            cls_embeddings = model(**encoded_input)['last_hidden_state'][:, 0] #
+            cls_embeddings = model(**encoded_input)['last_hidden_state'][:, 0]
             embeddings.append(cls_embeddings)
     
     embeddings = torch.cat(embeddings).numpy()
@@ -86,7 +85,6 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
     response = atlas.map_embeddings(embeddings=embeddings,
                                     data=documents,
                                     colorable_fields=['sentiment'],
-                                    is_public=True,
                                     map_name="Huggingface Model Example",
                                     map_description="An example of building a text map with a huggingface model.")
     
@@ -135,9 +133,7 @@ Add your Cohere API key to the below example to see how their large language mod
     
     print(f"Embedding {len(documents)} documents with Cohere API")
     embeddings = embedder.embed(texts=[document['user'] for document in documents],
-                                model='small',
-                                num_workers=10,
-                                shard_size=1000,)
+                                model='small')
     
     if len(embeddings) != len(documents):
         raise Exception("Embedding job failed")
@@ -146,11 +142,9 @@ Add your Cohere API key to the below example to see how their large language mod
     response = atlas.map_embeddings(embeddings=np.array(embeddings),
                                     data=documents,
                                     colorable_fields=['sentiment'],
-                                    is_public=True,
                                     map_name='Sentiment 140',
                                     map_description='A 10,000 point sample of the huggingface sentiment140 dataset embedded with the co:here small model.',
-                                    organization_name=None, #defaults to your current user.
-                                    num_workers=20)
+                                    )
     print(response)
     ```
 
