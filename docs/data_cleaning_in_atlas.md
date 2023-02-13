@@ -1,7 +1,7 @@
 # Labeling Text in Atlas
 This tutorial describes how to use Atlas to quickly label or tag a large corpus of text in Atlas.
 
-Atlas provides a contextual window into a text corpus by pre-organizing it into a map.
+Atlas provides insights into a text corpus by organizing its documents onto a map.
 Documents of text that are semantically similar cluster together on a map allowing for the following 
 data labeling workflow:
 

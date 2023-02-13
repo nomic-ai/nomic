@@ -4,7 +4,7 @@ Atlas maps your data in three steps:
 ### 1. Data ingestion
 Data is added to an AtlasProject.
 ### 2. Data embedding.
-Atlas vectorizes the data in your project by running it through state-of-the-art neural networks to identify latent relationships.
+Atlas vectorizes the data in your project by running it through state-of-the-art pre-trained neural networks.
 ### 3. Data organization.
 Atlas organizes your data on a 2D plane, preparing it for exploration and interaction.
 
