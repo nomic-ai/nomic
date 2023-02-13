@@ -475,8 +475,9 @@ class AtlasProjection:
 
             yield content['datum_ids'], content['embeddings']
 
-    def get_nearest_neighbors(self, queries: np.array, k: int) -> Dict[str, List]:
+    def _get_nearest_neighbors(self, queries: np.array, k: int) -> Dict[str, List]:
         '''
+        NOT READY FOR PRIME TIME.
         Returns the nearest neighbors and the distances associated with a set of vector queries
         Args:
             queries: a 2d numpy array where each row corresponds to a query vetor
