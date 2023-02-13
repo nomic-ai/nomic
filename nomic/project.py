@@ -1373,7 +1373,7 @@ class AtlasProject(AtlasClass):
 
         #Update maps
         # finally, update all the indices
-        return self.refresh_maps()
+        return self.rebuild_maps()
 
     def rebuild_maps(self):
         '''
