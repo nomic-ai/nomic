@@ -13,12 +13,11 @@ Under the hood, Atlas quickly pre-organizes and enriches your data with state-of
     from nomic import atlas
     import numpy as np
 
-    
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)
     
-    response = atlas.map_embeddings(embeddings=embeddings)
-    print(response)
+    project = atlas.map_embeddings(embeddings=embeddings)
+    print(project.maps)
     ```
 
 Learn how to use Atlas to interact with your data.

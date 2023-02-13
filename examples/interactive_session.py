@@ -27,6 +27,18 @@ from datasets import load_dataset
 from nomic import atlas
 import numpy as np
 
+num_embeddings = 10000
+embeddings = np.random.rand(num_embeddings, 256)
+
+project = atlas.map_embeddings(embeddings=embeddings)
+print(project.maps)
+
+exit()
+
+
+from nomic import atlas
+import numpy as np
+
 num_embeddings = 1000
 embeddings = np.random.rand(num_embeddings, 10)
 data = [{'upload': '1', 'id': i} for i in range(len(embeddings))]

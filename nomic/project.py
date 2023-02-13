@@ -350,6 +350,7 @@ class AtlasProjection:
         self.project = project
         self.id = projection_id
         self.atlas_index_id = atlas_index_id
+        self.projection_id = projection_id
         self.name = name
 
     @property
@@ -363,13 +364,7 @@ class AtlasProjection:
         return f"{self.name}: {self.map_link}"
 
     def __repr__(self):
-        return {
-            "map": self.map_link,
-            "projection_id": self.projection_id,
-            "atlas_index_id": self.atlas_index_id,
-            "project_id": self.project.id,
-            "name": self.name,
-        }
+        return self.__str__()
 
     def _download_feather(self, dest: str = "tiles"):
         """
@@ -710,6 +705,10 @@ class AtlasProject(AtlasClass):
         return output
 
     @property
+    def maps(self) -> List[AtlasProjection]:
+        return self.projections
+
+    @property
     def id(self) -> str:
         '''The UUID of the project.'''
         return self.meta['id']
@@ -946,14 +945,6 @@ class AtlasProject(AtlasClass):
         ).json()
 
         index_id = job['index_id']
-
-        def get_projection_id():
-            projection_id = None
-            for index in self.indices:
-                if index.id == index_id:
-                    projection_id = index.projections[0].id
-                    break
-            return projection_id
 
         try:
             projection = self.get_map(atlas_index_id=index_id)
