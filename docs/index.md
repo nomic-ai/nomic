@@ -13,12 +13,11 @@ Under the hood, Atlas quickly pre-organizes and enriches your data with state-of
     from nomic import atlas
     import numpy as np
 
-    
     num_embeddings = 10000
     embeddings = np.random.rand(num_embeddings, 256)
     
-    response = atlas.map_embeddings(embeddings=embeddings)
-    print(response)
+    project = atlas.map_embeddings(embeddings=embeddings)
+    print(project.maps)
     ```
 
 Learn how to use Atlas to interact with your data.
@@ -39,7 +38,7 @@ Follow the instructions to obtain your access token. Enter your access token wit
 nomic login [token]
 ```
 
-You are ready to interact with Atlas. Continue on to [make your first neural map](map_your_data.md).
+You are ready to interact with Atlas. Continue on to [make your first map](map_your_data.md).
 
 ## Resources:
 

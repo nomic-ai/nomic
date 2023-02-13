@@ -124,7 +124,7 @@ def map_embeddings(
         logger.info(str(projection))
     else:
         # otherwise refresh the maps
-        project.refresh_maps()
+        project.rebuild_maps()
 
     project = project._latest_project_state()
     return project
@@ -235,7 +235,7 @@ def map_text(
         logger.info(str(projection))
     else:
         # otherwise refresh the maps
-        project.refresh_maps()
+        project.rebuild_maps()
 
     project = project._latest_project_state()
     return project
