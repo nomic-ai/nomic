@@ -44,7 +44,7 @@ The dataset is composed of news articles scraped by an [academic news scraping e
     print(project.maps)
     ```
 
-Produces a map that should roughly resemble this:
+Produces a map that should resemble this:
 
 ![](assets/labeling_tutorial/ag_news_10k_map.png)
 
