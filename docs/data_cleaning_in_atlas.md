@@ -16,7 +16,7 @@ leveraged to build new maps on subsets of your data.
 In this example, we will map and label a news dataset from the Huggingface hub.
 To start, load the dataset [ag_news](https://huggingface.co/datasets/ag_news), randomly sample 10,000 points and map it.
 
-The dataset is composed of news articles scrapped by an [academic news scraping engine](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html) after 2004.
+The dataset is composed of news articles scraped by an [academic news scraping engine](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html) after 2004.
 
 === "Data Labeling Example"
 
