@@ -580,7 +580,6 @@ class AtlasProject(AtlasClass):
         * **project_id** - An alternative way to retrieve a project is by passing the project_id directly. This only works if a project exists.
         * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.
-        **Returns:** project_id on success.
 
         """
         assert name is not None or project_id is not None, "You must pass a name or project_id"
