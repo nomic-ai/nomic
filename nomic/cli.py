@@ -78,7 +78,7 @@ def refresh_bearer_token():
             raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
 
         bearer_token = response.json()['access_token']
-        credentials['access_token'] = bearer_token
+        credentials['token'] = bearer_token
         with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
             json.dump(credentials, file)
     return credentials
