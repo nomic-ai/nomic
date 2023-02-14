@@ -795,7 +795,7 @@ class AtlasProject(AtlasClass):
         '''Blocks thread execution until project is in a state where it can ingest data.'''
         while True:
             if self.is_accepting_data:
-                logger.info("Project is ready to accept data.")
+                logger.info(f"{self.name}: Project lock is released.")
                 yield self
                 break
             time.sleep(5)
@@ -1164,18 +1164,18 @@ class AtlasProject(AtlasClass):
                                 errors_504 += shard_size
                                 start_point = futures[future]
                                 logger.debug(
-                                    f"Connection failed for records {start_point}-{start_point + shard_size}, retrying."
+                                    f"{self.name}: Connection failed for records {start_point}-{start_point + shard_size}, retrying."
                                 )
                                 failure_fraction = errors_504 / (failed + succeeded + errors_504)
                                 if failure_fraction > 0.25 and errors_504 > shard_size * 3:
                                     raise RuntimeError(
-                                        "Atlas is under high load and cannot ingest datums at this time. Please try again later."
+                                        f"{self.name}: Atlas is under high load and cannot ingest datums at this time. Please try again later."
                                     )
                                 new_submission = executor.submit(send_request, start_point)
                                 futures[new_submission] = start_point
                                 response.close()
                             else:
-                                logger.error(f"Shard upload failed: {response}")
+                                logger.error(f"{self.name}: Shard upload failed: {response}")
                                 failed += shard_size
                                 pbar.update(1)
                                 response.close()
@@ -1236,7 +1236,7 @@ class AtlasProject(AtlasClass):
             raise ValueError(msg)
 
         if self.is_locked:
-            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+            raise Exception(f"{self.name}: Project is currently indexing and cannot ingest new datums. Try again later.")
 
         progressive = len(self.indices) > 0
         try:
