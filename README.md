@@ -28,10 +28,8 @@ nomic login [token]
 
 Make your first map:
 ```python
-from nomic import AtlasClient
+from nomic import atlas
 import numpy as np
-
-atlas = AtlasClient()
 
 num_embeddings = 10000
 embeddings = np.random.rand(num_embeddings, 256)
