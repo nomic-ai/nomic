@@ -367,15 +367,21 @@ class AtlasProjection:
         return self.__str__()
 
     def _download_feather(self, dest: str = "tiles"):
-        """
+        '''
         Downloads the feather tree.
+        Args:
+            dest: the destination to download the quadtree.
 
-        """
+        Returns:
+            A list containing all quadtiles downloads
+        '''
         dest = Path(dest)
         root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
+        all_quads = []
         while len(quads) > 0:
             quad = quads.pop(0) + ".feather"
+            all_quads.append(quad)
             path = dest / quad
             if not path.exists():
                 data = requests.get(root + quad)
@@ -388,6 +394,7 @@ class AtlasProjection:
             kids = schema.metadata.get(b'children')
             children = json.loads(kids)
             quads.extend(children)
+        return all_quads
 
     def download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
@@ -514,6 +521,32 @@ class AtlasProjection:
             raise AssertionError('Could not get response from server')
 
         return response.json()
+
+    def _get_atoms(self, ids: List[str]) -> List[Dict]:
+        '''
+        Retrieves atoms by id
+
+        Args:
+            ids: list of atom ids
+
+        Returns:
+            A dictionary containing the resulting atoms, keyed by atom id.
+
+        '''
+
+        if not isinstance(ids, list):
+            raise ValueError("You must specify a list of ids when getting data.")
+
+        response = requests.post(
+            self.project.atlas_api_path + "/v1/project/atoms/get",
+            headers=self.project.header,
+            json={'project_id': self.project.id, 'index_id': self.atlas_index_id, 'atom_ids': ids},
+        )
+
+        if response.status_code == 200:
+            return response.json()['atoms']
+        else:
+            raise Exception(response.json())
 
 
 class AtlasProject(AtlasClass):
