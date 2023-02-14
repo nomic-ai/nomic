@@ -1001,6 +1001,14 @@ class AtlasProject(AtlasClass):
         m = self.meta
         return f"AtlasProject: <{m}>"
 
+    def _repr_html_(self):
+        m = self.meta
+        return f"""An Atlas Project.
+            <h3><a href="https://atlas.nomic.ai/dashboard/project/{m['id']}">{m['project_name']}</h3></a>
+            {m['description']} {m['total_datums_in_project']} datums inserted.
+            {len(m['atlas_indices'])} indexes built.
+            """
+    
     def __str__(self):
         return "\n".join([str(projection) for index in self.indices for projection in index.projections])
 
@@ -1198,8 +1206,6 @@ class AtlasProject(AtlasClass):
                 logger.warning("Text upload partially succeeded.")
             else:
                 logger.info("Text upload succeeded.")
-
-        return True
 
     def add_embeddings(
         self,
