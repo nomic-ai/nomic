@@ -104,7 +104,7 @@ def map_embeddings(
                 )
             except BaseException as e:
                 if number_of_datums_before_upload == 0:
-                    logger.info("Deleting project due to failure in initial upload.")
+                    logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
                     project.delete()
                 raise e
 
@@ -214,7 +214,7 @@ def map_text(
                 )
             except BaseException as e:
                 if number_of_datums_before_upload == 0:
-                    logger.info("Deleting project due to failure in initial upload.")
+                    logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
                     project.delete()
                 raise e
 

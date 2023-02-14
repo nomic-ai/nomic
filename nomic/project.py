@@ -1167,7 +1167,7 @@ class AtlasProject(AtlasClass):
                                     f"{self.name}: Connection failed for records {start_point}-{start_point + shard_size}, retrying."
                                 )
                                 failure_fraction = errors_504 / (failed + succeeded + errors_504)
-                                if failure_fraction > 0.25 and errors_504 > shard_size * 3:
+                                if failure_fraction > 0.5 and errors_504 > shard_size * 3:
                                     raise RuntimeError(
                                         f"{self.name}: Atlas is under high load and cannot ingest datums at this time. Please try again later."
                                     )
@@ -1318,7 +1318,7 @@ class AtlasProject(AtlasClass):
                                     f"Connection failed for records {start_point}-{start_point + shard_size}, retrying."
                                 )
                                 failure_fraction = errors_504 / (failed + succeeded + errors_504)
-                                if failure_fraction > 0.25 and errors_504 > shard_size * 3:
+                                if failure_fraction > 0.5 and errors_504 > shard_size * 3:
                                     raise RuntimeError(
                                         "Atlas is under high load and cannot ingest datums at this time. Please try again later."
                                     )
