@@ -329,10 +329,11 @@ class AtlasIndex:
     the points in the index that you can browse online.
     """
 
-    def __init__(self, atlas_index_id, name, projections):
+    def __init__(self, atlas_index_id, name, indexed_field, projections):
         '''Initializes an Atlas index. Atlas indices organize data and store views of the data as maps.'''
         self.id = atlas_index_id
         self.name = name
+        self.indexed_field = indexed_field
         self.projections = projections
 
 
@@ -725,7 +726,7 @@ class AtlasProject(AtlasClass):
                     project=self, projection_id=projection['id'], atlas_index_id=index['id'], name=index['index_name']
                 )
                 projections.append(projection)
-            index = AtlasIndex(atlas_index_id=index['id'], name=index['index_name'], projections=projections)
+            index = AtlasIndex(atlas_index_id=index['id'], name=index['index_name'], indexed_field=index['indexed_field'], projections=projections)
             output.append(index)
 
         return output
@@ -1448,6 +1449,47 @@ class AtlasProject(AtlasClass):
                     label_to_datums[label] = []
                 label_to_datums[label].append(item['datum_id'])
         return label_to_datums
+
+    def _ask_question(self, question, cohere_api_key, evidence_field=None):
+        '''
+        Uses a large-language-model to perform question answering over your data.
+
+        Args:
+            question: the question you are asking that should be answerable using your data.
+            cohere_api_key: Cohere API Key
+            evidence_field: The field in your project to collect evidence from. Defaults to indexed_field for text projects if you've built a map.
+
+        Returns:
+            The answer and datums referencing what evidence was used to generate that answer.
+
+        '''
+        if evidence_field is None and self.modality == 'text' and len(self.indices) > 0:
+            evidence_field = self.indices[0].indexed_field
+
+        if evidence_field is None:
+            raise Exception("You must specify a project field to use as evidence when answering your question.")
+
+        # now get the tags
+        response = requests.post(
+            self.atlas_api_path + '/v1/project/question_answering',
+            headers=self.header,
+            json={
+                'project_id': self.id,
+                'evidence_field': evidence_field,
+                'question': question,
+                'api_key': cohere_api_key,
+                'cohere_model': 'command-xlarge-nightly'
+            },
+        )
+        if response.status_code != 200:
+            raise Exception(f"Failed to answer question. Reason: {response.json()}")
+
+        response = response.json()
+        answer = response['answer']
+        evidence = response['evidence'] # the datums used as evidence to answer the question
+        return answer, evidence
+
+
 
     # def upload_embeddings(self, table: pa.Table, embedding_column: str = '_embedding'):
     #     """
