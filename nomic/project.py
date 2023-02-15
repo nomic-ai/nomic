@@ -483,45 +483,66 @@ class AtlasProjection:
 
             yield content['datum_ids'], content['embeddings']
 
-    def _get_nearest_neighbors(self, queries: np.array, k: int) -> Dict[str, List]:
+    def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
-        NOT READY FOR PRIME TIME.
-        Returns the nearest neighbors and the distances associated with a set of vector queries
+        Performs vector similarity search over data points on your map.
+        If ids is specified, receive back the most similar data ids in vector space to your input ids.
+        If queries is specified, receive back the data ids with representations most similar to the query vectors.
+
+        You should not specify both queries and ids.
+
         Args:
-            queries: a 2d numpy array where each row corresponds to a query vetor
-            k: the number of neighbors to return for each point
+            queries: a 2d numpy array where each row corresponds to a query vector
+            ids: a list of
+            k: the number of closest data points (neighbors) to return for each input query/data id
         Returns:
-            A dictionary with the following information:
+            A tuple with two elements containing the following information:
                 neighbors: A set of ids corresponding to the nearest neighbors of each query
                 distances: A set of distances between each query and its neighbors
         '''
+        if queries is None and ids is None:
+            raise ValueError('You must specify either a list of datum `ids` or numpy array of `queries` but not both.')
 
         if self.project.is_locked:
             raise ValueError("Your map cannot be queried for nearest neighbors while it builds. Check the dashboard to see your map builds progress.")
 
-        if queries.ndim != 2:
-            raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
+        if queries is not None:
+            if queries.ndim != 2:
+                raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
 
-        bytesio = io.BytesIO()
-        np.save(bytesio, queries)
+            bytesio = io.BytesIO()
+            np.save(bytesio, queries)
 
         status = 0
-        retries = 0
-        while status != 200 and retries < 10:
-            response = requests.post(
-                self.project.atlas_api_path + "/v1/project/data/get/embedding/query",
-                headers=self.project.header,
-                json={'atlas_index_id': self.atlas_index_id,
-                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                      'k': k},
-            )
+        retries = 5
+        while status != 200 and retries >= 0:
+            if queries is not None:
+                response = requests.post(
+                    self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
+                    headers=self.project.header,
+                    json={'atlas_index_id': self.atlas_index_id,
+                          'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                          'k': k},
+                )
+            else:
+                response = requests.post(
+                    self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
+                    headers=self.project.header,
+                    json={'atlas_index_id': self.atlas_index_id,
+                          'datum_ids': ids,
+                          'k': k},
+                )
+
             status = response.status_code
-            retries += 1
+            retries -= 1
 
-        if retries == 10:
-            raise AssertionError('Could not get response from server')
+        if retries == 0:
+            raise AssertionError('Cannot perform vector search on your map at this time. Try again later.')
 
-        return response.json()
+        response = response.json()
+
+        return response['neighbors'], response['distances']
+
 
     def _get_atoms(self, ids: List[str]) -> List[Dict]:
         '''
@@ -1021,7 +1042,8 @@ class AtlasProject(AtlasClass):
 
         if not isinstance(ids, list):
             raise ValueError("You must specify a list of ids when getting data.")
-
+        if isinstance(ids[0], list):
+            raise ValueError("You must specify a list of ids when getting data, not a nested list.")
         response = requests.post(
             self.atlas_api_path + "/v1/project/data/get",
             headers=self.header,
