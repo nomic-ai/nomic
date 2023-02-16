@@ -18,6 +18,6 @@ project = atlas.map_text(data=first_upload,
 
 print(project.maps)
 
-with project.block_until_accepting_data():
+with project.wait_for_project_lock():
     project.add_text(data=second_upload)
     project.rebuild_maps()

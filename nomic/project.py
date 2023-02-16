@@ -329,10 +329,11 @@ class AtlasIndex:
     the points in the index that you can browse online.
     """
 
-    def __init__(self, atlas_index_id, name, projections):
+    def __init__(self, atlas_index_id, name, indexed_field, projections):
         '''Initializes an Atlas index. Atlas indices organize data and store views of the data as maps.'''
         self.id = atlas_index_id
         self.name = name
+        self.indexed_field = indexed_field
         self.projections = projections
 
 
@@ -482,45 +483,66 @@ class AtlasProjection:
 
             yield content['datum_ids'], content['embeddings']
 
-    def _get_nearest_neighbors(self, queries: np.array, k: int) -> Dict[str, List]:
+    def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
-        NOT READY FOR PRIME TIME.
-        Returns the nearest neighbors and the distances associated with a set of vector queries
+        Performs vector similarity search over data points on your map.
+        If ids is specified, receive back the most similar data ids in vector space to your input ids.
+        If queries is specified, receive back the data ids with representations most similar to the query vectors.
+
+        You should not specify both queries and ids.
+
         Args:
-            queries: a 2d numpy array where each row corresponds to a query vetor
-            k: the number of neighbors to return for each point
+            queries: a 2d numpy array where each row corresponds to a query vector
+            ids: a list of
+            k: the number of closest data points (neighbors) to return for each input query/data id
         Returns:
-            A dictionary with the following information:
+            A tuple with two elements containing the following information:
                 neighbors: A set of ids corresponding to the nearest neighbors of each query
                 distances: A set of distances between each query and its neighbors
         '''
+        if queries is None and ids is None:
+            raise ValueError('You must specify either a list of datum `ids` or numpy array of `queries` but not both.')
 
         if self.project.is_locked:
             raise ValueError("Your map cannot be queried for nearest neighbors while it builds. Check the dashboard to see your map builds progress.")
 
-        if queries.ndim != 2:
-            raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
+        if queries is not None:
+            if queries.ndim != 2:
+                raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
 
-        bytesio = io.BytesIO()
-        np.save(bytesio, queries)
+            bytesio = io.BytesIO()
+            np.save(bytesio, queries)
 
         status = 0
-        retries = 0
-        while status != 200 and retries < 10:
-            response = requests.post(
-                self.project.atlas_api_path + "/v1/project/data/get/embedding/query",
-                headers=self.project.header,
-                json={'atlas_index_id': self.atlas_index_id,
-                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                      'k': k},
-            )
+        retries = 5
+        while status != 200 and retries >= 0:
+            if queries is not None:
+                response = requests.post(
+                    self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
+                    headers=self.project.header,
+                    json={'atlas_index_id': self.atlas_index_id,
+                          'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                          'k': k},
+                )
+            else:
+                response = requests.post(
+                    self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
+                    headers=self.project.header,
+                    json={'atlas_index_id': self.atlas_index_id,
+                          'datum_ids': ids,
+                          'k': k},
+                )
+
             status = response.status_code
-            retries += 1
+            retries -= 1
 
-        if retries == 10:
-            raise AssertionError('Could not get response from server')
+        if retries == 0:
+            raise AssertionError('Cannot perform vector search on your map at this time. Try again later.')
 
-        return response.json()
+        response = response.json()
+
+        return response['neighbors'], response['distances']
+
 
     def _get_atoms(self, ids: List[str]) -> List[Dict]:
         '''
@@ -725,7 +747,7 @@ class AtlasProject(AtlasClass):
                     project=self, projection_id=projection['id'], atlas_index_id=index['id'], name=index['index_name']
                 )
                 projections.append(projection)
-            index = AtlasIndex(atlas_index_id=index['id'], name=index['index_name'], projections=projections)
+            index = AtlasIndex(atlas_index_id=index['id'], name=index['index_name'], indexed_field=index['indexed_field'], projections=projections)
             output.append(index)
 
         return output
@@ -791,11 +813,11 @@ class AtlasProject(AtlasClass):
 
 
     @contextmanager
-    def block_until_accepting_data(self):
+    def wait_for_project_lock(self):
         '''Blocks thread execution until project is in a state where it can ingest data.'''
         while True:
             if self.is_accepting_data:
-                logger.info(f"{self.name}: Project lock is released.")
+                logger.debug(f"{self.name}: Project lock is released.")
                 yield self
                 break
             time.sleep(5)
@@ -1020,7 +1042,8 @@ class AtlasProject(AtlasClass):
 
         if not isinstance(ids, list):
             raise ValueError("You must specify a list of ids when getting data.")
-
+        if isinstance(ids[0], list):
+            raise ValueError("You must specify a list of ids when getting data, not a nested list.")
         response = requests.post(
             self.atlas_api_path + "/v1/project/data/get",
             headers=self.header,
@@ -1193,7 +1216,7 @@ class AtlasProject(AtlasClass):
             pbar.close()
 
         if failed:
-            logger.warning(f"Failed to upload {len(failed) * shard_size} datums")
+            logger.warning(f"Failed to upload {failed} datums")
         if close_pbar:
             if failed:
                 logger.warning("Text upload partially succeeded.")
@@ -1448,13 +1471,3 @@ class AtlasProject(AtlasClass):
                     label_to_datums[label] = []
                 label_to_datums[label].append(item['datum_id'])
         return label_to_datums
-
-    # def upload_embeddings(self, table: pa.Table, embedding_column: str = '_embedding'):
-    #     """
-    #     Uploads a single Arrow table to Atlas.
-    #     """
-    #     dimensions = table[embedding_column].type.list_size
-    #     embs = pc.list_flatten(table[embedding_column]).to_numpy().reshape(-1, dimensions)
-    #     self.atlas_client.add_embeddings(
-    #         project_id=self.id, embeddings=embs, data=table.drop([embedding_column]).to_pylist(), shard_size=1500
-    #     )

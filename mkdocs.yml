@@ -16,6 +16,7 @@ nav:
       - 'atlas_api.md'
     - 'Tutorials':
       - 'data_cleaning_in_atlas.md'
+      - 'vector_search_in_atlas.md'
     - 'FAQ and Releases':
       - 'how_does_atlas_work.md'
       - 'collection_of_maps.md'
