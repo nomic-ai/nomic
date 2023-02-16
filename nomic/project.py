@@ -537,7 +537,7 @@ class AtlasProjection:
             retries -= 1
 
         if retries == 0:
-            raise AssertionError('Cannot perform vector search on your map at this time. Try again later.')
+            raise Exception('Cannot perform vector search on your map at this time. Try again later.')
 
         response = response.json()
 
@@ -1449,6 +1449,30 @@ class AtlasProject(AtlasClass):
         logger.info(f"Updating maps in project `{self.name}`")
 
     def get_tags(self) -> Dict[str, str]:
+        '''
+        Retrieves back all tags made in the web browser for a specific project and map.
+
+        Returns:
+            A dictionary mapping datum ids to tags.
+        '''
+        # now get the tags
+        datums_and_tags = requests.post(
+            self.atlas_api_path + '/v1/project/tag/read/all_by_datum',
+            headers=self.header,
+            json={
+                'project_id': self.id,
+            },
+        ).json()['results']
+
+        label_to_datums = {}
+        for item in datums_and_tags:
+            for label in item['labels']:
+                if label not in label_to_datums:
+                    label_to_datums[label] = []
+                label_to_datums[label].append(item['datum_id'])
+        return label_to_datums
+
+    def add_tags(self) -> Dict[str, str]:
         '''
         Retrieves back all tags made in the web browser for a specific project and map.
 
