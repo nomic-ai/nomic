@@ -1216,7 +1216,7 @@ class AtlasProject(AtlasClass):
             pbar.close()
 
         if failed:
-            logger.warning(f"Failed to upload {len(failed) * shard_size} datums")
+            logger.warning(f"Failed to upload {failed} datums")
         if close_pbar:
             if failed:
                 logger.warning("Text upload partially succeeded.")
