@@ -4,7 +4,7 @@
 <p align="center">
   <a href="https://docs.nomic.ai">:closed_book:	 Documentation</a> 
   <br> <br>
-  Examples
+  <b>Example Maps</b>
   <br> <br>
   <a href="https://atlas.nomic.ai/map/twitter">:world_map: Map of Twitter</a> (5.4 million tweets)
   <br> <br>
