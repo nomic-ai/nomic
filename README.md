@@ -4,10 +4,12 @@
 <p align="center">
   <a href="https://docs.nomic.ai">:closed_book:	 Documentation</a> 
   <br> <br>
-  <br> <br>
   Examples
+  <br> <br>
   <a href="https://atlas.nomic.ai/map/twitter">:world_map: Map of Twitter</a> (5.4 million tweets)
+  <br> <br>
   <a href="https://atlas.nomic.ai/map/stablediffusion">:world_map: Map of StableDiffusion Generations</a> (6.4 million images)
+  <br> <br>
   <a href="https://atlas.nomic.ai/map/neurips">:world_map: Map of NeurIPS Proceedings</a> (16,623 abstracts)
 
 </p>
