@@ -25,6 +25,9 @@ Vector search can be used to:
 3. Similarity search your data for use-cases like recommendation.
 
 
+!!! note "Vector Search Operates in the Ambient Space"
+
+    Vector search operates on high dimensional (ambient) vectors corresponding to your data, not on the two dimensional map positions.
 
 ## Example
 The following example showcases creating a map from 25,000 news articles and then performing a vector search.
