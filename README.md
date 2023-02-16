@@ -1,13 +1,19 @@
-<h1 align="center">Nomic</h1>
-<p align="center">The Python client to Atlas - the world's first neural database.</p>
+<h1 align="center">Atlas</h1>
+<p align="center">Explore, label, search and share massive datasets in your web browser.</p>
 
 <p align="center">
-  <a href="https://docs.nomic.ai">Documentation</a> 
+  <a href="https://docs.nomic.ai">:closed_book:	 Documentation</a> 
   <br> <br>
   <br> <br>
 </p>
 
-[//]: # (<img src="" alt="Nomic Workflow" style="display: block; margin: 0 auto;" />)
+### Example Maps
+
+[:world_map: Twitter](https://atlas.nomic.ai/map/twitter) (5.4 million tweets)
+
+[:world_map: Stable Diffusion](https://atlas.nomic.ai/map/stablediffusion) (6.4 million images)
+
+[:world_map: NeurIPS Proceedings](https://atlas.nomic.ai/map/neurips) (16,623 abstracts)
 
 ## Quickstart
 
@@ -38,4 +44,4 @@ response = atlas.map_embeddings(embeddings=embeddings)
 print(response)
 ```
 
-Explore the [documentation](https://docs.nomic.ai) to make more advanced maps.
+Explore Atlas' [documentation](https://docs.nomic.ai) to make more advanced maps.
