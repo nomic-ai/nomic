@@ -1,4 +1,4 @@
-from nomic import atlas, AtlasProject
+from nomic import atlas
 import numpy as np
 from datasets import load_dataset
 dataset = load_dataset('ag_news')['train']
@@ -16,8 +16,8 @@ project = atlas.map_text(data=documents,
                           )
 
 
-
-map = project.get_map(name='News Dataset 25k')
-print(map.map_link)
-print(project.total_datums)
+with project.wait_for_project_lock():
+    map = project.get_map(name='News Dataset 25k')
+    print(map.map_link)
+    print(project.total_datums)
 

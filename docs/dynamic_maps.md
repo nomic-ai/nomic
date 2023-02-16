@@ -55,14 +55,14 @@ cluster corresponding to vectors with the shifted mean.
     embeddings += np.ones(shape=(num_embeddings, 10))
     data = [{'upload': '2', 'id': total_datums+i} for i in range(len(embeddings))]
     
-    with project.block_until_accepting_data():
+    with project.wait_for_project_lock():
         project.add_embeddings(embeddings=embeddings, data=data)
         project.rebuild_maps()
     ```
 
 !!! note "Project Lock Context Manager"
 
-    Place any logic that needs to wait for a project lock to be released behind the `project.block_until_accepting_data()` context manager.
+    Place any logic that needs to wait for a project lock to be released behind the `project.wait_for_project_lock()` context manager.
     This context manager will block the currently running thread until all maps in your project are done building. For large projects,
     this may take a long time.
 
@@ -74,7 +74,7 @@ Following the previous example:
 === "Deleting data"
 
     ``` py
-    with project.block_until_accepting_data():
+    with project.wait_for_project_lock():
         project.delete_data(ids=[i for i in range(1100, 2000)])
         project.rebuild_maps()
     ```

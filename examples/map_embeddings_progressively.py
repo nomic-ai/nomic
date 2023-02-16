@@ -19,6 +19,6 @@ print(map)
 embeddings += np.ones(shape=(num_embeddings, 10))
 data = [{'upload': '2'} for i in range(len(embeddings))]
 
-with project.block_until_accepting_data() as project:
+with project.wait_for_project_lock() as project:
     project.add_embeddings(embeddings=embeddings, data=data)
     project.rebuild_maps()

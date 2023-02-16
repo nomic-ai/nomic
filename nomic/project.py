@@ -813,11 +813,11 @@ class AtlasProject(AtlasClass):
 
 
     @contextmanager
-    def block_until_accepting_data(self):
+    def wait_for_project_lock(self):
         '''Blocks thread execution until project is in a state where it can ingest data.'''
         while True:
             if self.is_accepting_data:
-                logger.info(f"{self.name}: Project lock is released.")
+                logger.debug(f"{self.name}: Project lock is released.")
                 yield self
                 break
             time.sleep(5)
