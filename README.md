@@ -2,7 +2,7 @@
 <p align="center">Explore, label, search and share massive datasets in your web browser.</p>
 
 <p align="center">
-  <a href="https://docs.nomic.ai">:closed_book:	 Documentation</a> 
+  <a href="https://docs.nomic.ai">:closed_book:	 Atlas Python Client Documentation</a> 
   <br> <br>
   <b>Example Maps</b>
   <br> <br>
