@@ -500,8 +500,23 @@ class AtlasProjection:
                 neighbors: A set of ids corresponding to the nearest neighbors of each query
                 distances: A set of distances between each query and its neighbors
         '''
+
         if queries is None and ids is None:
             raise ValueError('You must specify either a list of datum `ids` or numpy array of `queries` but not both.')
+
+        max_k = 128
+        max_queries = 256
+        if k > max_k:
+            raise Exception(f"Cannot query for more than {max_k} nearest neighbors. Set `k` to {max_k} or lower")
+
+        if ids is not None:
+            if len(ids) > max_queries:
+                raise Exception(f"Max ids per query is {max_queries}. You sent {len(ids)}.")
+        if queries is not None:
+            if not isinstance(queries, np.array):
+                raise Exception("`queries` must be an instance of np.array.")
+            if queries.shape[0] > max_queries:
+                raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
 
         if self.project.is_locked:
             raise ValueError("Your map cannot be queried for nearest neighbors while it builds. Check the dashboard to see your map builds progress.")
