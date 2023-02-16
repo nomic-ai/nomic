@@ -513,31 +513,30 @@ class AtlasProjection:
             bytesio = io.BytesIO()
             np.save(bytesio, queries)
 
-        status = 0
-        retries = 5
-        while status != 200 and retries >= 0:
-            if queries is not None:
-                response = requests.post(
-                    self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
-                    headers=self.project.header,
-                    json={'atlas_index_id': self.atlas_index_id,
-                          'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                          'k': k},
-                )
-            else:
-                response = requests.post(
-                    self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
-                    headers=self.project.header,
-                    json={'atlas_index_id': self.atlas_index_id,
-                          'datum_ids': ids,
-                          'k': k},
-                )
+        if queries is not None:
+            response = requests.post(
+                self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
+                headers=self.project.header,
+                json={'atlas_index_id': self.atlas_index_id,
+                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                      'k': k},
+            )
+        else:
+            response = requests.post(
+                self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
+                headers=self.project.header,
+                json={'atlas_index_id': self.atlas_index_id,
+                      'datum_ids': ids,
+                      'k': k},
+            )
 
-            status = response.status_code
-            retries -= 1
+        status = response.status_code
 
-        if retries == 0:
+        if response.status_code == 500:
             raise Exception('Cannot perform vector search on your map at this time. Try again later.')
+
+        if response.status_code != 200:
+            raise Exception(response.json()['detail'])
 
         response = response.json()
 
