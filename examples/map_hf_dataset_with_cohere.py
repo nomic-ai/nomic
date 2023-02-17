@@ -24,7 +24,7 @@ print("Embedding job complete.")
 response = atlas.map_embeddings(embeddings=np.array(embeddings),
                                 data=documents,
                                 colorable_fields=['sentiment'],
-                                map_name='Sentiment 140',
-                                map_description='A 10,000 point sample of the huggingface sentiment140 dataset embedded with cohere',
+                                name='Sentiment 140',
+                                description='A 10,000 point sample of the huggingface sentiment140 dataset embedded with cohere',
                                 )
 print(response)
