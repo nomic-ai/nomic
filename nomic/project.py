@@ -241,10 +241,11 @@ class AtlasClass(object):
                             msg = 'Datum {} had an empty string for key: {}'.format(datum, key)
                             raise ValueError(msg)
                 import math
-                if isinstance(datum[key], float) and math.nan(datum[key]):
-                    raise Exception(
-                        f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
-                    )
+                if isinstance(datum[key], float):
+                    if math.isnan(datum[key]):
+                        raise Exception(
+                            f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
+                        )
 
                 if not isinstance(datum[key], (str, float, int)):
                     raise Exception(
