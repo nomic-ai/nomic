@@ -346,6 +346,7 @@ class AtlasProjection:
     Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
     '''
 
+
     def __init__(self, project : "AtlasProject", atlas_index_id: str, projection_id: str, name):
         """
         Creates an AtlasProjection.
@@ -362,6 +363,18 @@ class AtlasProjection:
         Retrieves a map link.
         '''
         return f"{self.project.web_path}/map/{self.project.id}/{self.id}"
+
+    @property
+    def _status(self):
+        response = requests.get(
+            self.project.atlas_api_path + f"/v1/project/index/job/progress/{self.atlas_index_id}",
+            headers=self.project.header,
+        )
+        if response.status_code != 200:
+            raise Exception(response.json()['detail'])
+
+        content = response.json()
+        return content
 
     def __str__(self):
         return f"{self.name}: {self.map_link}"
@@ -389,10 +402,13 @@ class AtlasProjection:
                 document.getElementById("iframe{self.id}").remove()
             }}
         </script>
+
         <h4>Projection ID: {self.id}</h4>
         <div class="actions">
-        <div id="hide" class="action" onclick="destroy()">Hide embedded project</div>
-        <a id="out" class="action" href="{self.map_link}" target="_blank">Explore on atlas.nomic.ai</a>
+            <div id="hide" class="action" onclick="destroy()">Hide embedded project</div>
+            <div>
+                <a id="out" class="action" href="{self.map_link}" target="_blank">Explore on atlas.nomic.ai</a>
+            </div>
         </div>
         {self._iframe()}
         <style>
@@ -420,10 +436,14 @@ class AtlasProjection:
         """
 
     def _repr_html_(self):
+        # Don't make an iframe if the project is locked.
+        state = self._status['index_build_stage']
+        if state != 'Completed':
+            return f"""Atlas Projection {self.name}. Status {state}. <a target="_blank" href="{self.map_link}">view online</a>"""
         return f"""
             <h3>Project: {self.name}</h3>
             {self._embed_html()}
-        """
+            """
     
     def _download_feather(self, dest: str = "tiles"):
         '''
@@ -1082,16 +1102,30 @@ class AtlasProject(AtlasClass):
         return f"AtlasProject: <{m}>"
 
     def _repr_html_(self):
+        self._latest_project_state()
         m = self.meta
-        return f"""An Atlas Project.
-            <h3><a href="https://atlas.nomic.ai/dashboard/project/{m['id']}">{m['project_name']}</h3></a>
+        html = f"""
+            <strong><a href="https://atlas.nomic.ai/dashboard/project/{m['id']}">{m['project_name']}</strong></a>
+            <br>
             {m['description']} {m['total_datums_in_project']} datums inserted.
             {len(m['atlas_indices'])} indexes built.
             """
-    
+        complete_projections = []
+        if len(self.projections) >= 1:
+            html += "<strong>Projections</strong> <ul>"
+            for projection in self.projections:
+                state = projection._status['index_build_stage']
+                if state == 'Completed':
+                    complete_projections.append(projection)
+                html += """<li>{projection.name}. Status {state}. <a target="_blank" href="{projection.map_link}">view online</a></li>"""   
+            html += "</ul>"
+        if len(complete_projections) >= 1:
+            # Display most recent complete projection.
+            html += "<hr>"
+            html += complete_projections[-1]._embed_html()
+            
     def __str__(self):
         return "\n".join([str(projection) for index in self.indices for projection in index.projections])
-
 
     def get_data(self, ids: List[str]) -> List[Dict]:
         '''
