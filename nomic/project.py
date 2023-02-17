@@ -389,7 +389,7 @@ class AtlasProjection:
                 document.getElementById("iframe{self.id}").remove()
             }}
         </script>
-        <h4>Projection ID: {self.self.id}</h4>
+        <h4>Projection ID: {self.id}</h4>
         <div class="actions">
         <div id="hide" class="action" onclick="destroy()">Hide embedded project</div>
         <a id="out" class="action" href="{self.map_link}" target="_blank">Explore on atlas.nomic.ai</a>
