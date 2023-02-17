@@ -336,6 +336,8 @@ class AtlasIndex:
         self.indexed_field = indexed_field
         self.projections = projections
 
+    def _repr_html_(self):
+        return '<br>'.join([d._repr_html_() for d in self.projections])
 
 class AtlasProjection:
     '''
@@ -344,7 +346,7 @@ class AtlasProjection:
     Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
     '''
 
-    def __init__(self, project, atlas_index_id: str, projection_id: str, name):
+    def __init__(self, project : AtlasProject, atlas_index_id: str, projection_id: str, name):
         """
         Creates an AtlasProjection.
         """
@@ -367,6 +369,62 @@ class AtlasProjection:
     def __repr__(self):
         return self.__str__()
 
+    def _iframe(self):
+        return f"""
+        <iframe class="iframe" id="iframe{self.id}" allow="clipboard-read; clipboard-write" src="{self.map_link}">
+        </iframe>
+
+        <style>
+            .iframe {{
+                /* vh can be **very** large in vscode ipynb. */
+                height: min(75vh, 66vw);
+                width: 100%;
+            }}
+        </style>
+        """
+    
+    def _embed_html(self):
+        return f"""<script>
+            destroy = function() {{
+                document.getElementById("iframe{self.id}").remove()
+            }}
+        </script>
+        <h4>Projection ID: {self.self.id}</h4>
+        <div class="actions">
+        <div id="hide" class="action" onclick="destroy()">Hide embedded project</div>
+        <a id="out" class="action" href="{self.map_link}" target="_blank">Explore on atlas.nomic.ai</a>
+        </div>
+        {self._iframe()}
+        <style>
+            .actions {{
+              display: flex;
+              flex-direction: col;
+              gap: 3px;
+              flex-wrap: true;
+            }}
+            .action {{
+              transition: all 500ms ease-in-out;
+            }}
+            .action:hover {{
+              fill: 'gray';
+              cursor: pointer;
+              text-style: underline;
+            }}
+            #hide:hover::after {{
+                content: " x";
+            }}
+            #out:hover::after {{
+                content: " 🔗";
+            }}
+        </style>
+        """
+    
+    def _repr_html_(self):
+        return f"""
+            <h3>Project: {self.name}</h3>
+            {self._embed_html()}
+        """
+    
     def _download_feather(self, dest: str = "tiles"):
         '''
         Downloads the feather tree.
