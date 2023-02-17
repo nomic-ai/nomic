@@ -519,7 +519,7 @@ class AtlasProjection:
             if len(ids) > max_queries:
                 raise Exception(f"Max ids per query is {max_queries}. You sent {len(ids)}.")
         if queries is not None:
-            if not isinstance(queries, np.array):
+            if not isinstance(queries, np.ndarray):
                 raise Exception("`queries` must be an instance of np.array.")
             if queries.shape[0] > max_queries:
                 raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
