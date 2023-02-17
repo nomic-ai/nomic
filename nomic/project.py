@@ -346,7 +346,7 @@ class AtlasProjection:
     Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
     '''
 
-    def __init__(self, project : AtlasProject, atlas_index_id: str, projection_id: str, name):
+    def __init__(self, project : "AtlasProject", atlas_index_id: str, projection_id: str, name):
         """
         Creates an AtlasProjection.
         """
@@ -418,7 +418,7 @@ class AtlasProjection:
             }}
         </style>
         """
-    
+
     def _repr_html_(self):
         return f"""
             <h3>Project: {self.name}</h3>
