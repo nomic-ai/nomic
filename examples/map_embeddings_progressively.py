@@ -10,7 +10,7 @@ data = [{'upload': '1'} for i in range(len(embeddings))]
 
 project = atlas.map_embeddings(embeddings=embeddings,
                                data=data,
-                               map_name='A Map That Gets Updated',
+                               name='A Map That Gets Updated',
                                colorable_fields=['upload'])
 map = project.get_map('A Map That Gets Updated')
 print(map)

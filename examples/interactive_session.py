@@ -10,9 +10,9 @@ documents = [dataset[i] for i in subset_idxs]
 
 project = atlas.map_text(data=documents,
                           indexed_field='text',
-                          map_name='News Dataset 25k',
+                          name='News Dataset 25k',
                           colorable_fields=['label'],
-                          map_description='News Dataset 25k'
+                          description='News Dataset 25k'
                           )
 
 

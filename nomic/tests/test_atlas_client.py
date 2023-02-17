@@ -20,14 +20,14 @@ def test_map_embeddings_with_errors():
     with pytest.raises(Exception):
         data = [{'hello': {'hello'}} for i in range(len(embeddings))]
         response = atlas.map_embeddings(
-            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
 
     # test underscore
     with pytest.raises(Exception):
         data = [{'__hello': {'hello'}} for i in range(len(embeddings))]
         response = atlas.map_embeddings(
-            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
 
     # test non-matching keys across metadatums
@@ -35,7 +35,7 @@ def test_map_embeddings_with_errors():
         data = [{'hello': 'a'} for i in range(len(embeddings))]
         data[1]['goodbye'] = 'b'
         response = atlas.map_embeddings(
-            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
 
     # test to long ids
@@ -44,7 +44,7 @@ def test_map_embeddings_with_errors():
         response = atlas.map_embeddings(
             embeddings=embeddings,
             data=data,
-            map_name='UNITTEST1',
+            name='UNITTEST1',
             id_field='id',
             is_public=True,
             reset_project_if_exists=True,
@@ -55,7 +55,7 @@ def test_map_embeddings_with_errors():
         data = [{'b': 'a'} for i in range(len(embeddings))]
         data[1]['goodbye'] = 'b'
         response = atlas.map_embeddings(
-            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
 
     # fail on to large metadata
@@ -63,7 +63,7 @@ def test_map_embeddings_with_errors():
         embeddings = np.random.rand(1000, 10)
         data = [{'string': ''.join(['a'] * (1048576 // 10))} for _ in range(len(embeddings))]
         response = atlas.map_embeddings(
-            embeddings=embeddings, data=data, map_name='UNITTEST1', is_public=True, reset_project_if_exists=True
+            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
 
 
@@ -74,7 +74,7 @@ def test_map_embeddings():
 
     project = atlas.map_embeddings(
         embeddings=embeddings,
-        map_name='UNITTEST1',
+        name='UNITTEST1',
         id_field='id',
         data=data,
         is_public=True,
@@ -110,7 +110,7 @@ def test_date_metadata():
     data = [{'my_date': datetime.datetime(2022, 1, i).isoformat()} for i in range(1, len(embeddings) + 1)]
 
     project = atlas.map_embeddings(
-        embeddings=embeddings, map_name='UNITTEST1', data=data, is_public=True, reset_project_if_exists=True
+        embeddings=embeddings, name='UNITTEST1', data=data, is_public=True, reset_project_if_exists=True
     )
 
     assert project.id
@@ -122,7 +122,7 @@ def test_date_metadata():
         data[1]['my_date'] = data[1]['my_date'] + 'asdf'
         project = atlas.map_embeddings(
             embeddings=embeddings,
-            map_name='UNITTEST1',
+            name='UNITTEST1',
             id_field='id',
             data=data,
             is_public=True,
@@ -138,8 +138,8 @@ def test_map_text_errors():
             data=[{'key': 'a'}],
             indexed_field='text',
             is_public=True,
-            map_name='UNITTEST1',
-            map_description='test map description',
+            name='UNITTEST1',
+            description='test map description',
             num_workers=1,
             reset_project_if_exists=True,
         )
@@ -153,7 +153,7 @@ def test_map_embedding_progressive():
 
     project = atlas.map_embeddings(
         embeddings=embeddings,
-        map_name='UNITTEST1',
+        name='UNITTEST1',
         id_field='id',
         data=data,
         is_public=True,
@@ -171,7 +171,7 @@ def test_map_embedding_progressive():
         if project.is_accepting_data:
             project = atlas.map_embeddings(
                 embeddings=embeddings,
-                map_name=current_project.name,
+                name=current_project.name,
                 colorable_fields=['upload'],
                 id_field='id',
                 data=data,

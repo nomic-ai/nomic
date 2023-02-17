@@ -622,7 +622,6 @@ class AtlasProject(AtlasClass):
         * **project_id** - An alternative way to retrieve a project is by passing the project_id directly. This only works if a project exists.
         * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.
-        **Returns:** project_id on success.
 
         """
         assert name is not None or project_id is not None, "You must pass a name or project_id"
@@ -1044,6 +1043,14 @@ class AtlasProject(AtlasClass):
         m = self.meta
         return f"AtlasProject: <{m}>"
 
+    def _repr_html_(self):
+        m = self.meta
+        return f"""An Atlas Project.
+            <h3><a href="https://atlas.nomic.ai/dashboard/project/{m['id']}">{m['project_name']}</h3></a>
+            {m['description']} {m['total_datums_in_project']} datums inserted.
+            {len(m['atlas_indices'])} indexes built.
+            """
+    
     def __str__(self):
         return "\n".join([str(projection) for index in self.indices for projection in index.projections])
 
@@ -1242,8 +1249,6 @@ class AtlasProject(AtlasClass):
                 logger.warning("Text upload partially succeeded.")
             else:
                 logger.info("Text upload succeeded.")
-
-        return True
 
     def add_embeddings(
         self,
