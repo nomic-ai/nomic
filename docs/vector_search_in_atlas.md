@@ -49,9 +49,9 @@ for idx, document in enumerate(documents):
 project = atlas.map_text(data=documents,
                          indexed_field='text',
                          id_field='id',
-                         map_name='News Dataset 25k',
+                         name='News Dataset 25k',
                          colorable_fields=['label'],
-                         map_description='News Dataset 25k'
+                         description='News Dataset 25k'
                           )
 
 ```

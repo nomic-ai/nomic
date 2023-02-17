@@ -25,9 +25,9 @@ When sending text you should specify an `indexed_field` in the `map_text` functi
     
     project = atlas.map_text(data=documents,
                               indexed_field='text',
-                              map_name='News 10k Example',
+                              name='News 10k Example',
                               colorable_fields=['label'],
-                              map_description='News 10k Example.'
+                              description='News 10k Example.'
                               )
     ```
 
@@ -85,8 +85,8 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
     response = atlas.map_embeddings(embeddings=embeddings,
                                     data=documents,
                                     colorable_fields=['sentiment'],
-                                    map_name="Huggingface Model Example",
-                                    map_description="An example of building a text map with a huggingface model.")
+                                    name="Huggingface Model Example",
+                                    description="An example of building a text map with a huggingface model.")
     
     print(response)
     ```
@@ -142,8 +142,8 @@ Add your Cohere API key to the below example to see how their large language mod
     response = atlas.map_embeddings(embeddings=np.array(embeddings),
                                     data=documents,
                                     colorable_fields=['sentiment'],
-                                    map_name='Sentiment 140',
-                                    map_description='A 10,000 point sample of the huggingface sentiment140 dataset embedded with the co:here small model.',
+                                    name='Sentiment 140',
+                                    description='A 10,000 point sample of the huggingface sentiment140 dataset embedded with the co:here small model.',
                                     )
     print(response)
     ```

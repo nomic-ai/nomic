@@ -18,8 +18,8 @@ def map_embeddings(
     embeddings: np.array,
     data: List[Dict] = None,
     id_field: str = None,
-    map_name: str = None,
-    map_description: str = None,
+    name: str = None,
+    description: str = None,
     is_public: bool = True,
     colorable_fields: list = [],
     build_topic_model: bool = True,
@@ -39,8 +39,8 @@ def map_embeddings(
         embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
         data: An [N,] element list of dictionaries containing metadata for each embedding.
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
-        map_name: A name for your map.
-        map_description: A description for your map.
+        name: A name for your map.
+        description: A description for your map.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
         colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
         organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
@@ -64,11 +64,11 @@ def map_embeddings(
     description = 'A description for your map.'
     index_name = project_name
 
-    if map_name:
-        project_name = map_name
-        index_name = map_name
-    if map_description:
-        description = map_description
+    if name:
+        project_name = name
+        index_name = name
+    if description:
+        description = description
 
     if data is None:
         data = [{} for _ in range(len(embeddings))]
@@ -134,8 +134,8 @@ def map_text(
     data: List[Dict],
     indexed_field: str,
     id_field: str = None,
-    map_name: str = None,
-    map_description: str = None,
+    name: str = None,
+    description: str = None,
     build_topic_model: bool = True,
     multilingual: bool = False,
     is_public: bool = True,
@@ -156,8 +156,8 @@ def map_text(
         data: An [N,] element list of dictionaries containing metadata for each embedding.
         indexed_field: The name the data field containing the text your want to map.
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
-        map_name: A name for your map.
-        map_description: A description for your map.
+        name: A name for your map.
+        description: A description for your map.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.
         multilingual: Should the map take language into account? If true, points from different with semantically similar text are considered similar.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
@@ -180,11 +180,11 @@ def map_text(
     description = 'A description for your map.'
     index_name = project_name
 
-    if map_name:
-        project_name = map_name
-        index_name = map_name
-    if map_description:
-        description = map_description
+    if name:
+        project_name = name
+        index_name = name
+    if description:
+        description = description
 
     project = AtlasProject(
         name=project_name,
