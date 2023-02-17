@@ -406,31 +406,28 @@ class AtlasProjection:
         <h4>Projection ID: {self.id}</h4>
         <div class="actions">
             <div id="hide" class="action" onclick="destroy()">Hide embedded project</div>
-            <div>
-                <a id="out" class="action" href="{self.map_link}" target="_blank">Explore on atlas.nomic.ai</a>
+            <div class="action" id="out">
+                <a href="{self.map_link}" target="_blank">Explore on atlas.nomic.ai</a>
             </div>
         </div>
         {self._iframe()}
         <style>
             .actions {{
-              display: flex;
-              flex-direction: col;
-              gap: 3px;
-              flex-wrap: true;
+              display: block;
             }}
             .action {{
+              min-height: 18px;
+              margin: 5px;
               transition: all 500ms ease-in-out;
             }}
             .action:hover {{
-              fill: 'gray';
               cursor: pointer;
-              text-style: underline;
             }}
             #hide:hover::after {{
-                content: " x";
+                content: " X";
             }}
             #out:hover::after {{
-                content: " 🔗";
+                content: "";
             }}
         </style>
         """
@@ -1107,22 +1104,25 @@ class AtlasProject(AtlasClass):
             <strong><a href="https://atlas.nomic.ai/dashboard/project/{m['id']}">{m['project_name']}</strong></a>
             <br>
             {m['description']} {m['total_datums_in_project']} datums inserted.
-            {len(m['atlas_indices'])} indexes built.
+            <br>
+            {len(m['atlas_indices'])} index built.
             """
         complete_projections = []
         if len(self.projections) >= 1:
-            html += "<strong>Projections</strong> <ul>"
+            html += "<br><strong>Projections</strong>\n"
+            html += "<ul>\n"
             for projection in self.projections:
                 state = projection._status['index_build_stage']
                 if state == 'Completed':
                     complete_projections.append(projection)
-                html += """<li>{projection.name}. Status {state}. <a target="_blank" href="{projection.map_link}">view online</a></li>"""   
+                html += f"""<li>{projection.name}. Status {state}. <a target="_blank" href="{projection.map_link}">view online</a></li>"""   
             html += "</ul>"
         if len(complete_projections) >= 1:
             # Display most recent complete projection.
             html += "<hr>"
             html += complete_projections[-1]._embed_html()
-            
+        return html
+    
     def __str__(self):
         return "\n".join([str(projection) for index in self.indices for projection in index.projections])
 
