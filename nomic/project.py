@@ -827,7 +827,6 @@ class AtlasProject(AtlasClass):
         Returns:
             True if project is unlocked for data additions, false otherwise.
         '''
-        self._latest_project_state()
         return not self.is_locked
 
 
