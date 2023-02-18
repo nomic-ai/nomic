@@ -61,7 +61,8 @@ def map_embeddings(
         id_field = ATLAS_DEFAULT_ID_FIELD
 
     project_name = get_random_name()
-    description = 'A description for your map.'
+    if description is None:
+        description = 'A description for your map.'
     index_name = project_name
 
     if name:
@@ -177,14 +178,14 @@ def map_text(
         id_field = ATLAS_DEFAULT_ID_FIELD
 
     project_name = get_random_name()
-    description = 'A description for your map.'
+
+    if description is None:
+        description = 'A description for your map.'
     index_name = project_name
 
     if name:
         project_name = name
         index_name = name
-    if description:
-        description = description
 
     project = AtlasProject(
         name=project_name,
