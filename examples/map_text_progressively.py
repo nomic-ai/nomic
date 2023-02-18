@@ -13,7 +13,7 @@ second_upload = documents[500:]
 
 project = atlas.map_text(data=first_upload,
                           indexed_field='text',
-                          map_name='News 1k Example Progressive',
+                          name='News 1k Example Progressive',
                           num_workers=10)
 
 print(project.maps)

@@ -35,7 +35,7 @@ the embedding was part of the first or second set of data added to the project.
     project = atlas.map_embeddings(embeddings=embeddings,
                                    data=data,
                                    id_field='id',
-                                   map_name='A Map That Gets Updated',
+                                   name='A Map That Gets Updated',
                                    colorable_fields=['upload'],
                                    reset_project_if_exists=True)
 

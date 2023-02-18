@@ -38,8 +38,8 @@ The dataset is composed of news articles scraped by an [academic news scraping e
     project = atlas.map_text(data=documents,
                              id_field='id',
                              indexed_field='text',
-                             map_name='News 10k Labeling Example',
-                             map_description='10k News Articles for Labeling'
+                             name='News 10k Labeling Example',
+                             description='10k News Articles for Labeling'
                              )
     print(project.maps)
     ```

@@ -30,8 +30,8 @@ print(embeddings.shape)
 response = atlas.map_embeddings(embeddings=embeddings,
                                 data=documents,
                                 colorable_fields=['sentiment'],
-                                map_name="Huggingface Model Example",
-                                map_description="An example of building a text map with a huggingface model.")
+                                name="Huggingface Model Example",
+                                description="An example of building a text map with a huggingface model.")
 
 print(response)
 

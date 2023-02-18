@@ -10,7 +10,7 @@ documents = [dataset[i] for i in subset_idxs]
 
 response = atlas.map_text(data=documents,
                           indexed_field='text',
-                          map_name='Wiki 10K',
-                          map_description='A 10,000 point sample of the huggingface wikipedia dataset embedded with Nomic\'s Embed v0.0.13 model.',
+                          name='Wiki 10K',
+                          description='A 10,000 point sample of the huggingface wikipedia dataset embedded with Nomic\'s Embed v0.0.13 model.',
                           build_topic_model=True)
 print(response)

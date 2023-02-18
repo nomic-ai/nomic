@@ -240,6 +240,12 @@ class AtlasClass(object):
                         else:
                             msg = 'Datum {} had an empty string for key: {}'.format(datum, key)
                             raise ValueError(msg)
+                import math
+                if isinstance(datum[key], float):
+                    if math.isnan(datum[key]):
+                        raise Exception(
+                            f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
+                        )
 
                 if not isinstance(datum[key], (str, float, int)):
                     raise Exception(
@@ -575,8 +581,23 @@ class AtlasProjection:
                 neighbors: A set of ids corresponding to the nearest neighbors of each query
                 distances: A set of distances between each query and its neighbors
         '''
+
         if queries is None and ids is None:
             raise ValueError('You must specify either a list of datum `ids` or numpy array of `queries` but not both.')
+
+        max_k = 128
+        max_queries = 256
+        if k > max_k:
+            raise Exception(f"Cannot query for more than {max_k} nearest neighbors. Set `k` to {max_k} or lower")
+
+        if ids is not None:
+            if len(ids) > max_queries:
+                raise Exception(f"Max ids per query is {max_queries}. You sent {len(ids)}.")
+        if queries is not None:
+            if not isinstance(queries, np.ndarray):
+                raise Exception("`queries` must be an instance of np.array.")
+            if queries.shape[0] > max_queries:
+                raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
 
         if self.project.is_locked:
             raise ValueError("Your map cannot be queried for nearest neighbors while it builds. Check the dashboard to see your map builds progress.")
@@ -608,7 +629,7 @@ class AtlasProjection:
         status = response.status_code
 
         if response.status_code == 500:
-            raise AssertionError('Cannot perform vector search on your map at this time. Try again later.')
+            raise Exception('Cannot perform vector search on your map at this time. Try again later.')
 
         if response.status_code != 200:
             raise Exception(response.json()['detail'])
@@ -881,7 +902,6 @@ class AtlasProject(AtlasClass):
         Returns:
             True if project is unlocked for data additions, false otherwise.
         '''
-        self._latest_project_state()
         return not self.is_locked
 
 
