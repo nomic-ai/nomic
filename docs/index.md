@@ -7,6 +7,12 @@ Meet Atlas - a tool for interacting with both small and internet scale size data
 Give Atlas unstructured data such as text documents or embedding vectors and Atlas gives you back an interactive web explorer with API access.
 
 Under the hood, Atlas quickly pre-organizes and enriches your data with state-of-the-art AI.
+
+<div align="center">
+  <a href="https://colab.research.google.com/drive/1bquOLIaGlu7O_CFc0Wz74HITzWs4UEa4?usp=sharing">Colab Demo</a>
+</div>
+
+
 === "Mapping Embeddings"
 
     ``` py title="map_embeddings.py"
