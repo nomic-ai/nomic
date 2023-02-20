@@ -1,6 +1,10 @@
 <h1 align="center">Atlas</h1>
 <p align="center">Explore, label, search and share massive datasets in your web browser.</p>
 
+<div align="center">
+  <a href="https://colab.research.google.com/drive/1bquOLIaGlu7O_CFc0Wz74HITzWs4UEa4?usp=sharing">Colab Demo</a>
+</div>
+
 <p align="center">
   <a href="https://docs.nomic.ai">:closed_book:	 Atlas Python Client Documentation</a> 
   <br> <br>
