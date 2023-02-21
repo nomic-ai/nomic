@@ -665,7 +665,7 @@ class AtlasProjection:
         else:
             raise Exception(response.json())
 
-    def get_tags(self) -> Dict[str, str]:
+    def get_tags(self) -> Dict[str, List[str]]:
         '''
         Retrieves back all tags made in the web browser for a specific project and map.
 
@@ -689,24 +689,24 @@ class AtlasProjection:
                 label_to_datums[label].append(item['datum_id'])
         return label_to_datums
 
-    def tag(self, datum_ids: List[str], tags: List[str]):
+    def tag(self, ids: List[str], tags: List[str]):
         '''
 
         Args:
-            datum_ids: The datum ids you want to tag
+            ids: The datum ids you want to tag
             tags: A list containing the tags you want to apply to these data points.
 
         Returns:
 
 
         '''
-        assert isinstance(datum_ids, list), 'datum_ids must be a list of strings'
+        assert isinstance(ids, list), 'ids must be a list of strings'
         assert isinstance(tags, list), 'tags must be a list of strings'
 
         colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags})
-        payload_table = pa.table([pa.array(datum_ids, type=pa.string())], [colname])
+        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
         buffer = io.BytesIO()
-        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression=None))
+        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
         writer.write_table(payload_table)
         writer.close()
         payload = buffer.getvalue()
@@ -717,24 +717,24 @@ class AtlasProjection:
         if response.status_code != 200:
             raise Exception("Failed to add tags")
 
-    def delete_tags(self, datum_ids: List[str], tags: List[str], delete_all=False):
+    def remove_tags(self, ids: List[str], tags: List[str], delete_all=False):
         '''
         Deletes the specified tags from the given datum_ids.
         Args:
-            datum_ids: The datum_ids to delete tags from.
-            tags: The list of tags to delete from the data points.
+            ids: The datum_ids to delete tags from.
+            tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
             delete_all: If true, ignores datum_ids and deletes all specified tags from all data points.
 
         Returns:
 
         '''
-        assert isinstance(datum_ids, list), 'datum_ids must be a list of strings'
+        assert isinstance(ids, list), 'datum_ids must be a list of strings'
         assert isinstance(tags, list), 'tags must be a list of strings'
 
         colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags, 'delete_all': delete_all})
-        payload_table = pa.table([pa.array(datum_ids, type=pa.string())], [colname])
+        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
         buffer = io.BytesIO()
-        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression=None))
+        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
         writer.write_table(payload_table)
         writer.close()
         payload = buffer.getvalue()
