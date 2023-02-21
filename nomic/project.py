@@ -675,7 +675,7 @@ class AtlasProjection:
         # now get the tags
         datums_and_tags = requests.post(
             self.project.atlas_api_path + '/v1/project/tag/read/all_by_datum',
-            headers=self.header,
+            headers=self.project.header,
             json={
                 'project_id': self.project.id,
             },
@@ -700,6 +700,8 @@ class AtlasProjection:
 
 
         '''
+        assert isinstance(datum_ids, list), 'datum_ids must be a list of strings'
+        assert isinstance(tags, list), 'tags must be a list of strings'
 
         colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags})
         payload_table = pa.table([pa.array(datum_ids, type=pa.string())], [colname])
@@ -709,9 +711,11 @@ class AtlasProjection:
         writer.close()
         payload = buffer.getvalue()
 
-        headers = self.headers.copy()
+        headers = self.project.header.copy()
         headers['Content-Type'] = 'application/octet-stream'
-        response = requests.post(self.project.id + "/v1/project/tag/add", headers=headers, data=payload)
+        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/add", headers=headers, data=payload)
+        if response.status_code != 200:
+            raise Exception("Failed to add tags")
 
     def delete_tags(self, datum_ids: List[str], tags: List[str], delete_all=False):
         '''
@@ -724,6 +728,8 @@ class AtlasProjection:
         Returns:
 
         '''
+        assert isinstance(datum_ids, list), 'datum_ids must be a list of strings'
+        assert isinstance(tags, list), 'tags must be a list of strings'
 
         colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags, 'delete_all': delete_all})
         payload_table = pa.table([pa.array(datum_ids, type=pa.string())], [colname])
@@ -733,9 +739,11 @@ class AtlasProjection:
         writer.close()
         payload = buffer.getvalue()
 
-        headers = self.headers.copy()
+        headers = self.project.header.copy()
         headers['Content-Type'] = 'application/octet-stream'
-        response = requests.post(self.project.id + "/v1/project/tag/delete", headers=headers, data=payload)
+        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
+        if response.status_code != 200:
+            raise Exception("Failed to delete tags")
 
 
 class AtlasProject(AtlasClass):
@@ -982,7 +990,7 @@ class AtlasProject(AtlasClass):
         '''Blocks thread execution until project is in a state where it can ingest data.'''
         while True:
             if self.is_accepting_data:
-                logger.debug(f"{self.name}: Project lock is released.")
+                logger.info(f"{self.name}: Project lock is released.")
                 yield self
                 break
             time.sleep(5)
