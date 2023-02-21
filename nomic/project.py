@@ -665,6 +665,78 @@ class AtlasProjection:
         else:
             raise Exception(response.json())
 
+    def get_tags(self) -> Dict[str, str]:
+        '''
+        Retrieves back all tags made in the web browser for a specific project and map.
+
+        Returns:
+            A dictionary mapping datum ids to tags.
+        '''
+        # now get the tags
+        datums_and_tags = requests.post(
+            self.project.atlas_api_path + '/v1/project/tag/read/all_by_datum',
+            headers=self.header,
+            json={
+                'project_id': self.project.id,
+            },
+        ).json()['results']
+
+        label_to_datums = {}
+        for item in datums_and_tags:
+            for label in item['labels']:
+                if label not in label_to_datums:
+                    label_to_datums[label] = []
+                label_to_datums[label].append(item['datum_id'])
+        return label_to_datums
+
+    def tag(self, datum_ids: List[str], tags: List[str]):
+        '''
+
+        Args:
+            datum_ids: The datum ids you want to tag
+            tags: A list containing the tags you want to apply to these data points.
+
+        Returns:
+
+
+        '''
+
+        colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags})
+        payload_table = pa.table([pa.array(datum_ids, type=pa.string())], [colname])
+        buffer = io.BytesIO()
+        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression=None))
+        writer.write_table(payload_table)
+        writer.close()
+        payload = buffer.getvalue()
+
+        headers = self.headers.copy()
+        headers['Content-Type'] = 'application/octet-stream'
+        response = requests.post(self.project.id + "/v1/project/tag/add", headers=headers, data=payload)
+
+    def delete_tags(self, datum_ids: List[str], tags: List[str], delete_all=False):
+        '''
+        Deletes the specified tags from the given datum_ids.
+        Args:
+            datum_ids: The datum_ids to delete tags from.
+            tags: The list of tags to delete from the data points.
+            delete_all: If true, ignores datum_ids and deletes all specified tags from all data points.
+
+        Returns:
+
+        '''
+
+        colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags, 'delete_all': delete_all})
+        payload_table = pa.table([pa.array(datum_ids, type=pa.string())], [colname])
+        buffer = io.BytesIO()
+        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression=None))
+        writer.write_table(payload_table)
+        writer.close()
+        payload = buffer.getvalue()
+
+        headers = self.headers.copy()
+        headers['Content-Type'] = 'application/octet-stream'
+        response = requests.post(self.project.id + "/v1/project/tag/delete", headers=headers, data=payload)
+
 
 class AtlasProject(AtlasClass):
     def __init__(
@@ -1563,27 +1635,3 @@ class AtlasProject(AtlasClass):
         )
 
         logger.info(f"Updating maps in project `{self.name}`")
-
-    def get_tags(self) -> Dict[str, str]:
-        '''
-        Retrieves back all tags made in the web browser for a specific project and map.
-
-        Returns:
-            A dictionary mapping datum ids to tags.
-        '''
-        # now get the tags
-        datums_and_tags = requests.post(
-            self.atlas_api_path + '/v1/project/tag/read/all_by_datum',
-            headers=self.header,
-            json={
-                'project_id': self.id,
-            },
-        ).json()['results']
-
-        label_to_datums = {}
-        for item in datums_and_tags:
-            for label in item['labels']:
-                if label not in label_to_datums:
-                    label_to_datums[label] = []
-                label_to_datums[label].append(item['datum_id'])
-        return label_to_datums
