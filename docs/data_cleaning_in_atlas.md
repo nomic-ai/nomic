@@ -7,7 +7,7 @@ data labeling workflow:
 
 1. Make a map of your data.
 2. Use the lasso tool in Atlas to tag regions based on your domain expertise.
-3. Access your annotated tags with an [AtlasProject](atlas_api.md)'s `get_tags` method.
+3. Access your annotated tags with an [AtlasProjection](atlas_api.md)'s `get_tags` method.
 
 Tags can then be funneled into a downstream machine learning model, used to clean your dataset by deleting points from your project and
 leveraged to build new maps on subsets of your data.
@@ -57,15 +57,15 @@ networks that power Atlas produce vectors for sports articles that are all simil
 ![](assets/labeling_tutorial/ag_news_10k_news_lassoed.png)
 
 After tagging this lassoed region as 'sports', we can access all the tagged points programmatically.
-To do this, load the AtlasProject and access the annotated tags with the `get_tags` method. 
+To do this, load the AtlasProject and access the annotated tags with the `get_tags` method on projects map. 
 
 === "Retrieving Tags"
 
     ``` py
     from nomic import AtlasProject
     project = AtlasProject(name='News 10k Labeling Example')
-
-    tags = project.get_tags()
+    map = project.maps[0]
+    tags = map.get_tags()
     for tag, datum_ids in tags.items():
         print(tag, "Count:", len(datum_ids), datum_ids[:10])
     

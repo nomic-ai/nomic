@@ -665,6 +665,86 @@ class AtlasProjection:
         else:
             raise Exception(response.json())
 
+    def get_tags(self) -> Dict[str, List[str]]:
+        '''
+        Retrieves back all tags made in the web browser for a specific project and map.
+
+        Returns:
+            A dictionary mapping datum ids to tags.
+        '''
+        # now get the tags
+        datums_and_tags = requests.post(
+            self.project.atlas_api_path + '/v1/project/tag/read/all_by_datum',
+            headers=self.project.header,
+            json={
+                'project_id': self.project.id,
+            },
+        ).json()['results']
+
+        label_to_datums = {}
+        for item in datums_and_tags:
+            for label in item['labels']:
+                if label not in label_to_datums:
+                    label_to_datums[label] = []
+                label_to_datums[label].append(item['datum_id'])
+        return label_to_datums
+
+    def tag(self, ids: List[str], tags: List[str]):
+        '''
+
+        Args:
+            ids: The datum ids you want to tag
+            tags: A list containing the tags you want to apply to these data points.
+
+        Returns:
+
+
+        '''
+        assert isinstance(ids, list), 'ids must be a list of strings'
+        assert isinstance(tags, list), 'tags must be a list of strings'
+
+        colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags})
+        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
+        buffer = io.BytesIO()
+        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
+        writer.write_table(payload_table)
+        writer.close()
+        payload = buffer.getvalue()
+
+        headers = self.project.header.copy()
+        headers['Content-Type'] = 'application/octet-stream'
+        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/add", headers=headers, data=payload)
+        if response.status_code != 200:
+            raise Exception("Failed to add tags")
+
+    def remove_tags(self, ids: List[str], tags: List[str], delete_all=False):
+        '''
+        Deletes the specified tags from the given datum_ids.
+        Args:
+            ids: The datum_ids to delete tags from.
+            tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
+            delete_all: If true, ignores datum_ids and deletes all specified tags from all data points.
+
+        Returns:
+
+        '''
+        assert isinstance(ids, list), 'datum_ids must be a list of strings'
+        assert isinstance(tags, list), 'tags must be a list of strings'
+
+        colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags, 'delete_all': delete_all})
+        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
+        buffer = io.BytesIO()
+        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
+        writer.write_table(payload_table)
+        writer.close()
+        payload = buffer.getvalue()
+
+        headers = self.project.header.copy()
+        headers['Content-Type'] = 'application/octet-stream'
+        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
+        if response.status_code != 200:
+            raise Exception("Failed to delete tags")
+
 
 class AtlasProject(AtlasClass):
     def __init__(
@@ -910,7 +990,7 @@ class AtlasProject(AtlasClass):
         '''Blocks thread execution until project is in a state where it can ingest data.'''
         while True:
             if self.is_accepting_data:
-                logger.debug(f"{self.name}: Project lock is released.")
+                logger.info(f"{self.name}: Project lock is released.")
                 yield self
                 break
             time.sleep(5)
@@ -1563,27 +1643,3 @@ class AtlasProject(AtlasClass):
         )
 
         logger.info(f"Updating maps in project `{self.name}`")
-
-    def get_tags(self) -> Dict[str, str]:
-        '''
-        Retrieves back all tags made in the web browser for a specific project and map.
-
-        Returns:
-            A dictionary mapping datum ids to tags.
-        '''
-        # now get the tags
-        datums_and_tags = requests.post(
-            self.atlas_api_path + '/v1/project/tag/read/all_by_datum',
-            headers=self.header,
-            json={
-                'project_id': self.id,
-            },
-        ).json()['results']
-
-        label_to_datums = {}
-        for item in datums_and_tags:
-            for label in item['labels']:
-                if label not in label_to_datums:
-                    label_to_datums[label] = []
-                label_to_datums[label].append(item['datum_id'])
-        return label_to_datums

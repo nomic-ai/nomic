@@ -101,6 +101,14 @@ def test_map_embeddings():
     for map in project.projections:
         assert map.map_link
 
+    map.tag(ids=[data[0]['id']], tags=['my_tag'])
+
+    assert len(map.get_tags()['my_tag']) == 1
+
+    map.remove_tags(ids=[data[0]['id']], tags=['my_tag'])
+
+    assert 'my_tag' not in map.get_tags()
+
     project.delete()
 
 
@@ -199,5 +207,4 @@ def test_interactive_workflow():
                    )
 
     assert p.total_datums == 100
-    p.get_tags()
     p.delete()
