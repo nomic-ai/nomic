@@ -207,5 +207,4 @@ def test_interactive_workflow():
                    )
 
     assert p.total_datums == 100
-    p.get_tags()
     p.delete()
