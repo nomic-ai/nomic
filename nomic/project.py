@@ -1471,7 +1471,8 @@ class AtlasProject(AtlasClass):
         upload_endpoint = "/v1/project/data/add/embedding/initial"
         if progressive:
             upload_endpoint = "/v1/project/data/add/embedding/progressive"
-
+        assert not np.isinf(embeddings).any(), "Embeddings contain infinite values"
+        assert not np.isnan(embeddings).any(), "Embeddings contain NaN values"
         # Actually do the upload
         def send_request(i):
             data_shard = data[i : i + shard_size]
