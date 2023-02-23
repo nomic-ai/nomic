@@ -11,6 +11,9 @@ Under the hood, Atlas quickly pre-organizes and enriches your data with state-of
 <div align="center">
   <a href="https://colab.research.google.com/drive/1bquOLIaGlu7O_CFc0Wz74HITzWs4UEa4?usp=sharing">Colab Demo</a>
 </div>
+<div align="center">
+  <a href="https://discord.gg/myY5YDR8z8">Discord</a>
+</div>
 
 
 === "Mapping Embeddings"
