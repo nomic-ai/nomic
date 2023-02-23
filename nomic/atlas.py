@@ -57,6 +57,11 @@ def map_embeddings(
 
     '''
 
+    assert isinstance(embeddings, np.ndarray), 'You must pass in a numpy array'
+
+    if embeddings.size == 0:
+        raise Exception("Your embeddings cannot be empty")
+
     if id_field is None:
         id_field = ATLAS_DEFAULT_ID_FIELD
 
