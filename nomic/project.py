@@ -1445,6 +1445,7 @@ class AtlasProject(AtlasClass):
 
         '''
 
+
         # Each worker currently is to slow beyond a shard_size of 5000
         shard_size = min(shard_size, 5000)
 
