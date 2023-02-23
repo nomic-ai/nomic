@@ -59,7 +59,6 @@ def map_embeddings(
 
     assert isinstance(embeddings, np.ndarray), 'You must pass in a numpy array'
 
-    logger.info(embeddings.shape)
     if embeddings.size == 0:
         raise Exception("Your embeddings cannot be empty")
 
