@@ -8,6 +8,8 @@
 <p align="center">
   <a href="https://docs.nomic.ai">:closed_book:	 Atlas Python Client Documentation</a> 
   <br> <br>
+      <a href="https://discord.gg/myY5YDR8z8">:hut: Discord</a> 
+  <br> <br>
   <b>Example Maps</b>
   <br> <br>
   <a href="https://atlas.nomic.ai/map/twitter">:world_map: Map of Twitter</a> (5.4 million tweets)
