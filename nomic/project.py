@@ -809,8 +809,7 @@ class AtlasProject(AtlasClass):
                     f"Loading existing project `{name}` from organization `{organization_name}`."
                 )
 
-
-
+        needs_meta_refresh = False
         if project_id is None: #if there is no existing project, make a new one.
 
             if unique_id_field is None:
@@ -827,8 +826,12 @@ class AtlasProject(AtlasClass):
                 organization_name=organization_name,
                 is_public=is_public
             )
+            needs_meta_refresh = True
 
         self.meta = self._get_project_by_id(project_id=project_id)
+        if needs_meta_refresh:
+            self._latest_project_state()
+
 
     def delete(self):
         '''
@@ -897,7 +900,9 @@ class AtlasProject(AtlasClass):
         )
         if response.status_code != 201:
             raise Exception(f"Failed to create project: {response.json()}")
+        
         return response.json()['project_id']
+
 
     def _latest_project_state(self):
         '''
