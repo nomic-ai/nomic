@@ -65,7 +65,6 @@ def test_map_embeddings_with_errors():
             embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
 
-
 def test_map_embeddings():
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
