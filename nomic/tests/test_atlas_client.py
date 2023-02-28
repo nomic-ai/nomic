@@ -10,7 +10,6 @@ import requests
 
 from nomic import AtlasProject, atlas
 
-
 def test_map_embeddings_with_errors():
 
     num_embeddings = 10
@@ -190,6 +189,29 @@ def test_map_embedding_progressive():
             project.delete()
             return True
 
+def test_topics():
+    num_embeddings = 100
+    embeddings = np.random.rand(num_embeddings, 10)
+    texts = ['foo', 'bar', 'baz', 'bat']
+    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0, 'text': texts[i%4]}
+            for i in range(len(embeddings))]
+
+    p = atlas.map_embeddings(
+        embeddings=embeddings,
+        name='UNITTEST2',
+        id_field='id',
+        data=data,
+        is_public=True,
+        build_topic_model=True,
+        topic_label_field='text',
+        reset_project_if_exists=True,
+    )
+
+    with p.wait_for_project_lock():
+        assert len(p.maps[0].get_topic_data()) > 0
+
+        q = np.random.random((3, 10))
+        assert len(p.maps[0].vector_search_topics(q)['topics']) == 3
 
 def test_interactive_workflow():
 
@@ -206,11 +228,7 @@ def test_interactive_workflow():
                    build_topic_model=True
                    )
 
-    with p.wait_for_project_lock():
-        assert len(p.maps[0].get_topic_data()) > 0
 
-        q = np.random.random((3, 384))
-        assert len(p.maps[0].vector_search_topiccs(q)['topics']) == 3
 
     assert p.total_datums == 100
     p.delete()

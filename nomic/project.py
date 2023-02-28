@@ -685,6 +685,7 @@ class AtlasProjection:
             retries += 1
 
         if retries == 10:
+            print(response.text)
             raise AssertionError('Could not get response from server')
 
         return response.json()
