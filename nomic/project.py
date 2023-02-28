@@ -654,7 +654,7 @@ class AtlasProjection:
         return topic_data
 
 
-    def get_topics(self, queries: np.array):
+    def vector_search_topics(self, queries: np.array):
         '''
         Returns the topics best associated with each query
 
@@ -681,7 +681,6 @@ class AtlasProjection:
                 json={'atlas_index_id': self.atlas_index_id,
                       'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8')},
             )
-            print('rt: ', response.text)
             status = response.status_code
             retries += 1
 
