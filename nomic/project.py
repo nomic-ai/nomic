@@ -638,6 +638,58 @@ class AtlasProjection:
 
         return response['neighbors'], response['distances']
 
+    def get_topic_data(self):
+        '''
+        Returns metadata about a maps pre-computed topics
+
+        Returns:
+            A dictionary of metadata for each topic in the model
+        '''
+        response = requests.get(
+            self.project.atlas_api_path + "/v1/project/{}/index/projection/{}".format(self.project.meta['id'], self.projection_id),
+            headers=self.project.header,
+        )
+        topics = json.loads(response.text)['topic_models'][0]['features']
+        topic_data = [e['properties'] for e in topics]
+        return topic_data
+
+
+    def vector_search_topics(self, queries: np.array):
+        '''
+        Returns the topics best associated with each vector query
+
+        Args:
+            atlas_index_id: the atlas index to use for the search
+            queries: a 2d numpy array where each row corresponds to a query vetor
+
+        Returns:
+            A list of topics for each query
+        '''
+
+        if queries.ndim != 2:
+            raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
+
+        bytesio = io.BytesIO()
+        np.save(bytesio, queries)
+
+        status = 0
+        retries = 0
+        while status != 200 and retries < 10:
+            response = requests.post(
+                self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
+                headers=self.project.header,
+                json={'atlas_index_id': self.atlas_index_id,
+                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8')},
+            )
+            status = response.status_code
+            retries += 1
+
+        if retries == 10:
+            print(response.text)
+            raise AssertionError('Could not get response from server')
+
+        return response.json()
+
 
     def _get_atoms(self, ids: List[str]) -> List[Dict]:
         '''
@@ -786,7 +838,6 @@ class AtlasProject(AtlasClass):
         if project_id is not None:
             self.meta = self._get_project_by_id(project_id)
             return
-
 
         results = self._get_existing_project_by_name(project_name=name, organization_name=organization_name)
         organization_name = results['organization_name']
