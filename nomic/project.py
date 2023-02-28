@@ -640,7 +640,7 @@ class AtlasProjection:
 
     def get_topic_data(self):
         '''
-        Returns data associated with this projection's topics
+        Returns metadata about a maps pre-computed topics
 
         Returns:
             A dictionary of metadata for each topic in the model
@@ -656,7 +656,7 @@ class AtlasProjection:
 
     def vector_search_topics(self, queries: np.array):
         '''
-        Returns the topics best associated with each query
+        Returns the topics best associated with each vector query
 
         Args:
             atlas_index_id: the atlas index to use for the search
