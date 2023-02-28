@@ -206,5 +206,10 @@ def test_interactive_workflow():
                    build_topic_model=True
                    )
 
+    assert len(p.maps[0].get_topic_data()) > 0
+
+    q = np.random.random((3, 384))
+    assert len(p.maps[0].get_topics(q)['topics']) == 3
+
     assert p.total_datums == 100
     p.delete()
