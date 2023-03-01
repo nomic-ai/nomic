@@ -654,15 +654,15 @@ class AtlasProjection:
         return topic_data
 
 
-    def vector_search_topics(self, queries: np.array, k: int, depth: int):
+    def vector_search_topics(self, queries: np.array, k: int=32, depth: int=3):
         '''
         Returns the topics best associated with each vector query
 
         Args:
             atlas_index_id: the atlas index to use for the search
             queries: a 2d numpy array where each row corresponds to a query vetor
-            k: the number of neighbors to use for topic inference
-            depth: the topic depth at which you want to search
+            k: (Defaul 32) the number of neighbors to use when estimating the posterior
+            depth: (Default 3) the topic depth at which you want to search
 
         Returns:
             A dict of {topic: posterior probability} for each query
