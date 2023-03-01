@@ -210,7 +210,7 @@ def test_topics():
         assert len(p.maps[0].get_topic_data()) > 0
 
         q = np.random.random((3, 10))
-        assert len(p.maps[0].vector_search_topics(q)['topics']) == 3
+        assert len(p.maps[0].vector_search_topics(q, depth=1, k=3)['topics']) == 3
 
 def test_interactive_workflow():
 
