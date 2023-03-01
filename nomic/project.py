@@ -654,16 +654,18 @@ class AtlasProjection:
         return topic_data
 
 
-    def vector_search_topics(self, queries: np.array):
+    def vector_search_topics(self, queries: np.array, k: int, depth: int):
         '''
         Returns the topics best associated with each vector query
 
         Args:
             atlas_index_id: the atlas index to use for the search
             queries: a 2d numpy array where each row corresponds to a query vetor
+            k: the number of neighbors to use for topic inference
+            depth: the topic depth at which you want to search
 
         Returns:
-            A list of topics for each query
+            A dict of {topic: posterior probability} for each query
         '''
 
         if queries.ndim != 2:
@@ -679,7 +681,9 @@ class AtlasProjection:
                 self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
                 headers=self.project.header,
                 json={'atlas_index_id': self.atlas_index_id,
-                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8')},
+                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                      'k': k,
+                      'depth': depth},
             )
             status = response.status_code
             retries += 1
