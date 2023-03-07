@@ -74,8 +74,12 @@ class AtlasClass(object):
         return refresh_bearer_token()
 
     def _get_current_user(self):
+        api_base_path = self.atlas_api_path
+        if self.atlas_api_path.startswith('https://api-atlas.nomic.ai'):
+            api_base_path = "https://no-cdn-api-atlas.nomic.ai"
+
         response = requests.get(
-            self.atlas_api_path + "/v1/user",
+            api_base_path + "/v1/user",
             headers=self.header,
         )
         response = validate_api_http_response(response)
