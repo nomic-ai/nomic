@@ -1,7 +1,5 @@
 # Atlas
-[Nomic](https://home.nomic.ai) is the world's first *information cartography* company. We believe that the fastest way to understand your
-data is to look at it.
-
+![](assets/atlas_explanation.png)
 Meet Atlas - a tool for interacting with both small and internet scale size datasets in your web browser.
 
 Give Atlas unstructured data such as text documents or embedding vectors and Atlas gives you back an interactive web explorer with API access.
@@ -29,8 +27,8 @@ Under the hood, Atlas quickly pre-organizes and enriches your data with state-of
     print(project.maps)
     ```
 
-Learn how to use Atlas to interact with your data.
 
+Learn how to use Atlas to interact with your data.
 ## Quickstart
 Install the Nomic client with:
 ```bash
@@ -71,3 +69,6 @@ You are ready to interact with Atlas. Continue on to [make your first map](map_y
 
 
 
+## About us
+[Nomic](https://home.nomic.ai) is the world's first *information cartography* company. We believe that the fastest way to understand your
+data is to look at it.
