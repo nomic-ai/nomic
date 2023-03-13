@@ -37,7 +37,8 @@ setup(
             "mkdocs-material",
             "mkautodoc",
             "twine",
-            "mkdocstrings[python]"
+            "mkdocstrings[python]",
+            "mkdocs-jupyter"
         ],
     },
     entry_points={
