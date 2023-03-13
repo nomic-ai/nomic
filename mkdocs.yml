@@ -16,7 +16,7 @@ nav:
       - 'atlas_api.md'
     - 'Tutorials':
       - 'data_cleaning_in_atlas.md'
-      - 'langchain_language_model_observability.md'
+      - Monitoring Generative Chatbots: chatbot_observability.ipynb
       - 'vector_search_in_atlas.md'
     - 'FAQ and Releases':
       - 'how_does_atlas_work.md'
@@ -67,6 +67,8 @@ plugins:
             heading_level: 4
             show_root_full_path: false
             docstring_section_style: list
+  - mkdocs-jupyter:
+      ignore_h1_titles: True
 
 extra_css:
     - css/custom.css
