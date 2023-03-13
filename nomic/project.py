@@ -1052,11 +1052,14 @@ class AtlasProject(AtlasClass):
     @contextmanager
     def wait_for_project_lock(self):
         '''Blocks thread execution until project is in a state where it can ingest data.'''
+        has_logged = False
         while True:
             if self.is_accepting_data:
-                logger.info(f"{self.name}: Project lock is released.")
                 yield self
                 break
+            if not has_logged:
+                logger.info(f"{self.name}: Waiting for project lock.")
+                has_logged = True
             time.sleep(5)
 
     def get_map(self, name: str = None, atlas_index_id: str = None, projection_id: str = None) -> AtlasProjection:
