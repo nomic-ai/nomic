@@ -258,7 +258,7 @@ class AtlasClass(object):
 
     def _get_organization(self, organization_name=None, organization_id=None) -> Tuple[str, str]:
         '''
-        Get organization.
+        Gets an organization by either it's name or id.
 
         Args:
             organization_name: the name of the organization
@@ -289,6 +289,8 @@ class AtlasClass(object):
                 )
             organization_id = organization_id_request.json()['organization_id']
 
+        logger.info(organization_name)
+        logger.info(organization_id)
         return organization_name, organization_id
 
 
@@ -303,11 +305,9 @@ class AtlasClass(object):
             organization_name: the organization name
 
         Returns:
-            A dictionary containg the project_id, organization_id and organization_name
+            A dictionary containing the project_id, organization_id and organization_name
 
         '''
-
-        organization_name, organization_id = self._get_organization(organization_name=organization_name)
 
         # check if this project already exists.
         response = requests.post(
@@ -315,19 +315,21 @@ class AtlasClass(object):
             headers=self.header,
             json={'organization_name': organization_name, 'project_name': project_name},
         )
+
         if response.status_code != 200:
             raise Exception(f"Failed to find project: {response.json()}")
         search_results = response.json()['results']
 
+        logger.info(search_results)
         if search_results:
             existing_project = search_results[0]
             existing_project_id = existing_project['id']
             return {
                 'project_id': existing_project_id,
-                'organization_id': organization_id,
-                'organization_name': organization_name,
+                'organization_name': existing_project['owner'],
             }
 
+        organization_name, organization_id = self._get_organization(organization_name=organization_name)
         return {'organization_id': organization_id, 'organization_name': organization_name}
 
 
@@ -603,9 +605,6 @@ class AtlasProjection:
             if queries.shape[0] > max_queries:
                 raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
 
-        if self.project.is_locked:
-            raise ValueError("Your map cannot be queried for nearest neighbors while it builds. Check the dashboard to see your map builds progress.")
-
         if queries is not None:
             if queries.ndim != 2:
                 raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
@@ -630,7 +629,6 @@ class AtlasProjection:
                       'k': k},
             )
 
-        status = response.status_code
 
         if response.status_code == 500:
             raise Exception('Cannot perform vector search on your map at this time. Try again later.')
@@ -693,7 +691,6 @@ class AtlasProjection:
             retries += 1
 
         if retries == 10:
-            print(response.text)
             raise AssertionError('Could not get response from server')
 
         return response.json()
@@ -847,10 +844,13 @@ class AtlasProject(AtlasClass):
             self.meta = self._get_project_by_id(project_id)
             return
 
+        if organization_name is None:
+            organization_name = self._get_current_users_main_organization()['nickname']
+
         results = self._get_existing_project_by_name(project_name=name, organization_name=organization_name)
-        organization_name = results['organization_name']
 
         if 'project_id' in results: #project already exists
+            organization_name = results['organization_name']
             project_id = results['project_id']
             if reset_project_if_exists: #reset the project
                 logger.info(
@@ -868,7 +868,6 @@ class AtlasProject(AtlasClass):
                     f"Loading existing project `{name}` from organization `{organization_name}`."
                 )
 
-        needs_meta_refresh = False
         if project_id is None: #if there is no existing project, make a new one.
 
             if unique_id_field is None:
@@ -885,11 +884,9 @@ class AtlasProject(AtlasClass):
                 organization_name=organization_name,
                 is_public=is_public
             )
-            needs_meta_refresh = True
+
 
         self.meta = self._get_project_by_id(project_id=project_id)
-        if needs_meta_refresh:
-            self._latest_project_state()
 
 
     def delete(self):
@@ -967,11 +964,8 @@ class AtlasProject(AtlasClass):
         '''
         Refreshes the projects state. Try to call this sparingly but use it when you need it.
         '''
-        response = requests.get(
-            self.atlas_api_path + f"/v1/project/{self.id}",
-            headers=self.header,
-        )
-        self.meta = response.json()
+
+        self.meta = self._get_project_by_id(self.id)
         return self
 
     @property
@@ -1058,7 +1052,7 @@ class AtlasProject(AtlasClass):
                 yield self
                 break
             if not has_logged:
-                logger.info(f"{self.name}: Waiting for project lock.")
+                logger.info(f"{self.name}: Waiting for Project Lock Release.")
                 has_logged = True
             time.sleep(5)
 
