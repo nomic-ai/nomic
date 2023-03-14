@@ -320,7 +320,6 @@ class AtlasClass(object):
             raise Exception(f"Failed to find project: {response.json()}")
         search_results = response.json()['results']
 
-        logger.info(search_results)
         if search_results:
             existing_project = search_results[0]
             existing_project_id = existing_project['id']
@@ -684,6 +683,9 @@ class AtlasProjection:
                   'k': k,
                   'depth': depth},
         )
+
+        if response.status_code != 200:
+            raise Exception(response.json()['detail'])
 
         return response.json()
 
