@@ -676,22 +676,14 @@ class AtlasProjection:
         bytesio = io.BytesIO()
         np.save(bytesio, queries)
 
-        status = 0
-        retries = 0
-        while status != 200 and retries < 10:
-            response = requests.post(
-                self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
-                headers=self.project.header,
-                json={'atlas_index_id': self.atlas_index_id,
-                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                      'k': k,
-                      'depth': depth},
-            )
-            status = response.status_code
-            retries += 1
-
-        if retries == 10:
-            raise AssertionError('Could not get response from server')
+        response = requests.post(
+            self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
+            headers=self.project.header,
+            json={'atlas_index_id': self.atlas_index_id,
+                  'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                  'k': k,
+                  'depth': depth},
+        )
 
         return response.json()
 
