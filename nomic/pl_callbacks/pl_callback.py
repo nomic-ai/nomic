@@ -26,7 +26,7 @@ class AtlasLightningContainer:
         self.metadata = defaultdict(list)
 
 class AtlasEmbeddingExplorer(Callback):
-    def __init__(self, max_points=-1, name=None, description=None, is_public=True, overwrite=False):
+    def __init__(self, max_points=-1, name=None, description=None, is_public=True, overwrite_on_validation=False):
         '''
 
         Args:
@@ -34,20 +34,20 @@ class AtlasEmbeddingExplorer(Callback):
             name: The name for your embedding explorer.
             description: A description for your embedding explorer.
             is_public: Should your embedding explorer be public
-            overwrite: Should the embedding explorer overwrite itself when a new training run is made.
+            overwrite_on_validation: Re-creates your validation set viewer on every validation run.
         '''
         self.max_points = max_points
         self.name = name
         self.description = description
         self.is_public = is_public
-        self.overwrite = overwrite
+        self.overwrite = overwrite_on_validation
         self.project = None
         self.map = None
         self.atlas = AtlasLightningContainer()
 
     def on_train_start(self, trainer, pl_module):
         '''Verify that atlas is configured and set up variables'''
-        AtlasUser()
+        AtlasUser() #verify logged in.
         pl_module.atlas = self.atlas
 
     def on_train_epoch_start(self, *args, **kwargs):
