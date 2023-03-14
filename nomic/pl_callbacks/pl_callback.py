@@ -94,6 +94,7 @@ class AtlasEmbeddingExplorer(Callback):
             if key == 'id':
                 continue
             if isinstance(metadata[0][key], float) or isinstance(metadata[0][key], int) or key in ('class', 'label', 'target'):
+                print(type(metadata[0][key]))
                 colorable_fields.append(key)
 
         project = atlas.map_embeddings(embeddings=embeddings,
