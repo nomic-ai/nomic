@@ -1690,10 +1690,13 @@ class AtlasProject(AtlasClass):
         # finally, update all the indices
         return self.rebuild_maps()
 
-    def rebuild_maps(self):
+    def rebuild_maps(self, rebuild_topic_models=False):
         '''
         Rebuilds all maps in a project with the latest state project data state. Maps will not be rebuilt to
         reflect the additions, deletions or updates you have made to your data until this method is called.
+
+        Args:
+            rebuild_topic_models: (Default False) - If true, will create new topic models when updating these indices
         '''
 
         response = requests.post(
@@ -1701,6 +1704,7 @@ class AtlasProject(AtlasClass):
             headers=self.header,
             json={
                 'project_id': self.id,
+                'rebuild_topic_models': rebuild_topic_models
             },
         )
 
