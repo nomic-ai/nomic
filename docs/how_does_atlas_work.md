@@ -1,4 +1,4 @@
-# How Atlas works
+# How Atlas Works
 
 Atlas is a platform for visually and programmatically interacting with massive unstructured datasets of text documents,
 images and embeddings.
