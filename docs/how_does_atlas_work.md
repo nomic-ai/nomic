@@ -59,7 +59,7 @@ An Atlas Map has the following properties:
 4. **Topics have a hierarchy**. As you zoom around the Map, more granular versions of topics will emerge.
 4. **Maps update as your data updates**. When new data enters your project, Atlas can reindex the map to reflect how the new data relates to existing data.
 
-All information and operatoins that are visually presented on an Atlas map have a programmatic analog. For example, you can access topic information and vector search through the Python client.
+All information and operations that are visually presented on an Atlas map have a programmatic analog. For example, you can access topic information and vector search through the Python client.
 
 #### Technical Details
 Atlas visualizes your embeddings in two-dimensions using a non-linear dimensionality reduction algorithm. Atlas' dimensionality reduction algorithm is custom-built for scale, speed and dynamic updates.
