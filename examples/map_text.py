@@ -10,7 +10,7 @@ documents = [dataset[i] for i in subset_idxs]
 
 project = atlas.map_text(data=documents,
                           indexed_field='text',
-                          name='News 10k Example',
+                          name='News 10k Example For ID Test',
                           colorable_fields=['label'],
                           description='News 10k Example from the ag_news dataset hosted on huggingface.'
                           )
