@@ -11,18 +11,18 @@ Meet Atlas - a platform for interacting with both small and internet scale unstr
 Atlas enables you to:
 
 * Store, update and organize multi-million point datasets of unstructured text, images and embeddings.
-* Run semantic search queries over your datasets.
-* Visually interact with your datasets from a web browser with Atlas' data mapping technology.
+* Visually interact with your datasets from a web browser.
+* Run semantic search and vector operations over your datasets.
 
 Use Atlas to:
 
 - [Visualize, interact, collaborate and share large datasets of text and embeddings.](map_your_data.md)
 - [Collaboratively clean, tag and label your datasets](data_cleaning_in_atlas.md)
-- [Build high-availability apps powered by semantic search.](https://langchain.readthedocs.io/en/latest/ecosystem/atlas.html)
-- [Understand the latent space your AI model trains](pytorch_embedding_explorer.ipynb)
+- [Build high-availability apps powered by semantic search](https://langchain.readthedocs.io/en/latest/ecosystem/atlas.html)
+- [Understand and debug the latent space your AI model trains](pytorch_embedding_explorer.ipynb)
 
 Read about [how Atlas works](how_does_atlas_work.md) or get started below!
-Learn how to use Atlas to interact with your data.
+
 ## Quickstart
 Install the Nomic client with:
 ```bash
