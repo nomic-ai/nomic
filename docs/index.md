@@ -19,7 +19,7 @@ Use Atlas to:
 - [Visualize, interact, collaborate and share large datasets of text and embeddings.](map_your_data.md)
 - [Collaboratively clean, tag and label your datasets](data_cleaning_in_atlas.md)
 - [Build high-availability apps powered by semantic search](https://langchain.readthedocs.io/en/latest/ecosystem/atlas.html)
-- [Understand and debug the latent space your AI model trains](pytorch_embedding_explorer.ipynb)
+- [Understand and debug the latent space of your AI model trains](pytorch_embedding_explorer.ipynb)
 
 Read about [how Atlas works](how_does_atlas_work.md) or get started below!
 
@@ -54,7 +54,7 @@ You are ready to interact with Atlas. Continue on to [make your first data map](
     print(project.maps)
     ```
 
-## Resources:
+## Resources
 
 [Make your first neural map.](map_your_data.md)
 
