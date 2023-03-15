@@ -38,7 +38,9 @@ setup(
             "mkautodoc",
             "twine",
             "mkdocstrings[python]",
-            "mkdocs-jupyter"
+            "mkdocs-jupyter",
+            "pillow",
+            "cairosvg"
         ],
     },
     entry_points={

@@ -1,8 +1,9 @@
 site_name: Atlas Documentation
 repo_url: https://github.com/nomic-ai/nomic
 repo_name: nomic-ai/nomic
+site_url: https://docs.nomic.ai
 edit_uri: edit/main/docs/
-site_description: Nomic Client Documentation
+site_description: Atlas Client Documentation
 copyright: Copyright &copy; 2023 Nomic, Inc
 use_directory_urls: false
 
@@ -16,7 +17,7 @@ nav:
       - 'atlas_api.md'
     - 'Tutorials':
       - 'data_cleaning_in_atlas.md'
-      - Monitoring Generative Chatbots: chatbot_observability.ipynb
+      - Monitoring Text Through Time: chatbot_observability.ipynb
       - Pytorch Model Latent Space Debugging: pytorch_embedding_explorer.ipynb
       - 'vector_search_in_atlas.md'
     - 'FAQ and Releases':
@@ -59,6 +60,9 @@ markdown_extensions:
   - codehilite:
       css_class: highlight
 
+extra_css:
+    - css/custom.css
+
 plugins:
   - mkdocstrings:
       handlers:
@@ -68,11 +72,12 @@ plugins:
             heading_level: 4
             show_root_full_path: false
             docstring_section_style: list
+  - material/social:
+      cards_font: Roboto
+
   - mkdocs-jupyter:
       ignore_h1_titles: True
-
-extra_css:
-    - css/custom.css
+      show_input: True
 
 extra:
   generator: false
