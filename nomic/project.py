@@ -289,8 +289,6 @@ class AtlasClass(object):
                 )
             organization_id = organization_id_request.json()['organization_id']
 
-        logger.info(organization_name)
-        logger.info(organization_id)
         return organization_name, organization_id
 
 
@@ -413,8 +411,6 @@ class AtlasProjection:
                 document.getElementById("iframe{self.id}").remove()
             }}
         </script>
-
-        <h4>Projection ID: {self.id}</h4>
         <div class="actions">
             <div id="hide" class="action" onclick="destroy()">Hide embedded project</div>
             <div class="action" id="out">
