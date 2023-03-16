@@ -3,7 +3,7 @@ repo_url: https://github.com/nomic-ai/nomic
 repo_name: nomic-ai/nomic
 site_url: https://docs.nomic.ai
 edit_uri: edit/main/docs/
-site_description: Interact with Massive Datasets and Embedding Spaces In Your Webbrowser
+site_description: Interact with Massive Datasets and Embedding Spaces In Your Web Browser
 copyright: Copyright &copy; 2023 Nomic, Inc
 use_directory_urls: false
 
@@ -17,8 +17,8 @@ nav:
       - 'atlas_api.md'
       - Pytorch Lightning Callback: pytorch_embedding_explorer.ipynb
     - 'Tutorials':
-      - 'data_cleaning_in_atlas.md'
-#      - Data Exploration, Labeling and Cleaning: data_exploration_cleaning_tagging_in_atlas.ipynb
+#      - 'data_cleaning_in_atlas.md'
+      - Data Exploration, Labeling and Cleaning: data_exploration_cleaning_tagging_in_atlas.ipynb
       - Monitoring Text Over Time: chatbot_observability.ipynb
       - Pytorch Latent Space Debugging: pytorch_embedding_explorer.ipynb
       - 'vector_search_in_atlas.md'

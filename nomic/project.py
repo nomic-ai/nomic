@@ -639,12 +639,13 @@ class AtlasProjection:
 
         return response['neighbors'], response['distances']
 
-    def get_topic_data(self):
+    def get_topic_data(self) -> List:
         '''
-        Returns metadata about a maps pre-computed topics
+        Retrieves metadata about a maps pre-computed topics
 
         Returns:
             A dictionary of metadata for each topic in the model
+
         '''
         response = requests.get(
             self.project.atlas_api_path + "/v1/project/{}/index/projection/{}".format(self.project.meta['id'], self.projection_id),
@@ -655,14 +656,13 @@ class AtlasProjection:
         return topic_data
 
 
-    def vector_search_topics(self, queries: np.array, k: int=32, depth: int=3):
+    def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
         '''
         Returns the topics best associated with each vector query
 
         Args:
-            atlas_index_id: the atlas index to use for the search
-            queries: a 2d numpy array where each row corresponds to a query vetor
-            k: (Defaul 32) the number of neighbors to use when estimating the posterior
+            queries: a 2d numpy array where each row corresponds to a query vector
+            k: (Default 32) the number of neighbors to use when estimating the posterior
             depth: (Default 3) the topic depth at which you want to search
 
         Returns:
@@ -747,9 +747,6 @@ class AtlasProjection:
             ids: The datum ids you want to tag
             tags: A list containing the tags you want to apply to these data points.
 
-        Returns:
-
-
         '''
         assert isinstance(ids, list), 'ids must be a list of strings'
         assert isinstance(tags, list), 'tags must be a list of strings'
@@ -768,15 +765,17 @@ class AtlasProjection:
         if response.status_code != 200:
             raise Exception("Failed to add tags")
 
-    def remove_tags(self, ids: List[str], tags: List[str], delete_all=False):
+    def remove_tags(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
         '''
         Deletes the specified tags from the given datum_ids.
+
         Args:
             ids: The datum_ids to delete tags from.
             tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
             delete_all: If true, ignores datum_ids and deletes all specified tags from all data points.
 
         Returns:
+            True on success
 
         '''
         assert isinstance(ids, list), 'datum_ids must be a list of strings'
@@ -1316,6 +1315,7 @@ class AtlasProject(AtlasClass):
             ids: A list of datum ids to delete
 
         Returns:
+            True if data deleted successfully.
 
         '''
         if not isinstance(ids, list):
@@ -1684,7 +1684,7 @@ class AtlasProject(AtlasClass):
         # finally, update all the indices
         return self.rebuild_maps()
 
-    def rebuild_maps(self, rebuild_topic_models=False):
+    def rebuild_maps(self, rebuild_topic_models: bool = False):
         '''
         Rebuilds all maps in a project with the latest state project data state. Maps will not be rebuilt to
         reflect the additions, deletions or updates you have made to your data until this method is called.

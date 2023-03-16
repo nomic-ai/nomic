@@ -140,3 +140,4 @@ dmypy.json
 ./site
 .vscode
 examples/localtest.py
+MNIST
