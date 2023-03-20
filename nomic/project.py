@@ -7,7 +7,7 @@ import os
 import pickle
 import time
 import uuid
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Iterable, Union
 from contextlib import contextmanager
@@ -656,6 +656,27 @@ class AtlasProjection:
         topics = json.loads(response.text)['topic_models'][0]['features']
         topic_data = [e['properties'] for e in topics]
         return topic_data
+
+    def get_topic_density(self, time_field: str, start: datetime, end: datetime):
+        '''
+        Counts the number of documents in each topic within a window
+
+        Args:
+            time_field: Your metadata field containing isoformat timestamps
+            start: A datetime object for the window start
+            end: A datetime object for the window end
+
+        Returns:
+            List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count
+        '''
+        response = requests.post(
+            self.project.atlas_api_path + "/v1/project/{}/topic_density".format(self.atlas_index_id),
+            headers=self.project.header,
+            json={'start': start.isoformat(),
+                  'end': end.isoformat(),
+                  'time_field': time_field},
+        )
+        return response.json()
 
 
     def vector_search_topics(self, queries: np.array, k: int=32, depth: int=3):
