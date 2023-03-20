@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 description = 'The offical Nomic python client.'
 setup(
     name='nomic',
-    version='1.0.45',
+    version='1.0.50',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
@@ -37,7 +37,10 @@ setup(
             "mkdocs-material",
             "mkautodoc",
             "twine",
-            "mkdocstrings[python]"
+            "mkdocstrings[python]",
+            "mkdocs-jupyter",
+            "pillow",
+            "cairosvg"
         ],
     },
     entry_points={

@@ -1,13 +1,6 @@
 # Atlas
-[Nomic](https://home.nomic.ai) is the world's first *information cartography* company. We believe that the fastest way to understand your
-data is to look at it.
-
-Meet Atlas - a tool for interacting with both small and internet scale size datasets in your web browser.
-
-Give Atlas unstructured data such as text documents or embedding vectors and Atlas gives you back an interactive web explorer with API access.
-
-Under the hood, Atlas quickly pre-organizes and enriches your data with state-of-the-art AI.
-
+![](assets/atlas_explanation.png)
+Meet Atlas - a platform for interacting with both small and internet scale unstructured datasets.
 <div align="center">
   <a href="https://colab.research.google.com/drive/1bquOLIaGlu7O_CFc0Wz74HITzWs4UEa4?usp=sharing">Colab Demo</a>
 </div>
@@ -15,21 +8,20 @@ Under the hood, Atlas quickly pre-organizes and enriches your data with state-of
   <a href="https://discord.gg/myY5YDR8z8">Discord</a>
 </div>
 
+Atlas enables you to:
 
-=== "Mapping Embeddings"
+* Store, update and organize multi-million point datasets of unstructured text, images and embeddings.
+* Visually interact with your datasets from a web browser.
+* Run semantic search and vector operations over your datasets.
 
-    ``` py title="map_embeddings.py"
-    from nomic import atlas
-    import numpy as np
+Use Atlas to:
 
-    num_embeddings = 10000
-    embeddings = np.random.rand(num_embeddings, 256)
-    
-    project = atlas.map_embeddings(embeddings=embeddings)
-    print(project.maps)
-    ```
+- [Visualize, interact, collaborate and share large datasets of text and embeddings.](map_your_data.md)
+- [Collaboratively clean, tag and label your datasets](data_cleaning_in_atlas.md)
+- [Build high-availability apps powered by semantic search](https://langchain.readthedocs.io/en/latest/ecosystem/atlas.html)
+- [Understand and debug the latent space of your AI model trains](pytorch_embedding_explorer.ipynb)
 
-Learn how to use Atlas to interact with your data.
+Read about [how Atlas works](how_does_atlas_work.md) or get started below!
 
 ## Quickstart
 Install the Nomic client with:
@@ -47,9 +39,22 @@ Follow the instructions to obtain your access token. Enter your access token wit
 nomic login [token]
 ```
 
-You are ready to interact with Atlas. Continue on to [make your first map](map_your_data.md).
+You are ready to interact with Atlas. Continue on to [make your first data map](map_your_data.md).
 
-## Resources:
+=== "Mapping Embeddings"
+
+    ``` py title="map_embeddings.py"
+    from nomic import atlas
+    import numpy as np
+
+    num_embeddings = 10000
+    embeddings = np.random.rand(num_embeddings, 256)
+    
+    project = atlas.map_embeddings(embeddings=embeddings)
+    print(project.maps)
+    ```
+
+## Resources
 
 [Make your first neural map.](map_your_data.md)
 
@@ -71,3 +76,6 @@ You are ready to interact with Atlas. Continue on to [make your first map](map_y
 
 
 
+## About us
+[Nomic](https://home.nomic.ai) is the world's first *information cartography* company. We believe that the fastest way to understand your
+data is to look at it.

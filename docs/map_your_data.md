@@ -1,4 +1,4 @@
-# Map your embeddings
+# Map Your Embeddings
 Atlas ingests unstructured data such as embeddings or text and organizes them.
 Once your data is in Atlas, you can view *all of it* at once on an interactive map. Any interaction you do on the
 map (e.g. tagging, topic labeling, vector search) you can programmatically access in this Python client.
