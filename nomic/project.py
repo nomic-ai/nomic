@@ -211,9 +211,10 @@ class AtlasClass(object):
             # filling in nulls, etc.
             reformatted = {}
             for field in project.schema:
-                if field.name in data:
+                if field.name in data.column_names:
                     reformatted[field.name] = data[field.name].cast(field.type)
-                else:
+                else:                
+                    raise KeyError(f"Field {field.name} present in table schema not found in data. Present fields: {data.column_names}")
                     logger.warning(f"Field {field.name} present in table schema not found in data. Filling with nulls.")
                     reformatted[field.name] = [None] * len(data)    
             for field in data.schema:
@@ -783,7 +784,6 @@ class AtlasProjection:
         if response.status_code != 200:
             raise Exception("Failed to delete tags")
 
-
 class AtlasProject(AtlasClass):
     def __init__(
         self,
@@ -1026,7 +1026,7 @@ class AtlasProject(AtlasClass):
         if self._schema is not None:
             return self._schema
         if 'schema' in self.meta and self.meta['schema'] is not None:
-            self._schema : pa.Schema = ipc.read_schema(bytes(base64.b64decode(self.meta['schema'])))
+            self._schema : pa.Schema = ipc.read_schema(io.BytesIO(base64.b64decode(self.meta['schema'])))
             return self._schema
         return None
 
