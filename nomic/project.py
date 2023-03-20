@@ -849,10 +849,15 @@ class AtlasProject(AtlasClass):
         if project_id is None: #if there is no existing project, make a new one.
 
             if unique_id_field is None:
+                unique_id_field = ATLAS_DEFAULT_ID_FIELD
+
                 raise ValueError("You must specify a unique_id_field when creating a new project.")
 
             if modality is None:
                 raise ValueError("You must specify a modality when creating a new project.")
+
+            assert modality in ['text', 'embedding'], "Modality must be either `text` or `embedding`"
+            assert name is not None
 
             project_id = self._create_project(
                 project_name=name,
@@ -885,7 +890,7 @@ class AtlasProject(AtlasClass):
     def _create_project(
         self,
         project_name: str,
-        description: str,
+        description: Optional[str],
         unique_id_field: str,
         modality: str,
         organization_name: Optional[str] = None,
@@ -921,11 +926,12 @@ class AtlasProject(AtlasClass):
         if unique_id_field is None:
             raise ValueError("You must specify a unique id field")
         logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
-
+        if description is None:
+            description = ""
         response = requests.post(
             self.atlas_api_path + "/v1/project/create",
             headers=self.header,
-            json={
+            json = {
                 'organization_id': organization_id,
                 'project_name': project_name,
                 'description': description,
@@ -1396,7 +1402,7 @@ class AtlasProject(AtlasClass):
         pbar=None,
     ):
         '''
-        Low level interface to upload an Arrow Table. Users should call 'add_text' or 'add_embeddings.'
+        Low level interface to upload an Arrow Table. Users should generally call 'add_text' or 'add_embeddings.'
 
         Args:
             data: A pyarrow Table that will be cast to the project schema.
