@@ -653,7 +653,7 @@ class AtlasProjection:
 
     def get_topic_density(self, time_field: str, start: datetime, end: datetime):
         '''
-        Counts the number of documents in each topic within a window
+        Counts the number of datums in each topic within a window
 
         Args:
             time_field: Your metadata field containing isoformat timestamps
