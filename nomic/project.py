@@ -198,7 +198,7 @@ class AtlasClass(object):
                 msg = "Can't add embeddings to a text project."
                 raise ValueError(msg)
         if project.meta['modality'] == 'embedding':
-            if "_embeddings" not in data:
+            if "_embeddings" not in data.column_names:
                 msg = "Must include embeddings in embedding project upload."
                 raise ValueError(msg)
 
@@ -240,6 +240,8 @@ class AtlasClass(object):
         
         for key in data.column_names:
             if key.startswith('_'):
+                if key == '_embeddings':
+                    continue
                 raise ValueError('Metadata fields cannot start with _')
 
         if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
@@ -321,7 +323,6 @@ class AtlasClass(object):
 
         organization_name, organization_id = self._get_organization(organization_name=organization_name)
         return {'organization_id': organization_id, 'organization_name': organization_name}
-
 
 class AtlasIndex:
     """
@@ -1340,11 +1341,22 @@ class AtlasProject(AtlasClass):
         self,
         data = Union[DataFrame, List[Dict], pa.Table],
         pbar=None,
+        shard_size=None, num_workers=None
+
     ):
+        """
+        Add text data to the project.
+        data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the project schema.
+        pbar: (Optional). A tqdm progress bar to display progress.
+        shard_size: (Deprecated).
+        num_workers: (Deprecated).
+        """
+        if shard_size is not None or num_workers is not None:
+            raise DeprecationWarning("shard_size and num_workers are deprecated.")
         if DataFrame is not None and isinstance(data, DataFrame):
             data = pa.Table.from_pandas(data)
         elif isinstance(data, list):
-            data = pa.Table.from_pydict(data)
+            data = pa.Table.from_pylist(data)
         elif not isinstance(data, pa.Table):
             raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
         self._add_data(data, pbar=pbar)
@@ -1353,7 +1365,8 @@ class AtlasProject(AtlasClass):
             self,
             data : Union[DataFrame, List[Dict], pa.Table],
             embeddings: np.array,
-            pbar = None
+            pbar = None,
+            shard_size=None, num_workers=None
     ):
         """
         Add data, with associated embeddings, to the project.
@@ -1368,6 +1381,10 @@ class AtlasProject(AtlasClass):
         # TODO: validate embedding size.
         assert embeddings.shape[1] == self.embedding_size, "Embedding size must match the embedding size of the project."
         """
+        if shard_size is not None:
+            raise DeprecationWarning("shard_size is deprecated and no longer has any effect")
+        if num_workers is not None:
+            raise DeprecationWarning("num_workers is deprecated and no longer has any effect")
         assert type(embeddings) == np.ndarray, "Embeddings must be a numpy array."
         assert len(embeddings.shape) == 2, "Embeddings must be a 2D numpy array."
         assert len(data) == embeddings.shape[0], "Data and embeddings must have the same number of rows."
@@ -1375,14 +1392,14 @@ class AtlasProject(AtlasClass):
         
         tb: pa.Table
 
-        if type(data) == 'DataFrame':
+        if DataFrame is not None and isinstance(data, DataFrame):
             tb = pa.Table.from_pandas(data)
-        elif type(data) == 'list':
+        elif isinstance(data, list):
             tb = pa.Table.from_pylist(data)
-        elif type(data) == 'pyarrow.Table':
+        elif isinstance(data, pa.Table):
             tb = data
         else:
-            raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
+            raise ValueError(f"Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table, not {type(data)}")
         
         del data
 
@@ -1525,9 +1542,9 @@ class AtlasProject(AtlasClass):
             logger.warning(f"Failed to upload {failed} datums")
         if close_pbar:
             if failed:
-                logger.warning("Text upload partially succeeded.")
+                logger.warning("Upload partially succeeded.")
             else:
-                logger.info("Text upload succeeded.")
+                logger.info("Upload succeeded.")
 
 
     def update_maps(self,
