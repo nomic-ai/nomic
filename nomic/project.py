@@ -10,6 +10,8 @@ import uuid
 from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Iterable, Union
+from typing import TYPE_CHECKING
+
 from contextlib import contextmanager
 
 import numpy as np
@@ -21,6 +23,15 @@ from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
+
+
+# Mainly for type checking
+try:
+    from pandas import DataFrame
+    import pandas as pd
+except ImportError:
+    pd = None
+    DataFrame = None
 
 import nomic
 
@@ -162,11 +173,11 @@ class AtlasClass(object):
 
     def _validate_and_correct_arrow_upload(
         self, data: pa.Table, project: "AtlasProject"
-    ):
+    ) -> pa.Table:
         '''
-        Validates upload data against the project arrow schema, and associated other checks.
+        Private method. validates upload data against the project arrow schema, and associated other checks.
 
-        1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.
+        1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.        
 
         Args:
             data: an arrow table.
@@ -178,7 +189,6 @@ class AtlasClass(object):
         if not isinstance(data, pa.Table):
             raise Exception("Invalid data type for upload: {}".format(type(data)))
 
-
         if project.meta['modality'] == 'text':
             if "_embeddings" in data:
                 msg = "Can't add embeddings to a text project."
@@ -188,8 +198,13 @@ class AtlasClass(object):
                 msg = "Must include embeddings in embedding project upload."
                 raise ValueError(msg)
 
+        if project.id_field == ATLAS_DEFAULT_ID_FIELD:
+            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([str(uuid.uuid4()) for _ in range(len(data))]))
+
         if project.schema is not None:
             # Reformat to match the schema of the project.
+            # This includes shuffling the order around if necessary,
+            # filling in nulls, etc.
             reformatted = {}
             for field in project.schema:
                 if field.name in data:
@@ -215,77 +230,17 @@ class AtlasClass(object):
         if data[project.id_field].null_count > 0:            
             raise ValueError(f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found.")
         
+        for key in data.column_names:
+            if key.startswith('_'):
+                raise ValueError('Metadata fields cannot start with _')
+
         if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
             first_match = data.filter(data[project.id_field].utf8_length() > 36).to_pylist()[0]
             raise ValueError(
-                f"The id_field greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
+                f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
             )
-
-        for datum in data:
-            # The Atlas client adds a unique datum id field for each user.
-            # It does not overwrite the field if it exists, instead map creation fails.
-            if project.id_field in datum:
-                if len(str(datum[project.id_field])) > 36:
-            else:
-                if project.id_field == ATLAS_DEFAULT_ID_FIELD:
-                    datum[project.id_field] = str(uuid.uuid4())
-                else:
-                    raise ValueError(f"{datum} does not contain your specified id_field `{datum[project.id_field]}`")
-
-            if not isinstance(datum, dict):
-                raise Exception(
-                    'Each metadata must be a dictionary with one level of keys and values of only string, int and float types.'
-                )
-
-            if metadata_keys is None:
-                metadata_keys = sorted(list(datum.keys()))
-
-                # figure out which are dates
-                for key in metadata_keys:
-                    try:
-                        date.fromisoformat(str(datum[key]))
-                        metadata_date_keys.append(key)
-                    except ValueError:
-                        pass
-
-            datum_keylist = sorted(list(datum.keys()))
-            if datum_keylist != metadata_keys:
-                msg = 'All metadata must have the same keys, but found key sets: {} and {}'.format(
-                    metadata_keys, datum_keylist
-                )
-                raise ValueError(msg)
-
-            for key in datum:
-                if key.startswith('_'):
-                    raise ValueError('Metadata fields cannot start with _')
-
-                if key in metadata_date_keys:
-                    try:
-                        date.fromisoformat(str(datum[key]))
-                    except ValueError:
-                        raise ValueError(
-                            f"{datum} has timestamp key `{key}` which cannot be parsed as a ISO8601 string. See the following documentation in the Nomic client for working with timestamps: https://docs.nomic.ai/mapping_faq.html."
-                        )
-
-                if project.modality == 'text':
-                    if isinstance(datum[key], str) and len(datum[key]) == 0:
-                        if replace_empty_string_values_with_string_null:
-                            datum[key] = 'null'
-                        else:
-                            msg = 'Datum {} had an empty string for key: {}'.format(datum, key)
-                            raise ValueError(msg)
-                import math
-                if isinstance(datum[key], float):
-                    if math.isnan(datum[key]):
-                        raise Exception(
-                            f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
-                        )
-
-                if not isinstance(datum[key], (str, float, int)):
-                    raise Exception(
-                        f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
-                    )
-
+        return data
+    
     def _get_organization(self, organization_name=None, organization_id=None) -> Tuple[str, str]:
         '''
         Get organization.
@@ -918,9 +873,11 @@ class AtlasProject(AtlasClass):
             needs_meta_refresh = True
 
         self.meta = self._get_project_by_id(project_id=project_id)
+
+        self._schema = None
+
         if needs_meta_refresh:
             self._latest_project_state()
-
 
     def delete(self):
         '''
@@ -1069,7 +1026,7 @@ class AtlasProject(AtlasClass):
         return self.meta['insert_update_delete_lock']
     
     @property
-    def schema(self) -> pa.Schema:
+    def schema(self) -> Optional[pa.Schema]:
         if self._schema is not None:
             return self._schema
         if self.meta['schema'] is not None:
@@ -1379,24 +1336,85 @@ class AtlasProject(AtlasClass):
         else:
             raise Exception(response.json())
 
-    def add_arrow(
+    def add_text(
+        self,
+        data = Union[DataFrame, List[Dict], pa.Table],
+        pbar=None,
+    ):
+        if type(data) == 'DataFrame':
+            data = pa.Table.from_pandas(data)
+        if type(data) == 'list':
+            data = pa.Table.from_pydict(data)
+        if type(data) != 'pyarrow.Table':
+            raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
+        self._add_data(data, pbar=pbar)
+
+    def add_embeddings(
+            self,
+            data : Union[DataFrame, List[Dict], pa.Table],
+            embeddings: np.array,
+            pbar = None
+    ):
+        """
+        Add data, with associated embeddings, to the project.
+        
+        Args:
+            data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the project schema.
+            embeddings: A numpy array of embeddings: each row corresponds to a row in the table.
+            pbar: (Optional). A tqdm progress bar to update.
+        """
+        
+        """
+        # TODO: validate embedding size.
+        assert embeddings.shape[1] == self.embedding_size, "Embedding size must match the embedding size of the project."
+        """
+        assert type(embeddings) == np.ndarray, "Embeddings must be a numpy array."
+        assert len(embeddings.shape) == 2, "Embeddings must be a 2D numpy array."
+        assert len(data) == embeddings.shape[0], "Data and embeddings must have the same number of rows."
+        assert len(data) > 0, "Data must have at least one row."
+        
+        tb: pa.Table
+
+        if type(data) == 'DataFrame':
+            tb = pa.Table.from_pandas(data)
+        elif type(data) == 'list':
+            tb = pa.Table.from_pylist(data)
+        elif type(data) == 'pyarrow.Table':
+            tb = data
+        else:
+            raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
+        
+        del data
+
+        # Add embeddings to the data.
+        embeddings = embeddings.astype(np.float16)
+
+        # Fail if any embeddings are NaN or Inf.
+        assert not np.isnan(embeddings).any(), "Embeddings must not contain NaN values."
+        assert not np.isinf(embeddings).any(), "Embeddings must not contain Inf values."
+
+        pyarrow_embeddings = pa.FixedSizeListArray.from_arrays(embeddings.reshape((-1)), embeddings.shape[1])
+
+        data_with_embeddings = tb.append_column("_embeddings", pyarrow_embeddings)
+
+        self._add_data(data_with_embeddings)
+
+    def _add_data(
         self,
         data: pa.Table,
         pbar=None,
-        num_workers: int = 10
     ):
         '''
-        Adds data to a project.
+        Low level interface to upload an Arrow Table. Users should call 'add_text' or 'add_embeddings.'
 
         Args:
-            data: An [N,] element list of dictionaries containing metadata for each embedding.
-            shard_size: Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
-            num_workers: The number of worker threads to upload embeddings with.
-
+            data: A pyarrow Table that will be cast to the project schema.
+            pbar: A tqdm progress bar to update.
         Returns:
             True on success.
 
         '''
+        num_workers = 10
 
         # Each worker currently is to slow beyond a shard_size of 5000
         bytesize = data.nbytes
@@ -1404,9 +1422,9 @@ class AtlasProject(AtlasClass):
 
         shard_size = 5000
         n_chunks = int(np.ceil(nrow / shard_size))
-        # Chunk into 2MB pieces.
-        if bytesize / n_chunks > 2_000_000:
-            shard_size = int(np.ceil(nrow / (bytesize / 2_000_000)))
+        # Chunk into 4MB pieces. These will probably compress down a bit.
+        if bytesize / n_chunks > 4_000_000:
+            shard_size = int(np.ceil(nrow / (bytesize / 4_000_000)))
         
         n_workers = min(num_workers, 20)
 
@@ -1421,10 +1439,6 @@ class AtlasProject(AtlasClass):
         # Actually do the upload
         def send_request(i):
             data_shard = data.slice(i, shard_size)
-            if data_shard.nbytes > 13_000_000:
-                raise Exception(
-                    "Your metadata upload shards are to git large. Try decreasing the shard size or removing un-needed fields from the metadata."
-                )
             with io.BytesIO() as buffer:
                 new_schema = data_shard.schema.add_metadata(b'project_id', self.id.encode('utf-8'))
                 data_shard = data_shard.cast(new_schema)
@@ -1516,9 +1530,6 @@ class AtlasProject(AtlasClass):
             else:
                 logger.info("Text upload succeeded.")
 
-
-    def _validate_arrow_metadata(self, data: pa.Table, project):
-        raise NotImplementedError()
 
     def update_maps(self,
                     data: List[Dict],
