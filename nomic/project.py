@@ -229,7 +229,10 @@ class AtlasClass(object):
 
         # The following two conditions should never occur given the above, but just in case...
         assert project.id_field in data.column_names, f"Upload does not contain your specified id_field"
-        assert pa.types.is_string(data[project.id_field]), f"ID field must be a string. Found {data[project.id_field].type}"
+
+        if not pa.types.is_string(data[project.id_field].type):
+            logger.warning(f"id_field is not a string. Converting to string from {data[project.id_field].type}")
+            data = data.drop([project.id_field]).append_column(project.id_field, data[project.id_field].cast(pa.string()))
 
         if data[project.id_field].null_count > 0:            
             raise ValueError(f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found.")
@@ -1022,7 +1025,7 @@ class AtlasProject(AtlasClass):
     def schema(self) -> Optional[pa.Schema]:
         if self._schema is not None:
             return self._schema
-        if self.meta['schema'] is not None:
+        if 'schema' in self.meta and self.meta['schema'] is not None:
             self._schema : pa.Schema = ipc.read_schema(bytes(base64.b64decode(self.meta['schema'])))
             return self._schema
         return None
@@ -1338,11 +1341,11 @@ class AtlasProject(AtlasClass):
         data = Union[DataFrame, List[Dict], pa.Table],
         pbar=None,
     ):
-        if type(data) == 'DataFrame':
+        if DataFrame is not None and isinstance(data, DataFrame):
             data = pa.Table.from_pandas(data)
-        if type(data) == 'list':
+        elif isinstance(data, list):
             data = pa.Table.from_pydict(data)
-        if type(data) != 'pyarrow.Table':
+        elif not isinstance(data, pa.Table):
             raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
         self._add_data(data, pbar=pbar)
 
@@ -1437,8 +1440,7 @@ class AtlasProject(AtlasClass):
         def send_request(i):
             data_shard = data.slice(i, shard_size)
             with io.BytesIO() as buffer:
-                new_schema = data_shard.schema.add_metadata(b'project_id', self.id.encode('utf-8'))
-                data_shard = data_shard.cast(new_schema)
+                data_shard = data_shard.replace_schema_metadata({'project_id': self.id})
                 feather.write_feather(data_shard, buffer, compression = 'zstd', compression_level = 6)
                 buffer.seek(0)
 
