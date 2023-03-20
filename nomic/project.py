@@ -258,7 +258,7 @@ class AtlasClass(object):
 
     def _get_organization(self, organization_name=None, organization_id=None) -> Tuple[str, str]:
         '''
-        Get organization.
+        Gets an organization by either it's name or id.
 
         Args:
             organization_name: the name of the organization
@@ -303,11 +303,9 @@ class AtlasClass(object):
             organization_name: the organization name
 
         Returns:
-            A dictionary containg the project_id, organization_id and organization_name
+            A dictionary containing the project_id, organization_id and organization_name
 
         '''
-
-        organization_name, organization_id = self._get_organization(organization_name=organization_name)
 
         # check if this project already exists.
         response = requests.post(
@@ -315,6 +313,7 @@ class AtlasClass(object):
             headers=self.header,
             json={'organization_name': organization_name, 'project_name': project_name},
         )
+
         if response.status_code != 200:
             raise Exception(f"Failed to find project: {response.json()}")
         search_results = response.json()['results']
@@ -324,10 +323,10 @@ class AtlasClass(object):
             existing_project_id = existing_project['id']
             return {
                 'project_id': existing_project_id,
-                'organization_id': organization_id,
-                'organization_name': organization_name,
+                'organization_name': existing_project['owner'],
             }
 
+        organization_name, organization_id = self._get_organization(organization_name=organization_name)
         return {'organization_id': organization_id, 'organization_name': organization_name}
 
 
@@ -412,8 +411,6 @@ class AtlasProjection:
                 document.getElementById("iframe{self.id}").remove()
             }}
         </script>
-
-        <h4>Projection ID: {self.id}</h4>
         <div class="actions">
             <div id="hide" class="action" onclick="destroy()">Hide embedded project</div>
             <div class="action" id="out">
@@ -603,9 +600,6 @@ class AtlasProjection:
             if queries.shape[0] > max_queries:
                 raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
 
-        if self.project.is_locked:
-            raise ValueError("Your map cannot be queried for nearest neighbors while it builds. Check the dashboard to see your map builds progress.")
-
         if queries is not None:
             if queries.ndim != 2:
                 raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
@@ -630,7 +624,6 @@ class AtlasProjection:
                       'k': k},
             )
 
-        status = response.status_code
 
         if response.status_code == 500:
             raise Exception('Cannot perform vector search on your map at this time. Try again later.')
@@ -642,12 +635,13 @@ class AtlasProjection:
 
         return response['neighbors'], response['distances']
 
-    def get_topic_data(self):
+    def get_topic_data(self) -> List:
         '''
-        Returns metadata about a maps pre-computed topics
+        Retrieves metadata about a maps pre-computed topics
 
         Returns:
             A dictionary of metadata for each topic in the model
+
         '''
         response = requests.get(
             self.project.atlas_api_path + "/v1/project/{}/index/projection/{}".format(self.project.meta['id'], self.projection_id),
@@ -679,14 +673,13 @@ class AtlasProjection:
         return response.json()
 
 
-    def vector_search_topics(self, queries: np.array, k: int=32, depth: int=3):
+    def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
         '''
         Returns the topics best associated with each vector query
 
         Args:
-            atlas_index_id: the atlas index to use for the search
-            queries: a 2d numpy array where each row corresponds to a query vetor
-            k: (Defaul 32) the number of neighbors to use when estimating the posterior
+            queries: a 2d numpy array where each row corresponds to a query vector
+            k: (Default 32) the number of neighbors to use when estimating the posterior
             depth: (Default 3) the topic depth at which you want to search
 
         Returns:
@@ -699,23 +692,17 @@ class AtlasProjection:
         bytesio = io.BytesIO()
         np.save(bytesio, queries)
 
-        status = 0
-        retries = 0
-        while status != 200 and retries < 10:
-            response = requests.post(
-                self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
-                headers=self.project.header,
-                json={'atlas_index_id': self.atlas_index_id,
-                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                      'k': k,
-                      'depth': depth},
-            )
-            status = response.status_code
-            retries += 1
+        response = requests.post(
+            self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
+            headers=self.project.header,
+            json={'atlas_index_id': self.atlas_index_id,
+                  'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
+                  'k': k,
+                  'depth': depth},
+        )
 
-        if retries == 10:
-            print(response.text)
-            raise AssertionError('Could not get response from server')
+        if response.status_code != 200:
+            raise Exception(response.json()['detail'])
 
         return response.json()
 
@@ -777,9 +764,6 @@ class AtlasProjection:
             ids: The datum ids you want to tag
             tags: A list containing the tags you want to apply to these data points.
 
-        Returns:
-
-
         '''
         assert isinstance(ids, list), 'ids must be a list of strings'
         assert isinstance(tags, list), 'tags must be a list of strings'
@@ -798,15 +782,17 @@ class AtlasProjection:
         if response.status_code != 200:
             raise Exception("Failed to add tags")
 
-    def remove_tags(self, ids: List[str], tags: List[str], delete_all=False):
+    def remove_tags(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
         '''
         Deletes the specified tags from the given datum_ids.
+
         Args:
             ids: The datum_ids to delete tags from.
             tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
             delete_all: If true, ignores datum_ids and deletes all specified tags from all data points.
 
         Returns:
+            True on success
 
         '''
         assert isinstance(ids, list), 'datum_ids must be a list of strings'
@@ -868,10 +854,13 @@ class AtlasProject(AtlasClass):
             self.meta = self._get_project_by_id(project_id)
             return
 
+        if organization_name is None:
+            organization_name = self._get_current_users_main_organization()['nickname']
+
         results = self._get_existing_project_by_name(project_name=name, organization_name=organization_name)
-        organization_name = results['organization_name']
 
         if 'project_id' in results: #project already exists
+            organization_name = results['organization_name']
             project_id = results['project_id']
             if reset_project_if_exists: #reset the project
                 logger.info(
@@ -889,7 +878,6 @@ class AtlasProject(AtlasClass):
                     f"Loading existing project `{name}` from organization `{organization_name}`."
                 )
 
-        needs_meta_refresh = False
         if project_id is None: #if there is no existing project, make a new one.
 
             if unique_id_field is None:
@@ -906,11 +894,9 @@ class AtlasProject(AtlasClass):
                 organization_name=organization_name,
                 is_public=is_public
             )
-            needs_meta_refresh = True
+
 
         self.meta = self._get_project_by_id(project_id=project_id)
-        if needs_meta_refresh:
-            self._latest_project_state()
 
 
     def delete(self):
@@ -988,11 +974,8 @@ class AtlasProject(AtlasClass):
         '''
         Refreshes the projects state. Try to call this sparingly but use it when you need it.
         '''
-        response = requests.get(
-            self.atlas_api_path + f"/v1/project/{self.id}",
-            headers=self.header,
-        )
-        self.meta = response.json()
+
+        self.meta = self._get_project_by_id(self.id)
         return self
 
     @property
@@ -1073,11 +1056,14 @@ class AtlasProject(AtlasClass):
     @contextmanager
     def wait_for_project_lock(self):
         '''Blocks thread execution until project is in a state where it can ingest data.'''
+        has_logged = False
         while True:
             if self.is_accepting_data:
-                logger.info(f"{self.name}: Project lock is released.")
                 yield self
                 break
+            if not has_logged:
+                logger.info(f"{self.name}: Waiting for Project Lock Release.")
+                has_logged = True
             time.sleep(5)
 
     def get_map(self, name: str = None, atlas_index_id: str = None, projection_id: str = None) -> AtlasProjection:
@@ -1346,6 +1332,7 @@ class AtlasProject(AtlasClass):
             ids: A list of datum ids to delete
 
         Returns:
+            True if data deleted successfully.
 
         '''
         if not isinstance(ids, list):
@@ -1714,7 +1701,7 @@ class AtlasProject(AtlasClass):
         # finally, update all the indices
         return self.rebuild_maps()
 
-    def rebuild_maps(self, rebuild_topic_models=False):
+    def rebuild_maps(self, rebuild_topic_models: bool = False):
         '''
         Rebuilds all maps in a project with the latest state project data state. Maps will not be rebuilt to
         reflect the additions, deletions or updates you have made to your data until this method is called.

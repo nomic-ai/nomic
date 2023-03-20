@@ -1,4 +1,4 @@
-# Map your text
+# Map Your Text
 Map your text documents with Atlas using the `map_text` function.
 Atlas will ingest your documents, organize them with state-of-the-art AI and then serve you back an interactive map.
 Any interaction you do with your data (e.g. tagging) can be accessed programmatically with the Atlas Python API.
