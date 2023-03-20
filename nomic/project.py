@@ -139,7 +139,7 @@ class AtlasClass(object):
         )
 
         if response.status_code != 200:
-            raise Exception(f"Could not access project with id {project_id}: {response.json()}")
+            raise Exception(f"Could not access project with id {project_id}: {response.text}")
 
         return response.json()
 
@@ -159,7 +159,7 @@ class AtlasClass(object):
         )
 
         if response.status_code != 200:
-            raise Exception(f'Could not access job state: {response.json()}')
+            raise Exception(f'Could not access job state: {response.text}')
 
         return response.json()
 
@@ -315,7 +315,7 @@ class AtlasClass(object):
         )
 
         if response.status_code != 200:
-            raise Exception(f"Failed to find project: {response.json()}")
+            raise Exception(f"Failed to find project: {response.text}")
         search_results = response.json()['results']
 
         if search_results:
@@ -380,7 +380,7 @@ class AtlasProjection:
             headers=self.project.header,
         )
         if response.status_code != 200:
-            raise Exception(response.json()['detail'])
+            raise Exception(response.text)
 
         content = response.json()
         return content
@@ -506,7 +506,7 @@ class AtlasProjection:
             )
 
             if response.status_code != 200:
-                raise Exception(response.json())
+                raise Exception(response.text)
 
             if check_access:
                 return
@@ -556,7 +556,7 @@ class AtlasProjection:
                 headers=self.header,
             )
             if response.status_code != 200:
-                raise Exception(response.json()['detail'])
+                raise Exception(response.text)
 
             content = response.json()
             if len(content['datum_ids']) == 0:
@@ -629,7 +629,7 @@ class AtlasProjection:
             raise Exception('Cannot perform vector search on your map at this time. Try again later.')
 
         if response.status_code != 200:
-            raise Exception(response.json()['detail'])
+            raise Exception(response.text)
 
         response = response.json()
 
@@ -670,6 +670,9 @@ class AtlasProjection:
                   'end': end.isoformat(),
                   'time_field': time_field},
         )
+        if response.status_code != 200:
+            raise Exception(response.text)
+
         return response.json()
 
 
@@ -702,7 +705,7 @@ class AtlasProjection:
         )
 
         if response.status_code != 200:
-            raise Exception(response.json()['detail'])
+            raise Exception(response.text)
 
         return response.json()
 
@@ -731,7 +734,7 @@ class AtlasProjection:
         if response.status_code == 200:
             return response.json()['atoms']
         else:
-            raise Exception(response.json())
+            raise Exception(response.text)
 
     def get_tags(self) -> Dict[str, List[str]]:
         '''
@@ -1234,7 +1237,7 @@ class AtlasProject(AtlasClass):
         )
         if response.status_code != 200:
             logger.info('Create project failed with code: {}'.format(response.status_code))
-            logger.info('Additional info: {}'.format(response.json()))
+            logger.info('Additional info: {}'.format(response.text))
             raise Exception(response.json()['detail'])
 
         job_id = response.json()['job_id']
@@ -1322,7 +1325,7 @@ class AtlasProject(AtlasClass):
         if response.status_code == 200:
             return [item for item in response.json()['datums']]
         else:
-            raise Exception(response.json())
+            raise Exception(response.text)
 
     def delete_data(self, ids: List[str]) -> bool:
         '''
@@ -1347,7 +1350,7 @@ class AtlasProject(AtlasClass):
         if response.status_code == 200:
             return True
         else:
-            raise Exception(response.json())
+            raise Exception(response.text)
 
     def add_text(
         self,
@@ -1437,7 +1440,7 @@ class AtlasProject(AtlasClass):
                     response = future.result()
                     if response.status_code != 200:
                         try:
-                            logger.error(f"Shard upload failed: {response.json()}")
+                            logger.error(f"Shard upload failed: {response.text}")
                             if 'more datums exceeds your organization limit' in response.json():
                                 return False
                             if 'Project transaction lock is held' in response.json():
@@ -1587,7 +1590,7 @@ class AtlasProject(AtlasClass):
                     response = future.result()
                     if response.status_code != 200:
                         try:
-                            logger.error(f"Shard upload failed: {response.json()}")
+                            logger.error(f"Shard upload failed: {response.text}")
                             if 'more datums exceeds your organization limit' in response.json():
                                 return False
                             if 'Project transaction lock is held' in response.json():
