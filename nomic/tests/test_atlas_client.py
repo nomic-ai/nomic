@@ -76,7 +76,6 @@ def test_map_embeddings():
         id_field='id',
         data=data,
         is_public=True,
-        shard_size=5,
         reset_project_if_exists=True,
     )
 
