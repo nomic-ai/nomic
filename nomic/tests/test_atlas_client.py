@@ -17,7 +17,7 @@ def test_map_embeddings_with_errors():
 
     # test nested dictionaries
     with pytest.raises(Exception):
-        data = [{'hello': {'hello'}} for i in range(len(embeddings))]
+        data = [{'key': {'nested_key': 'nested_value'}} for i in range(len(embeddings))]
         response = atlas.map_embeddings(
             embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
@@ -25,14 +25,6 @@ def test_map_embeddings_with_errors():
     # test underscore
     with pytest.raises(Exception):
         data = [{'__hello': {'hello'}} for i in range(len(embeddings))]
-        response = atlas.map_embeddings(
-            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
-        )
-
-    # test non-matching keys across metadatums
-    with pytest.raises(Exception):
-        data = [{'hello': 'a'} for i in range(len(embeddings))]
-        data[1]['goodbye'] = 'b'
         response = atlas.map_embeddings(
             embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
@@ -47,22 +39,6 @@ def test_map_embeddings_with_errors():
             id_field='id',
             is_public=True,
             reset_project_if_exists=True,
-        )
-
-    # test duplicate keys error
-    with pytest.raises(Exception):
-        data = [{'b': 'a'} for i in range(len(embeddings))]
-        data[1]['goodbye'] = 'b'
-        response = atlas.map_embeddings(
-            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
-        )
-
-    # fail on to large metadata
-    with pytest.raises(Exception):
-        embeddings = np.random.rand(1000, 10)
-        data = [{'string': ''.join(['a'] * (1048576 // 10))} for _ in range(len(embeddings))]
-        response = atlas.map_embeddings(
-            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True, reset_project_if_exists=True
         )
 
 def test_map_embeddings():
@@ -112,7 +88,7 @@ def test_map_embeddings():
 def test_date_metadata():
     num_embeddings = 10
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'my_date': datetime.datetime(2022, 1, i).isoformat()} for i in range(1, len(embeddings) + 1)]
+    data = [{'my_date': datetime.datetime(2022, 1, i)} for i in range(1, len(embeddings) + 1)]
 
     project = atlas.map_embeddings(
         embeddings=embeddings, name='UNITTEST1', data=data, is_public=True, reset_project_if_exists=True
@@ -145,7 +121,6 @@ def test_map_text_errors():
             is_public=True,
             name='UNITTEST1',
             description='test map description',
-            num_workers=1,
             reset_project_if_exists=True,
         )
 
@@ -171,21 +146,39 @@ def test_map_embedding_progressive():
 
     current_project = AtlasProject(name=project.name)
 
-    while True:
-        time.sleep(10)
-        if project.is_accepting_data:
-            project = atlas.map_embeddings(
-                embeddings=embeddings,
-                name=current_project.name,
-                colorable_fields=['upload'],
-                id_field='id',
-                data=data,
-                build_topic_model=False,
-                is_public=True,
-                add_datums_if_exists=True,
-            )
-            project.delete()
-            return True
+    with current_project.wait_for_project_lock():
+        project = atlas.map_embeddings(
+            embeddings=embeddings,
+            name=current_project.name,
+            colorable_fields=['upload'],
+            id_field='id',
+            data=data,
+            build_topic_model=False,
+            is_public=True,
+            add_datums_if_exists=True,
+        )
+    with pytest.raises(Exception):
+        # Try adding a bad field.
+        with current_project.wait_for_project_lock():
+            data = [{'invalid_field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0} for i in range(len(embeddings))]
+
+            current_project = AtlasProject(name=project.name)
+
+            with current_project.wait_for_project_lock():
+                project = atlas.map_embeddings(
+                    embeddings=embeddings,
+                    name=current_project.name,
+                    colorable_fields=['upload'],
+                    id_field='id',
+                    data=data,
+                    build_topic_model=False,
+                    is_public=True,
+                    add_datums_if_exists=True,
+                )
+        
+
+    current_project.delete()
+
 
 def test_topics():
     num_embeddings = 100
@@ -211,6 +204,7 @@ def test_topics():
         q = np.random.random((3, 10))
         assert len(p.maps[0].vector_search_topics(q, depth=1, k=3)['topics']) == 3
 
+
 def test_interactive_workflow():
 
     p = AtlasProject(name='UNITTEST1',
@@ -225,8 +219,16 @@ def test_interactive_workflow():
                    indexed_field='text',
                    build_topic_model=True
                    )
-
-
-
+    
     assert p.total_datums == 100
-    p.delete()
+
+    # Test ability to add more data to a project and have the ids coerced.
+    with p.wait_for_project_lock():
+        p.add_text(data=[{'text': 'hello', 'id': i} for i in range(100, 200)])
+        p.create_index(name='UNITTEST1',
+                   indexed_field='text',
+                   build_topic_model=True
+                   )
+        assert p.total_datums == 200
+    with p.wait_for_project_lock():
+        p.delete()

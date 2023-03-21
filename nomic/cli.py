@@ -128,6 +128,5 @@ def cli(command, params):
     else:
         raise ValueError(f"Command {command} not found.")
     
-
 if __name__ == "__main__":
     cli()

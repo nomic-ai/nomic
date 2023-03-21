@@ -38,12 +38,11 @@ import nomic
 from .cli import refresh_bearer_token, validate_api_http_response
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
-
+from .data_inference import convert_pyarrow_schema_for_atlas
 
 class AtlasUser:
     def __init__(self):
         self.credentials = refresh_bearer_token()
-
 
 class AtlasClass(object):
     def __init__(self):
@@ -75,6 +74,7 @@ class AtlasClass(object):
             )
             response = validate_api_http_response(response)
             if not response.status_code == 200:
+                logger.warning(str(response))
                 logger.info("Your authorization token is no longer valid.")
         else:
             raise ValueError(
@@ -202,29 +202,28 @@ class AtlasClass(object):
                 msg = "Must include embeddings in embedding project upload."
                 raise ValueError(msg)
 
-        if project.id_field == ATLAS_DEFAULT_ID_FIELD:
+        if project.id_field == ATLAS_DEFAULT_ID_FIELD and not ATLAS_DEFAULT_ID_FIELD in data.column_names:
             data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([str(uuid.uuid4()) for _ in range(len(data))]))
 
-        if project.schema is not None:
-            # Reformat to match the schema of the project.
-            # This includes shuffling the order around if necessary,
-            # filling in nulls, etc.
-            reformatted = {}
-            for field in project.schema:
-                if field.name in data.column_names:
-                    reformatted[field.name] = data[field.name].cast(field.type)
-                else:                
-                    raise KeyError(f"Field {field.name} present in table schema not found in data. Present fields: {data.column_names}")
-                    logger.warning(f"Field {field.name} present in table schema not found in data. Filling with nulls.")
-                    reformatted[field.name] = [None] * len(data)    
-            for field in data.schema:
-                if not field.name in reformatted:
-                    if field.name == "_embeddings":
-                        reformatted['_embeddings'] = data['_embeddings']
-                    else:
-                        logger.warning(f"Field {field.name} present in data, but not found in table schema. Ignoring.")
-            data = pa.Table.from_pydict(reformatted, schema=project.schema)
-
+        if project.schema is None:
+            project._schema = convert_pyarrow_schema_for_atlas(data.schema)
+        # Reformat to match the schema of the project.
+        # This includes shuffling the order around if necessary,
+        # filling in nulls, etc.
+        reformatted = {}
+        for field in project.schema:
+            if field.name in data.column_names:
+                reformatted[field.name] = data[field.name].cast(field.type)
+            else:                
+                raise KeyError(f"Field {field.name} present in table schema not found in data. Present fields: {data.column_names}")
+        for field in data.schema:
+            if not field.name in reformatted:
+                if field.name == "_embeddings":
+                    reformatted['_embeddings'] = data['_embeddings']
+                else:
+                    logger.warning(f"Field {field.name} present in data, but not found in table schema. Ignoring.")
+        data = pa.Table.from_pydict(reformatted, schema=project.schema)
+        
         if project.meta['insert_update_delete_lock']:
             raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
@@ -976,7 +975,7 @@ class AtlasProject(AtlasClass):
 
     def _latest_project_state(self):
         '''
-        Refreshes the projects state. Try to call this sparingly but use it when you need it.
+        Refreshes the project's state. Try to call this sparingly but use it when you need it.
         '''
 
         self.meta = self._get_project_by_id(self.id)
@@ -1200,13 +1199,11 @@ class AtlasProject(AtlasClass):
                 if reuse_embedding_from_index_id is None:
                     raise Exception(f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}")
 
-
-
             if indexed_field is None:
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
             if indexed_field not in self.project_fields:
-                raise Exception(f"Your index field is not valid. Valid options are: {self.project_fields}")
+                raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.project_fields}")
 
             model = 'NomicEmbed'
             if multilingual:
@@ -1455,9 +1452,16 @@ class AtlasProject(AtlasClass):
             True on success.
 
         '''
+
+        # Exactly 10 upload workers at a time.
+
         num_workers = 10
 
-        # Each worker currently is to slow beyond a shard_size of 5000
+        # Each worker currently is too slow beyond a shard_size of 5000
+
+        # The heuristic here is: Never let shards be more than 5,000 items,
+        # OR more than 4MB uncompressed. Whichever is smaller.
+
         bytesize = data.nbytes
         nrow = len(data)
 
@@ -1467,8 +1471,6 @@ class AtlasProject(AtlasClass):
         if bytesize / n_chunks > 4_000_000:
             shard_size = int(np.ceil(nrow / (bytesize / 4_000_000)))
         
-        n_workers = min(num_workers, 20)
-
 
         data = self._validate_and_correct_arrow_upload(
                 data=data,
