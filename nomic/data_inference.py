@@ -1,29 +1,6 @@
 import pyarrow as pa
 from typing import List, Union, Dict, Any
 
-"""
-
-Atlas stores and transfers data using a subset of the Apache Arrow standard.
-Pyarrow is used to convert python, pandas, and numpy data types to Arrow types;
-you can also pass any Arrow table (created by polars, duckdb, pyarrow, etc.) directly to Atlas
-and the types will be automatically converted.
-
-Before being uploaded, all data is converted with the following rules:
-* Strings are converted to Arrow strings and stored as UTF-8.
-* Integers are converted to 32-bit integers. (In the case that you have larger integers, they are probably either IDs, in which case you should convert them to strings;
-or they are a field that you want perform analysis on, in which case you should convert them to floats.)
-* Floats are converted to 32-bit (single-precision) floats.
-* Embeddings, regardless of precision, are uploaded as 16-bit (half-precision) floats, and stored in Arrow as FixedSizeList.
-* All dates and datetimes are converted to Arrow timestamps with millisecond precision and no time zone.
-  (If you have a use case that requires timezone information or micro/nanosecond precision, please let us know.)
-* Categorical types (called 'dictionary' in Arrow) are supported, but values stored as categorical must be strings.
-
-Other data types (including booleans, binary, lists, and structs) are not supported.
-Values stored as a dictionary must be strings.
-
-All fields besides embeddings and the user-specified ID field are nullable.
-
-"""
 
 def from_list(values: Dict[str, Any], schema = None) -> pa.Table:
   tb = pa.Table.from_pylist(values, schema=schema)

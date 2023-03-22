@@ -171,7 +171,6 @@ def map_text(
         organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user account's default organization.
         reset_project_if_exists: If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         add_datums_if_exists: If specifying an existing project and you want to add data to it, set this to true.
-        shard_size: Deprecated argument, will be removed in a future release.
         projection_n_neighbors: The number of neighbors to build.
         projection_epochs: The number of epochs to build the map with.
         projection_spread: The spread of the map.

@@ -1270,7 +1270,6 @@ class AtlasProject(AtlasClass):
                 "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
             )
         logger.info(f"Created map `{projection.name}` in project `{self.name}`: {projection.map_link}")
-
         return projection
 
     def __repr__(self):
@@ -1362,15 +1361,13 @@ class AtlasProject(AtlasClass):
         self,
         data = Union[DataFrame, List[Dict], pa.Table],
         pbar=None,
-        shard_size=None, num_workers=None
-
+        shard_size=None,
+        num_workers=None
     ):
         """
         Add text data to the project.
-        data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the project schema.
+        data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the project schema.
         pbar: (Optional). A tqdm progress bar to display progress.
-        shard_size: (Deprecated).
-        num_workers: (Deprecated).
         """
         if shard_size is not None or num_workers is not None:
             raise DeprecationWarning("shard_size and num_workers are deprecated.")
@@ -1435,7 +1432,7 @@ class AtlasProject(AtlasClass):
 
         data_with_embeddings = tb.append_column("_embeddings", pyarrow_embeddings)
 
-        self._add_data(data_with_embeddings)
+        self._add_data(data_with_embeddings, pbar=pbar)
 
     def _add_data(
         self,
@@ -1449,8 +1446,7 @@ class AtlasProject(AtlasClass):
             data: A pyarrow Table that will be cast to the project schema.
             pbar: A tqdm progress bar to update.
         Returns:
-            True on success.
-
+            None
         '''
 
         # Exactly 10 upload workers at a time.
@@ -1487,7 +1483,6 @@ class AtlasProject(AtlasClass):
                 feather.write_feather(data_shard, buffer, compression = 'zstd', compression_level = 6)
                 buffer.seek(0)
 
-                # TODO: Actually put data in.
                 response = requests.post(
                     self.atlas_api_path + upload_endpoint,
                     headers=self.header,

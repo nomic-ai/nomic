@@ -7,12 +7,11 @@ import uuid
 import numpy as np
 import pytest
 import requests
-
 from nomic import AtlasProject, atlas
 
 def test_map_embeddings_with_errors():
 
-    num_embeddings = 10
+    num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
 
     # test nested dictionaries
@@ -42,7 +41,7 @@ def test_map_embeddings_with_errors():
         )
 
 def test_map_embeddings():
-    num_embeddings = 10
+    num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
@@ -86,12 +85,12 @@ def test_map_embeddings():
 
 
 def test_date_metadata():
-    num_embeddings = 10
+    num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'my_date': datetime.datetime(2022, 1, i)} for i in range(1, len(embeddings) + 1)]
 
     project = atlas.map_embeddings(
-        embeddings=embeddings, name='UNITTEST1', data=data, is_public=True, reset_project_if_exists=True
+        embeddings=embeddings, name='test_date_metadata', data=data, is_public=True, reset_project_if_exists=True
     )
 
     assert project.id
@@ -119,21 +118,20 @@ def test_map_text_errors():
             data=[{'key': 'a'}],
             indexed_field='text',
             is_public=True,
-            name='UNITTEST1',
+            name='test_map_text_errors',
             description='test map description',
             reset_project_if_exists=True,
         )
 
 
 def test_map_embedding_progressive():
-
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0} for i in range(len(embeddings))]
 
     project = atlas.map_embeddings(
         embeddings=embeddings,
-        name='UNITTEST1',
+        name='test_map_embedding_progressive',
         id_field='id',
         data=data,
         is_public=True,
@@ -189,7 +187,7 @@ def test_topics():
 
     p = atlas.map_embeddings(
         embeddings=embeddings,
-        name='UNITTEST2',
+        name='test_topics',
         id_field='id',
         data=data,
         is_public=True,
@@ -205,6 +203,21 @@ def test_topics():
         assert len(p.maps[0].vector_search_topics(q, depth=1, k=3)['topics']) == 3
 
 
+words = [
+    'foo', 'bar', 'baz', 'bat',
+    'glorp', 'gloop', 'glib', 'glub',
+    'florp', 'floop', 'flib', 'flub',
+    'blorp', 'bloop', 'blib', 'blub',
+    'slorp', 'sloop', 'slib', 'slub',
+    'clorp', 'cloop', 'clib', 'club',
+    'plorp', 'ploop', 'plib', 'plub',
+    'zlorp', 'zloop', 'zlib', 'zlub',
+    'xlorp', 'xloop', 'xlib', 'xlub',
+    'vlorp', 'vloop', 'vlib', 'vlub',
+    'nlorp', 'nloop', 'nlib', 'nlub',
+    'mlorp', 'mloop', 'mlib', 'mlub'
+]
+
 def test_interactive_workflow():
 
     p = AtlasProject(name='UNITTEST1',
@@ -213,7 +226,7 @@ def test_interactive_workflow():
                      reset_project_if_exists=True
                      )
 
-    p.add_text(data=[{'text': 'hello', 'id': i} for i in range(100)])
+    p.add_text(data=[{'text': random.choice(words), 'id': i} for i in range(100)])
 
     p.create_index(name='UNITTEST1',
                    indexed_field='text',
@@ -224,11 +237,12 @@ def test_interactive_workflow():
 
     # Test ability to add more data to a project and have the ids coerced.
     with p.wait_for_project_lock():
-        p.add_text(data=[{'text': 'hello', 'id': i} for i in range(100, 200)])
+        p.add_text(data=[{'text': random.choice(words), 'id': i} for i in range(100, 200)])
         p.create_index(name='UNITTEST1',
                    indexed_field='text',
                    build_topic_model=True
                    )
         assert p.total_datums == 200
+
     with p.wait_for_project_lock():
         p.delete()
