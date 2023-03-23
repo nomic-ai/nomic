@@ -49,7 +49,7 @@ by specifying an `organization_name` in the `map_embedding` method of the AtlasC
 made under your own account.
 
 ## Working with Dates and Timestamps
-Atlas will consider metadata as timestamps when they are processed into Python `datetime` objects. Under the hood,
+Atlas will consider metadata as timestamps when they are passed as Python `date` or `datetime` objects. Under the hood,
 these are converted into timestamps compatible with the Apache Arrow standard. Remember, you can directly pass
 through pandas Dataframe objects and Arrow tables to the `add_*` endpoints.
 
