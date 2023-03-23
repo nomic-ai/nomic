@@ -213,7 +213,8 @@ class AtlasClass(object):
         reformatted = {}
         for field in project.schema:
             if field.name in data.column_names:                
-                reformatted[field.name] = data[field.name].cast(field.type)
+                # Allow loss of precision in dates and ints, etc.
+                reformatted[field.name] = data[field.name].cast(field.type, safe=False)
             else:                
                 raise KeyError(f"Field {field.name} present in table schema not found in data. Present fields: {data.column_names}")
             if pa.types.is_string(field.type):
