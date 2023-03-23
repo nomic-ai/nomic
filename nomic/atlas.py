@@ -8,11 +8,11 @@ from typing import Dict, List, Optional
 import numpy as np
 from loguru import logger
 from tqdm import tqdm
+import uuid
 
 from .project import AtlasProject
 from .settings import *
 from .utils import get_random_name
-
 
 def map_embeddings(
     embeddings: np.array,
@@ -77,7 +77,9 @@ def map_embeddings(
         description = description
 
     if data is None:
-        data = [{} for _ in range(len(embeddings))]
+        data = [{
+            ATLAS_DEFAULT_ID_FIELD: str(uuid.uuid4())
+        } for _ in range(len(embeddings))]
 
     project = AtlasProject(
         name=project_name,
