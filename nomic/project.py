@@ -1390,7 +1390,7 @@ class AtlasProject(AtlasClass):
 
     def add_embeddings(
             self,
-            data : Union[DataFrame, List[Dict], pa.Table],
+            data : Union[DataFrame, List[Dict], pa.Table, None],
             embeddings: np.array,
             pbar = None,
             shard_size=None, num_workers=None

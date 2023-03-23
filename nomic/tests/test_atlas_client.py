@@ -9,6 +9,14 @@ import pytest
 import requests
 from nomic import AtlasProject, atlas
 
+def test_map_idless_embeddings():
+
+    num_embeddings = 50
+    embeddings = np.random.rand(num_embeddings, 512)
+
+    response = atlas.map_embeddings(embeddings=embeddings)
+    print(response)
+
 def test_map_embeddings_with_errors():
 
     num_embeddings = 20
