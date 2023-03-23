@@ -1503,7 +1503,6 @@ class AtlasProject(AtlasClass):
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
         if pbar is None:
-            logger.info("Uploading text to Atlas.")
             close_pbar = True
             pbar = tqdm(total=int(len(data)) // shard_size)
         failed = 0

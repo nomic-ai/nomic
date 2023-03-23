@@ -66,7 +66,7 @@ All information and operations that are visually presented on an Atlas map have 
 Atlas visualizes your embeddings in two-dimensions using a non-linear dimensionality reduction algorithm. Atlas' dimensionality reduction algorithm is custom-built for scale, speed and dynamic updates.
 Nomic cannot share the technical details of the algorithm at this time.
 
-#### Client upload
+#### Data Formats and Integrity
 
 Atlas stores and transfers data using a subset of the [Apache Arrow](arrow.apache.org) standard.
 
