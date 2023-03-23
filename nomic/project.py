@@ -212,10 +212,19 @@ class AtlasClass(object):
         # filling in nulls, etc.
         reformatted = {}
         for field in project.schema:
-            if field.name in data.column_names:
+            if field.name in data.column_names:                
                 reformatted[field.name] = data[field.name].cast(field.type)
             else:                
                 raise KeyError(f"Field {field.name} present in table schema not found in data. Present fields: {data.column_names}")
+            if pa.types.is_string(field.type):
+                # Ugly temporary measures
+                if data[field.name].null_count > 0:
+                    logger.warning(f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version.")
+                    reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
+                if pc.any(pc.equal(pc.binary_length(reformatted[field.name]), 0)):
+                    mask = pc.equal(pc.binary_length(reformatted[field.name]), 0).combine_chunks()
+                    assert pa.types.is_boolean(mask.type)
+                    reformatted[field.name] = pc.replace_with_mask(reformatted[field.name], mask, "null")
         for field in data.schema:
             if not field.name in reformatted:
                 if field.name == "_embeddings":

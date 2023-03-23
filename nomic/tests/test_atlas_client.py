@@ -201,7 +201,7 @@ def test_topics():
 
         q = np.random.random((3, 10))
         assert len(p.maps[0].vector_search_topics(q, depth=1, k=3)['topics']) == 3
-
+        p.delete()
 
 words = [
     'foo', 'bar', 'baz', 'bat',
@@ -246,3 +246,37 @@ def test_interactive_workflow():
 
     with p.wait_for_project_lock():
         p.delete()
+
+def test_weird_inputs():
+    """
+    Check that null and empty strings do not block an index build.
+    """
+    p = AtlasProject(
+        name='test_weird_inputs',
+        modality='text',
+        unique_id_field='id',
+        reset_project_if_exists=True
+        )
+
+    elements = []
+    for i in range(20):        
+        if i % 3 == 0 and i % 5 == 0:
+            elements.append({'text': 'fizzbuzz', 'id': str(i)})
+        elif i % 3 == 0:
+            elements.append({'text': 'fizz', 'id': str(i)})
+        elif i % 5 == 0:
+            elements.append({'text': 'buzz', 'id': str(i)})
+        elif i % 7 == 0:
+            elements.append({'text': None, 'id': str(i)})
+        elif i % 2 == 0:
+            elements.append({'text': '', 'id': str(i)})
+        else:
+            elements.append({'text': 'foo', 'id': str(i)})
+    p.add_text(data=elements)
+    p.create_index(
+        name='test_weird_inputs',
+        indexed_field='text',
+        build_topic_model=True
+    )
+    with p.wait_for_project_lock():
+        assert True
