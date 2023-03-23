@@ -12,7 +12,7 @@ tenants = {
     'production': {'frontend_domain': 'atlas.nomic.ai', 'api_domain': 'api-atlas.nomic.ai'},
 }
 
-nomic_base_path = f'{str(Path.home())}/.nomic'
+nomic_base_path = Path.home() / '.nomic'
 
 
 
@@ -23,11 +23,14 @@ def validate_api_http_response(response):
     return response
 
 
-def get_api_credentials():
-    if not os.path.exists(os.path.join(nomic_base_path, 'credentials')):
+def get_api_credentials(fn=None):
+    if fn is None:
+        fn = 'credentials'
+    filepath = nomic_base_path / fn
+    if not filepath.exists():
         raise ValueError("You have not configured your Nomic API token. Run `nomic login` to configure.")
 
-    with open(os.path.join(nomic_base_path, 'credentials'), 'r') as file:
+    with open(filepath, 'r') as file:
         credentials = json.load(file)
         return credentials
 
@@ -49,8 +52,8 @@ def login(token, tenant='production'):
         exit()
 
     # save credential
-    if not os.path.exists(nomic_base_path):
-        os.mkdir(nomic_base_path)
+    if not nomic_base_path.exists():
+        nomic_base_path.mkdir()
 
     response = requests.get('https://' + environment['api_domain'] + f"/v1/user/token/refresh/{token}")
     response = validate_api_http_response(response)
@@ -83,6 +86,26 @@ def refresh_bearer_token():
             json.dump(credentials, file)
     return credentials
 
+def switch(tenant):
+    assert tenant in ['staging', 'production', None]
+    credentials = get_api_credentials()
+    current_tenant = credentials['tenant']
+    if tenant is None:
+        print(f'Current tenant: {current_tenant}')
+        return
+    if current_tenant == tenant:
+        return
+    else:
+        current_loc = nomic_base_path / 'credentials'
+        new_loc = nomic_base_path / f'credentials_{current_tenant}'
+        print(f'Switching from {current_tenant} to {tenant}.')
+        if current_loc.exists():
+            current_loc.rename(new_loc)
+        if (nomic_base_path / f'credentials_{tenant}').exists():
+            (nomic_base_path / f'credentials_{tenant}').rename(current_loc)
+        else:
+            login(token=None, tenant=tenant)
+        
 
 @click.command()
 @click.argument('command', nargs=1, default='')
@@ -97,7 +120,13 @@ def cli(command, params):
             login(token=params[1], tenant='staging')
         if len(params) == 1:
             login(token=params[0], tenant='production')
-
-
+    elif command == 'switch':
+        if len(params) == 0:
+            switch(tenant=None)
+        if len(params) == 1:
+            switch(tenant=params[0])
+    else:
+        raise ValueError(f"Command {command} not found.")
+    
 if __name__ == "__main__":
     cli()

@@ -24,11 +24,11 @@ def map_embeddings(
     colorable_fields: list = [],
     build_topic_model: bool = True,
     topic_label_field: str = None,
-    num_workers: int = 10,
+    num_workers: None = None,
     organization_name: str = None,
     reset_project_if_exists: bool = False,
     add_datums_if_exists: bool = False,
-    shard_size: int = 1000,
+    shard_size: None = None,
     projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
@@ -90,7 +90,7 @@ def map_embeddings(
         add_datums_if_exists=add_datums_if_exists,
     )
 
-    project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
+    # project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 
     number_of_datums_before_upload = project.total_datums
 
@@ -98,21 +98,21 @@ def map_embeddings(
     logger.info("Uploading embeddings to Atlas.")
 
     embeddings = embeddings.astype(np.float16)
-    with tqdm(total=len(data) // shard_size) as pbar:
-        for i in range(0, len(data), MAX_MEMORY_CHUNK):
-            try:
-                project.add_embeddings(
-                    embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
-                    data=data[i : i + MAX_MEMORY_CHUNK],
-                    shard_size=shard_size,
-                    num_workers=num_workers,
-                    pbar=pbar,
-                )
-            except BaseException as e:
-                if number_of_datums_before_upload == 0:
-                    logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
-                    project.delete()
-                raise e
+    if shard_size is not None:
+        logger.warning("Passing `shard_size` is deprecated and will raise an error in a future release")
+    if num_workers is not None:
+        logger.warning("Passing `num_workers` is deprecated and will raise an error in a future release")
+
+    try:
+        project.add_embeddings(
+            embeddings=embeddings,
+            data=data,
+        )
+    except BaseException as e:
+        if number_of_datums_before_upload == 0:
+            logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
+            project.delete()
+        raise e
 
     logger.info("Embedding upload succeeded.")
 
@@ -146,11 +146,11 @@ def map_text(
     multilingual: bool = False,
     is_public: bool = True,
     colorable_fields: list = [],
-    num_workers: int = 10,
+    num_workers: None = None,
     organization_name: str = None,
     reset_project_if_exists: bool = False,
     add_datums_if_exists: bool = False,
-    shard_size: int = 1000,
+    shard_size: None = None,
     projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
@@ -168,7 +168,7 @@ def map_text(
         multilingual: Should the map take language into account? If true, points from different with semantically similar text are considered similar.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
         colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-        organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
+        organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user account's default organization.
         reset_project_if_exists: If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         add_datums_if_exists: If specifying an existing project and you want to add data to it, set this to true.
         projection_n_neighbors: The number of neighbors to build.
@@ -208,21 +208,20 @@ def map_text(
     number_of_datums_before_upload = project.total_datums
 
     logger.info("Uploading text to Atlas.")
-
-    with tqdm(total=len(data) // shard_size) as pbar:
-        for i in range(0, len(data), MAX_MEMORY_CHUNK):
-            try:
-                project.add_text(
-                    data=data[i : i + MAX_MEMORY_CHUNK],
-                    shard_size=shard_size,
-                    num_workers=num_workers,
-                    pbar=pbar,
-                )
-            except BaseException as e:
-                if number_of_datums_before_upload == 0:
-                    logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
-                    project.delete()
-                raise e
+    if shard_size is not None:
+        logger.warning("Passing 'shard_size' is deprecated and will be removed in a future release.")
+    if num_workers is not None:
+        logger.warning("Passing 'num_workers' is deprecated and will be removed in a future release.")
+    try:
+        project.add_text(
+            data,
+            shard_size=None,
+        )
+    except BaseException as e:
+        if number_of_datums_before_upload == 0:
+            logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
+            project.delete()
+        raise e
 
     logger.info("Text upload succeeded.")
 

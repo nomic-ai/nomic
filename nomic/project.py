@@ -10,10 +10,13 @@ import uuid
 from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Iterable, Union
+from typing import TYPE_CHECKING
+
 from contextlib import contextmanager
 
 import numpy as np
 import pyarrow as pa
+from pyarrow import compute as pc
 import requests
 from loguru import logger
 from pyarrow import compute as pc
@@ -21,17 +24,25 @@ from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 
+
+# Mainly for type checking
+try:
+    from pandas import DataFrame
+    import pandas as pd
+except ImportError:
+    pd = None
+    DataFrame = None
+
 import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
-
+from .data_inference import convert_pyarrow_schema_for_atlas
 
 class AtlasUser:
     def __init__(self):
         self.credentials = refresh_bearer_token()
-
 
 class AtlasClass(object):
     def __init__(self):
@@ -63,6 +74,7 @@ class AtlasClass(object):
             )
             response = validate_api_http_response(response)
             if not response.status_code == 200:
+                logger.warning(str(response))
                 logger.info("Your authorization token is no longer valid.")
         else:
             raise ValueError(
@@ -163,99 +175,90 @@ class AtlasClass(object):
 
         return response.json()
 
-    def _validate_and_correct_user_supplied_metadata(
-        self, data: List[Dict], project, replace_empty_string_values_with_string_null=True
-    ):
+    def _validate_and_correct_arrow_upload(
+        self, data: pa.Table, project: "AtlasProject"
+    ) -> pa.Table:
         '''
-        Validates the users metadata for Atlas compatability.
+        Private method. validates upload data against the project arrow schema, and associated other checks.
 
-        1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.
-
-        2. If a key is detected to store values that match an ISO8601 timestamp string ,Atlas will assume you are working with timestamps. If any additional metadata
-        has this key associated with a non-ISO8601 timestamp string the upload will fail.
+        1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.        
 
         Args:
-            data: the user supplied list of data dictionaries
+            data: an arrow table.
             project: the atlas project you are validating the data for.
-            replace_empty_string_values_with_string_null: replaces empty string values with string nulls in all datums
 
         Returns:
 
         '''
-        if not isinstance(data, list):
-            raise Exception("Metadata must be a list of dictionaries")
+        if not isinstance(data, pa.Table):
+            raise Exception("Invalid data type for upload: {}".format(type(data)))
 
-        metadata_keys = None
-        metadata_date_keys = []
-
-        for datum in data:
-            # The Atlas client adds a unique datum id field for each user.
-            # It does not overwrite the field if it exists, instead map creation fails.
-            if project.id_field in datum:
-                if len(str(datum[project.id_field])) > 36:
-                    raise ValueError(
-                        f"{datum}\n The id_field `{datum[project.id_field]}` is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
-                    )
-            else:
-                if project.id_field == ATLAS_DEFAULT_ID_FIELD:
-                    datum[project.id_field] = str(uuid.uuid4())
-                else:
-                    raise ValueError(f"{datum} does not contain your specified id_field `{datum[project.id_field]}`")
-
-            if not isinstance(datum, dict):
-                raise Exception(
-                    'Each metadata must be a dictionary with one level of keys and values of only string, int and float types.'
-                )
-
-            if metadata_keys is None:
-                metadata_keys = sorted(list(datum.keys()))
-
-                # figure out which are dates
-                for key in metadata_keys:
-                    try:
-                        date.fromisoformat(str(datum[key]))
-                        metadata_date_keys.append(key)
-                    except ValueError:
-                        pass
-
-            datum_keylist = sorted(list(datum.keys()))
-            if datum_keylist != metadata_keys:
-                msg = 'All metadata must have the same keys, but found key sets: {} and {}'.format(
-                    metadata_keys, datum_keylist
-                )
+        if project.meta['modality'] == 'text':
+            if "_embeddings" in data:
+                msg = "Can't add embeddings to a text project."
+                raise ValueError(msg)
+        if project.meta['modality'] == 'embedding':
+            if "_embeddings" not in data.column_names:
+                msg = "Must include embeddings in embedding project upload."
                 raise ValueError(msg)
 
-            for key in datum:
-                if key.startswith('_'):
-                    raise ValueError('Metadata fields cannot start with _')
+        if project.id_field == ATLAS_DEFAULT_ID_FIELD and not ATLAS_DEFAULT_ID_FIELD in data.column_names:
+            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([str(uuid.uuid4()) for _ in range(len(data))]))
 
-                if key in metadata_date_keys:
-                    try:
-                        date.fromisoformat(str(datum[key]))
-                    except ValueError:
-                        raise ValueError(
-                            f"{datum} has timestamp key `{key}` which cannot be parsed as a ISO8601 string. See the following documentation in the Nomic client for working with timestamps: https://docs.nomic.ai/mapping_faq.html."
-                        )
+        if project.schema is None:
+            project._schema = convert_pyarrow_schema_for_atlas(data.schema)
+        # Reformat to match the schema of the project.
+        # This includes shuffling the order around if necessary,
+        # filling in nulls, etc.
+        reformatted = {}
+        for field in project.schema:
+            if field.name in data.column_names:                
+                reformatted[field.name] = data[field.name].cast(field.type)
+            else:                
+                raise KeyError(f"Field {field.name} present in table schema not found in data. Present fields: {data.column_names}")
+            if pa.types.is_string(field.type):
+                # Ugly temporary measures
+                if data[field.name].null_count > 0:
+                    logger.warning(f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version.")
+                    reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
+                if pc.any(pc.equal(pc.binary_length(reformatted[field.name]), 0)):
+                    mask = pc.equal(pc.binary_length(reformatted[field.name]), 0).combine_chunks()
+                    assert pa.types.is_boolean(mask.type)
+                    reformatted[field.name] = pc.replace_with_mask(reformatted[field.name], mask, "null")
+        for field in data.schema:
+            if not field.name in reformatted:
+                if field.name == "_embeddings":
+                    reformatted['_embeddings'] = data['_embeddings']
+                else:
+                    logger.warning(f"Field {field.name} present in data, but not found in table schema. Ignoring.")
+        data = pa.Table.from_pydict(reformatted, schema=project.schema)
+        
+        if project.meta['insert_update_delete_lock']:
+            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
-                if project.modality == 'text':
-                    if isinstance(datum[key], str) and len(datum[key]) == 0:
-                        if replace_empty_string_values_with_string_null:
-                            datum[key] = 'null'
-                        else:
-                            msg = 'Datum {} had an empty string for key: {}'.format(datum, key)
-                            raise ValueError(msg)
-                import math
-                if isinstance(datum[key], float):
-                    if math.isnan(datum[key]):
-                        raise Exception(
-                            f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
-                        )
+        # The following two conditions should never occur given the above, but just in case...
+        assert project.id_field in data.column_names, f"Upload does not contain your specified id_field"
 
-                if not isinstance(datum[key], (str, float, int)):
-                    raise Exception(
-                        f"Metadata sent to Atlas must be a flat dictionary. Values must be strings, floats or ints. Key `{key}` of datum {str(datum)} is in violation."
-                    )
+        if not pa.types.is_string(data[project.id_field].type):
+            logger.warning(f"id_field is not a string. Converting to string from {data[project.id_field].type}")
+            data = data.drop([project.id_field]).append_column(project.id_field, data[project.id_field].cast(pa.string()))
 
+        if data[project.id_field].null_count > 0:            
+            raise ValueError(f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found.")
+        
+        for key in data.column_names:
+            if key.startswith('_'):
+                if key == '_embeddings':
+                    continue
+                raise ValueError('Metadata fields cannot start with _')
+
+        if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
+            first_match = data.filter(data[project.id_field].utf8_length() > 36).to_pylist()[0]
+            raise ValueError(
+                f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
+            )
+        return data
+    
     def _get_organization(self, organization_name=None, organization_id=None) -> Tuple[str, str]:
         '''
         Gets an organization by either it's name or id.
@@ -328,7 +331,6 @@ class AtlasClass(object):
 
         organization_name, organization_id = self._get_organization(organization_name=organization_name)
         return {'organization_id': organization_id, 'organization_name': organization_name}
-
 
 class AtlasIndex:
     """
@@ -815,7 +817,6 @@ class AtlasProjection:
         if response.status_code != 200:
             raise Exception("Failed to delete tags")
 
-
 class AtlasProject(AtlasClass):
     def __init__(
         self,
@@ -884,10 +885,15 @@ class AtlasProject(AtlasClass):
         if project_id is None: #if there is no existing project, make a new one.
 
             if unique_id_field is None:
+                unique_id_field = ATLAS_DEFAULT_ID_FIELD
+
                 raise ValueError("You must specify a unique_id_field when creating a new project.")
 
             if modality is None:
                 raise ValueError("You must specify a modality when creating a new project.")
+
+            assert modality in ['text', 'embedding'], "Modality must be either `text` or `embedding`"
+            assert name is not None
 
             project_id = self._create_project(
                 project_name=name,
@@ -900,6 +906,8 @@ class AtlasProject(AtlasClass):
 
 
         self.meta = self._get_project_by_id(project_id=project_id)
+        self._schema = None
+
 
 
     def delete(self):
@@ -918,7 +926,7 @@ class AtlasProject(AtlasClass):
     def _create_project(
         self,
         project_name: str,
-        description: str,
+        description: Optional[str],
         unique_id_field: str,
         modality: str,
         organization_name: Optional[str] = None,
@@ -954,11 +962,12 @@ class AtlasProject(AtlasClass):
         if unique_id_field is None:
             raise ValueError("You must specify a unique id field")
         logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
-
+        if description is None:
+            description = ""
         response = requests.post(
             self.atlas_api_path + "/v1/project/create",
             headers=self.header,
-            json={
+            json = {
                 'organization_id': organization_id,
                 'project_name': project_name,
                 'description': description,
@@ -975,7 +984,7 @@ class AtlasProject(AtlasClass):
 
     def _latest_project_state(self):
         '''
-        Refreshes the projects state. Try to call this sparingly but use it when you need it.
+        Refreshes the project's state. Try to call this sparingly but use it when you need it.
         '''
 
         self.meta = self._get_project_by_id(self.id)
@@ -1041,9 +1050,18 @@ class AtlasProject(AtlasClass):
         return self.meta['project_fields']
 
     @property
-    def is_locked(self):
+    def is_locked(self) -> bool:
         self._latest_project_state()
         return self.meta['insert_update_delete_lock']
+    
+    @property
+    def schema(self) -> Optional[pa.Schema]:
+        if self._schema is not None:
+            return self._schema
+        if 'schema' in self.meta and self.meta['schema'] is not None:
+            self._schema : pa.Schema = ipc.read_schema(io.BytesIO(base64.b64decode(self.meta['schema'])))
+            return self._schema
+        return None
 
     @property
     def is_accepting_data(self) -> bool:
@@ -1054,7 +1072,6 @@ class AtlasProject(AtlasClass):
             True if project is unlocked for data additions, false otherwise.
         '''
         return not self.is_locked
-
 
     @contextmanager
     def wait_for_project_lock(self):
@@ -1191,13 +1208,11 @@ class AtlasProject(AtlasClass):
                 if reuse_embedding_from_index_id is None:
                     raise Exception(f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}")
 
-
-
             if indexed_field is None:
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
             if indexed_field not in self.project_fields:
-                raise Exception(f"Your index field is not valid. Valid options are: {self.project_fields}")
+                raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.project_fields}")
 
             model = 'NomicEmbed'
             if multilingual:
@@ -1264,7 +1279,6 @@ class AtlasProject(AtlasClass):
                 "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
             )
         logger.info(f"Created map `{projection.name}` in project `{self.name}`: {projection.map_link}")
-
         return projection
 
     def __repr__(self):
@@ -1354,71 +1368,137 @@ class AtlasProject(AtlasClass):
 
     def add_text(
         self,
-        data: List[Dict],
-        shard_size: int = 1000,
-        num_workers: int = 10,
-        replace_empty_string_values_with_string_null: bool = True,
+        data = Union[DataFrame, List[Dict], pa.Table],
         pbar=None,
-    ) -> bool:
+        shard_size=None,
+        num_workers=None
+    ):
+        """
+        Add text data to the project.
+        data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the project schema.
+        pbar: (Optional). A tqdm progress bar to display progress.
+        """
+        if shard_size is not None or num_workers is not None:
+            raise DeprecationWarning("shard_size and num_workers are deprecated.")
+        if DataFrame is not None and isinstance(data, DataFrame):
+            data = pa.Table.from_pandas(data)
+        elif isinstance(data, list):
+            data = pa.Table.from_pylist(data)
+        elif not isinstance(data, pa.Table):
+            raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
+        self._add_data(data, pbar=pbar)
+
+    def add_embeddings(
+            self,
+            data : Union[DataFrame, List[Dict], pa.Table],
+            embeddings: np.array,
+            pbar = None,
+            shard_size=None, num_workers=None
+    ):
+        """
+        Add data, with associated embeddings, to the project.
+        
+        Args:
+            data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the project schema.
+            embeddings: A numpy array of embeddings: each row corresponds to a row in the table.
+            pbar: (Optional). A tqdm progress bar to update.
+        """
+        
+        """
+        # TODO: validate embedding size.
+        assert embeddings.shape[1] == self.embedding_size, "Embedding size must match the embedding size of the project."
+        """
+        if shard_size is not None:
+            raise DeprecationWarning("shard_size is deprecated and no longer has any effect")
+        if num_workers is not None:
+            raise DeprecationWarning("num_workers is deprecated and no longer has any effect")
+        assert type(embeddings) == np.ndarray, "Embeddings must be a numpy array."
+        assert len(embeddings.shape) == 2, "Embeddings must be a 2D numpy array."
+        assert len(data) == embeddings.shape[0], "Data and embeddings must have the same number of rows."
+        assert len(data) > 0, "Data must have at least one row."
+        
+        tb: pa.Table
+
+        if DataFrame is not None and isinstance(data, DataFrame):
+            tb = pa.Table.from_pandas(data)
+        elif isinstance(data, list):
+            tb = pa.Table.from_pylist(data)
+        elif isinstance(data, pa.Table):
+            tb = data
+        else:
+            raise ValueError(f"Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table, not {type(data)}")
+        
+        del data
+
+        # Add embeddings to the data.
+        embeddings = embeddings.astype(np.float16)
+
+        # Fail if any embeddings are NaN or Inf.
+        assert not np.isnan(embeddings).any(), "Embeddings must not contain NaN values."
+        assert not np.isinf(embeddings).any(), "Embeddings must not contain Inf values."
+
+        pyarrow_embeddings = pa.FixedSizeListArray.from_arrays(embeddings.reshape((-1)), embeddings.shape[1])
+
+        data_with_embeddings = tb.append_column("_embeddings", pyarrow_embeddings)
+
+        self._add_data(data_with_embeddings, pbar=pbar)
+
+    def _add_data(
+        self,
+        data: pa.Table,
+        pbar=None,
+    ):
         '''
-        Adds data to a text project.
+        Low level interface to upload an Arrow Table. Users should generally call 'add_text' or 'add_embeddings.'
 
         Args:
-            data: An [N,] element list of dictionaries containing metadata for each embedding.
-            shard_size: Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
-            num_workers: The number of worker threads to upload embeddings with.
-            replace_empty_string_values_with_string_null: Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
-
+            data: A pyarrow Table that will be cast to the project schema.
+            pbar: A tqdm progress bar to update.
         Returns:
-            True on success.
-
+            None
         '''
 
-        # Each worker currently is to slow beyond a shard_size of 5000
-        shard_size = min(shard_size, 5000)
+        # Exactly 10 upload workers at a time.
 
-        # Check if this is a progressive project
-        response = requests.get(
-            self.atlas_api_path + f"/v1/project/{self.id}",
-            headers=self.header,
-        )
+        num_workers = 10
 
-        project = response.json()
-        if project['modality'] != 'text':
-            msg = 'Cannot add text to project with modality: {}'.format(self.modality)
-            raise ValueError(msg)
+        # Each worker currently is too slow beyond a shard_size of 5000
 
-        progressive = len(self.indices) > 0
+        # The heuristic here is: Never let shards be more than 5,000 items,
+        # OR more than 4MB uncompressed. Whichever is smaller.
 
-        if project['insert_update_delete_lock']:
-            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
+        bytesize = data.nbytes
+        nrow = len(data)
 
-        try:
-            self._validate_and_correct_user_supplied_metadata(
+        shard_size = 5000
+        n_chunks = int(np.ceil(nrow / shard_size))
+        # Chunk into 4MB pieces. These will probably compress down a bit.
+        if bytesize / n_chunks > 4_000_000:
+            shard_size = int(np.ceil(nrow / (bytesize / 4_000_000)))
+        
+
+        data = self._validate_and_correct_arrow_upload(
                 data=data,
-                project=self,
-                replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null,
+                project=self
             )
-        except BaseException as e:
-            raise e
 
-        upload_endpoint = "/v1/project/data/add/json/initial"
-        if progressive:
-            upload_endpoint = "/v1/project/data/add/json/progressive"
+        upload_endpoint = "/v1/project/data/add/arrow"
 
         # Actually do the upload
         def send_request(i):
-            data_shard = data[i : i + shard_size]
-            if get_object_size_in_bytes(data_shard) > 8000000:
-                raise Exception(
-                    "Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata."
+            data_shard = data.slice(i, shard_size)
+            with io.BytesIO() as buffer:
+                data_shard = data_shard.replace_schema_metadata({'project_id': self.id})
+                feather.write_feather(data_shard, buffer, compression = 'zstd', compression_level = 6)
+                buffer.seek(0)
+
+                response = requests.post(
+                    self.atlas_api_path + upload_endpoint,
+                    headers=self.header,
+                    data = buffer,
+                    json={'project_id': self.id},
                 )
-            response = requests.post(
-                self.atlas_api_path + upload_endpoint,
-                headers=self.header,
-                json={'project_id': self.id, 'data': data_shard},
-            )
-            return response
+                return response
 
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
@@ -1492,162 +1572,9 @@ class AtlasProject(AtlasClass):
             logger.warning(f"Failed to upload {failed} datums")
         if close_pbar:
             if failed:
-                logger.warning("Text upload partially succeeded.")
+                logger.warning("Upload partially succeeded.")
             else:
-                logger.info("Text upload succeeded.")
-
-    def add_embeddings(
-        self,
-        embeddings: np.array,
-        data: List[Dict],
-        shard_size: int = 1000,
-        num_workers: int = 10,
-        replace_empty_string_values_with_string_null: bool = True,
-        pbar=None,
-    ) -> bool:
-        '''
-        Adds embeddings to an embedding project. Pair each embedding with meta-data to explore your embeddings.
-
-        Args:
-            embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
-            data: An [N,] element list of dictionaries containing metadata for each embedding.
-            shard_size: Embeddings are uploaded in parallel by many threads. Adjust the number of embeddings to upload by each worker.
-            num_workers: The number of worker threads to upload embeddings with.
-            replace_empty_string_values_with_string_null: Replaces empty values in metadata with null. If false, will fail if empty values are supplied.
-
-        Returns:
-            True on success.
-
-        '''
-
-
-        # Each worker currently is to slow beyond a shard_size of 5000
-        shard_size = min(shard_size, 5000)
-
-        # Check if this is a progressive project
-
-        if self.modality != 'embedding':
-            msg = 'Cannot add embedding to project with modality: {}'.format(self.modality)
-            raise ValueError(msg)
-
-        if self.is_locked:
-            raise Exception(f"{self.name}: Project is currently indexing and cannot ingest new datums. Try again later.")
-
-        progressive = len(self.indices) > 0
-        try:
-            self._validate_and_correct_user_supplied_metadata(
-                data=data,
-                project=self,
-                replace_empty_string_values_with_string_null=replace_empty_string_values_with_string_null,
-            )
-        except BaseException as e:
-            raise e
-
-        upload_endpoint = "/v1/project/data/add/embedding/initial"
-        if progressive:
-            upload_endpoint = "/v1/project/data/add/embedding/progressive"
-
-        # Actually do the upload
-        def send_request(i):
-            data_shard = data[i : i + shard_size]
-
-            if get_object_size_in_bytes(data_shard) > 8000000:
-                raise Exception(
-                    "Your metadata upload shards are to large. Try decreasing the shard size or removing un-needed fields from the metadata."
-                )
-            embedding_shard = embeddings[i : i + shard_size, :]
-
-            bytesio = io.BytesIO()
-            np.save(bytesio, embedding_shard)
-            response = requests.post(
-                self.atlas_api_path + upload_endpoint,
-                headers=self.header,
-                json={
-                    'project_id': self.id,
-                    'embeddings': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                    'data': data_shard,
-                },
-            )
-            return response
-
-        # if this method is being called internally, we pass a global progress bar
-        close_pbar = False
-        if pbar is None:
-            logger.info("Uploading embeddings to Atlas.")
-            close_pbar = True
-            pbar = tqdm(total=int(embeddings.shape[0]) // shard_size)
-        failed = 0
-        succeeded = 0
-        errors_504 = 0
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
-
-            while futures:
-                # check for status of the futures which are currently working
-                done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
-                # process any completed futures
-                for future in done:
-                    response = future.result()
-                    if response.status_code != 200:
-                        try:
-                            logger.error(f"Shard upload failed: {response.text}")
-                            if 'more datums exceeds your organization limit' in response.json():
-                                return False
-                            if 'Project transaction lock is held' in response.json():
-                                raise Exception(
-                                    "Project is currently indexing and cannot ingest new datums. Try again later."
-                                )
-                            if 'Insert failed due to ID conflict' in response.json():
-                                continue
-                        except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
-                            if response.status_code == 413:
-                                # Possibly split in two and retry?
-                                logger.error("Shard upload failed: you are sending meta-data that is too large.")
-                                pbar.update(1)
-                                response.close()
-                                failed += shard_size
-                            elif response.status_code == 504:
-                                errors_504 += shard_size
-                                start_point = futures[future]
-                                logger.debug(
-                                    f"Connection failed for records {start_point}-{start_point + shard_size}, retrying."
-                                )
-                                failure_fraction = errors_504 / (failed + succeeded + errors_504)
-                                if failure_fraction > 0.5 and errors_504 > shard_size * 3:
-                                    raise RuntimeError(
-                                        "Atlas is under high load and cannot ingest datums at this time. Please try again later."
-                                    )
-                                new_submission = executor.submit(send_request, start_point)
-                                futures[new_submission] = start_point
-                                response.close()
-                            else:
-                                logger.error(f"Shard upload failed: {response}")
-                                failed += shard_size
-                                pbar.update(1)
-                                response.close()
-                    else:
-                        # A successful upload.
-                        succeeded += shard_size
-                        pbar.update(1)
-                        response.close()
-
-                    # remove the now completed future
-                    del futures[future]
-
-        # close the progress bar if this method was called with no external progresbar
-        if close_pbar:
-            pbar.close()
-
-        if failed:
-            logger.warning(f"Failed to upload {failed} datums")
-        if close_pbar:
-            if failed:
-                logger.warning("Embedding upload partially succeeded.")
-            else:
-                logger.info("Embedding upload succeeded.")
-
-        return True
-
+                logger.info("Upload succeeded.")
 
     def update_maps(self,
                     data: List[Dict],
