@@ -1,4 +1,5 @@
 '''Setup file for the Atlas Client'''
+import os
 from setuptools import setup, find_packages
 description = 'The offical Nomic python client.'
 setup(
@@ -25,7 +26,7 @@ setup(
         'wonderwords',
         'tqdm',
         'cohere',
-        'pyarrow'
+        'pyarrow',
     ],
     extras_require={
         'dev': [
@@ -42,6 +43,12 @@ setup(
             "pillow",
             "cairosvg"
         ],
+        'gpt4all': [
+            'torch',
+            'sentencepiece',
+            f"transformers @ file://localhost/{os.getcwd()}/bin/transformers-4.28.0.dev0-py3-none-any.whl",
+            f"peft @ file://localhost/{os.getcwd()}/bin/peft-0.3.0.dev0-py3-none-any.whl"
+        ]
     },
     entry_points={
         'console_scripts': ['nomic=nomic.cli:cli'],
