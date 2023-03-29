@@ -3,22 +3,30 @@ import random
 import tempfile
 import time
 import uuid
-
+from datetime import datetime, timedelta
 import numpy as np
 import pytest
 import requests
 from nomic import AtlasProject, atlas
 
-def test_map_idless_embeddings():
 
+def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
+    # generate a datetime in format yyyy-mm-dd hh:mm:ss.000000
+    start = datetime(min_year, 1, 1, 00, 00, 00)
+    years = max_year - min_year + 1
+    end = start + timedelta(days=365 * years)
+    return start + (end - start) * random.random()
+
+
+def test_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
 
     response = atlas.map_embeddings(embeddings=embeddings)
     print(response)
 
-def test_map_embeddings_with_errors():
 
+def test_map_embeddings_with_errors():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
 
@@ -47,6 +55,7 @@ def test_map_embeddings_with_errors():
             is_public=True,
             reset_project_if_exists=True,
         )
+
 
 def test_map_embeddings():
     num_embeddings = 20
@@ -95,7 +104,8 @@ def test_map_embeddings():
 def test_date_metadata():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'my_date': datetime.datetime(2022, 1, i)} for i in range(1, len(embeddings) + 1)]
+    data = [{'my_date': datetime.datetime(2022, 1, i),
+             'my_random_date': gen_random_datetime()} for i in range(1, len(embeddings) + 1)]
 
     project = atlas.map_embeddings(
         embeddings=embeddings, name='test_date_metadata', data=data, is_public=True, reset_project_if_exists=True
@@ -119,7 +129,6 @@ def test_date_metadata():
 
 
 def test_map_text_errors():
-
     # no indexed field
     with pytest.raises(Exception):
         project = atlas.map_text(
@@ -166,7 +175,8 @@ def test_map_embedding_progressive():
     with pytest.raises(Exception):
         # Try adding a bad field.
         with current_project.wait_for_project_lock():
-            data = [{'invalid_field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0} for i in range(len(embeddings))]
+            data = [{'invalid_field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0} for i in
+                    range(len(embeddings))]
 
             current_project = AtlasProject(name=project.name)
 
@@ -181,7 +191,6 @@ def test_map_embedding_progressive():
                     is_public=True,
                     add_datums_if_exists=True,
                 )
-        
 
     current_project.delete()
 
@@ -190,7 +199,7 @@ def test_topics():
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
     texts = ['foo', 'bar', 'baz', 'bat']
-    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0, 'text': texts[i%4]}
+    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0, 'text': texts[i % 4]}
             for i in range(len(embeddings))]
 
     p = atlas.map_embeddings(
@@ -211,6 +220,7 @@ def test_topics():
         assert len(p.maps[0].vector_search_topics(q, depth=1, k=3)['topics']) == 3
         p.delete()
 
+
 words = [
     'foo', 'bar', 'baz', 'bat',
     'glorp', 'gloop', 'glib', 'glub',
@@ -226,8 +236,8 @@ words = [
     'mlorp', 'mloop', 'mlib', 'mlub'
 ]
 
-def test_interactive_workflow():
 
+def test_interactive_workflow():
     p = AtlasProject(name='UNITTEST1',
                      modality='text',
                      unique_id_field='id',
@@ -240,20 +250,21 @@ def test_interactive_workflow():
                    indexed_field='text',
                    build_topic_model=True
                    )
-    
+
     assert p.total_datums == 100
 
     # Test ability to add more data to a project and have the ids coerced.
     with p.wait_for_project_lock():
         p.add_text(data=[{'text': random.choice(words), 'id': i} for i in range(100, 200)])
         p.create_index(name='UNITTEST1',
-                   indexed_field='text',
-                   build_topic_model=True
-                   )
+                       indexed_field='text',
+                       build_topic_model=True
+                       )
         assert p.total_datums == 200
 
     with p.wait_for_project_lock():
         p.delete()
+
 
 def test_weird_inputs():
     """
@@ -264,10 +275,10 @@ def test_weird_inputs():
         modality='text',
         unique_id_field='id',
         reset_project_if_exists=True
-        )
+    )
 
     elements = []
-    for i in range(20):        
+    for i in range(20):
         if i % 3 == 0 and i % 5 == 0:
             elements.append({'text': 'fizzbuzz', 'id': str(i)})
         elif i % 3 == 0:
