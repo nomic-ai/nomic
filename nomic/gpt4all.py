@@ -30,7 +30,7 @@ class GPT4All():
                 raise     
         self.bot = subprocess.Popen([executable_path, '--model', model_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         # queue up the prompt.
-        self._parse_to_prompt()
+        self._parse_to_prompt(write_to_stdout=False)
 
     def _parse_to_prompt(self, write_to_stdout = True):
         bot_says = ['']
@@ -40,27 +40,30 @@ class GPT4All():
             point += bot.stdout.read(1)
             try:
                 character = point.decode("utf-8")
-                if character == "\f":
+                if character == "\f": # We've replaced the delimiter character with this.
                     return "\n".join(bot_says)
                 if character == "\n":
                     bot_says.append('')
-                    sys.stdout.write('\n')
+                    if write_to_stdout:
+                        sys.stdout.write('\n')
+                        sys.stdout.flush()
                 else:
                     bot_says[-1] += character
-                    sys.stdout.write(character)
-                    sys.stdout.flush()
+                    if write_to_stdout:
+                        sys.stdout.write(character)
+                        sys.stdout.flush()
                 point = b''
 
             except UnicodeDecodeError:
                 if len(point) > 4:
                     point = b''
 
-    def prompt(self, response):
+    def prompt(self, prompt, write_to_stdout = True):
         bot = self.bot
-        bot.stdin.write(response.encode('utf-8'))
+        bot.stdin.write(prompt.encode('utf-8'))
         bot.stdin.write(b"\n")
         bot.stdin.flush()
-        return self._parse_to_prompt()
+        return self._parse_to_prompt(write_to_stdout)
     
     def therapy(self):
         session = eliza.Eliza()
