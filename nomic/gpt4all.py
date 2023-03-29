@@ -30,9 +30,9 @@ class GPT4All():
                 raise     
         self.bot = subprocess.Popen([executable_path, '--model', model_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         # queue up the prompt.
-        self.parse_to_prompt()
+        self._parse_to_prompt()
 
-    def parse_to_prompt(self, write_to_stdout = True):
+    def _parse_to_prompt(self, write_to_stdout = True):
         bot_says = ['']
         point = b''
         bot = self.bot
@@ -60,7 +60,7 @@ class GPT4All():
         bot.stdin.write(response.encode('utf-8'))
         bot.stdin.write(b"\n")
         bot.stdin.flush()
-        return self.parse_to_prompt()
+        return self._parse_to_prompt()
     
     def therapy(self):
         session = eliza.Eliza()
