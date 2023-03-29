@@ -26,6 +26,7 @@ setup(
         'tqdm',
         'cohere',
         'pyarrow'
+        'torch'
     ],
     extras_require={
         'dev': [

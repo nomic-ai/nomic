@@ -3,6 +3,7 @@ import sys
 import time
 import torch
 import random
+import platform
 import requests
 import subprocess
 from tqdm import tqdm
@@ -38,25 +39,68 @@ class GPT4All():
     def __init__(self, force_download=False):
         self.executable_path = Path("~/.nomic/gpt4all").expanduser()
         self.model_path = Path("~/.nomic/gpt4all-lora-quantized.bin").expanduser()
-        if force_download or not (self.executable_path.exists() or self.model_path.exists()):
+        if force_download or not self.executable_path.exists() :
+            logger.info('Downloading binary...')
+            self._download_binary()
+        if force_download or not self.model_path.exists():
             logger.info('Downloading model...')
-            self._download()
-        self.bot = subprocess.Popen([executable_path, '--model', model_path],
-                                    stdin=subprocess.PIPE,
-                                    stdout=subprocess.PIPE)
+            self._download_model()
+        self.bot = subprocess.Popen([self.executable_path, '--model', self.model_path],
+                                     stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE)
         # queue up the prompt.
         self.parse_to_prompt()
 
-    def _download(self):
+
+    def _download_model(self):
+        #Download lora
         response = requests.get('https://the-eye.eu/public/AI/models/nomic-ai/gpt4all/gpt4all-lora-quantized.bin',
                                 stream=True)
+        home_dir = os.path.expanduser("~")
+        new_dir_name = ".nomic"
+        new_dir_path = os.path.join(home_dir, new_dir_name)
+        os.makedirs(new_dir_path, exist_ok=True)
+
         if response.status_code == 200:
-            os.makedirs(self.executable_path, exist_ok=True)
             total_size = int(response.headers.get('content-length', 0))
             with open(self.model_path, "wb") as f:
                 for chunk in tqdm(response.iter_content(chunk_size=8192), total=total_size // 8192, unit='KB'):
                     f.write(chunk)
-            print(f"File downloaded successfully to {target_path}")
+            print(f"File downloaded successfully!")
+        else:
+            print(f"Failed to download the file. Status code: {response.status_code}")
+
+    def _download_binary(self):
+        # Download gpt4all binary
+        home_dir = os.path.expanduser("~")
+        new_dir_name = ".nomic"
+        new_dir_path = os.path.join(home_dir, new_dir_name)
+        os.makedirs(new_dir_path, exist_ok=True)
+        os_name = platform.system()
+        if os_name == "Windows":
+            arch = platform.machine()
+        else:
+            arch = os.uname().machine
+        if os_name == "Linux" and arch == "x86_64":
+            binary_file = "gpt4all-lora-quantized-linux-x86"
+        elif os_name == "Windows" and arch == "AMD64":
+            binary_file = "gpt4all-lora-quantized-win64.exe"
+        elif arch == "x86_64":
+            binary_file = "gpt4all-lora-quantized-OSX-intel"
+        elif arch == "arm64":
+            binary_file = "gpt4all-lora-quantized-OSX-m1"
+        else:
+            raise OSError(f"No binary found for {os_name} {arch}")
+
+        response = requests.get('https://github.com/nomic-ai/gpt4all/raw/main/chat/{}'.format(binary_file),
+                                stream=True)
+        if response.status_code == 200:
+            total_size = int(response.headers.get('content-length', 0))
+            with open(self.executable_path, "wb") as f:
+                for chunk in tqdm(response.iter_content(chunk_size=8192), total=total_size // 8192, unit='KB'):
+                    f.write(chunk)
+            print(f"File downloaded successfully!")
+            os.chmod(self.executable_path, 0o755)
         else:
             print(f"Failed to download the file. Status code: {response.status_code}")
 
@@ -92,4 +136,4 @@ class GPT4All():
     
 
 if __name__ == '__main__':
-    model = GPT4All(force_download=True)
+    model = GPT4All(force_download=False)
