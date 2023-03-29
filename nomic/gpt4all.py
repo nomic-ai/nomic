@@ -1,36 +1,114 @@
-import subprocess
-import time
+import os
 import sys
-import random    
+import requests
+import subprocess
+from tqdm import tqdm
 from pathlib import Path
-# import eliza
+from loguru import logger
+import platform
 
-prompts = [
-    'Write me a letter from the perspective of a cat',
-    'Write me a short poem',
-    'Tell me how to hard boil an egg',
-    'Come up with the vacation destinations.'
-]
+class GPT4AllGPU():
+    def __init__(self, alpaca_path=None):
+        raise NotImplementedError("GPT4AllGPU is not yet implemented.")
+        # import torch
+        if alpaca_path is None:
+            raise ValueError('Please pass a path to your alpaca model.')
 
-def download_executable():
-    pass
+        self.model_path = alpaca_path
+        self.tokenizer_path = alpaca_path
+        self.lora_path = 'nomic-ai/vicuna-lora-multi-turn_epoch_2'
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_path,
+                                                          device_map="auto",
+                                                          torch_dtype=torch.float16)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
+        added_tokens = tokenizer.add_special_tokens({"bos_token": "<s>", "eos_token": "</s>", "pad_token": "<pad>"})
 
-def download_model(modelname):
-    pass
+        if added_tokens > 0:
+            model.resize_token_embeddings(len(tokenizer))
 
-executable_path = Path("~/.nomic/gpt4all").expanduser()
-model_path = Path("~/.nomic/gpt4all-lora-quantized.bin").expanduser()
+        self.model = PeftModelForCausalLM.from_pretrained(self.model,
+                                                          self.lora_path,
+                                                          device_map="auto",
+                                                          torch_dtype=torch.float16)
+        self.model.to(dtype=torch.float16)
+        print(f"Mem needed: {self.model.get_memory_footprint() / 1024 / 1024 / 1024:.2f} GB")
+
 
 class GPT4All():
-    def __init__(self, download=True):
-        if not (executable_path.exists() and model_path.exists()):
-            if not download:
-                raise Exception("You need to download the executable and model first.")
-            else:
-                raise     
-        self.bot = subprocess.Popen([executable_path, '--model', model_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    def __init__(self, model = 'gpt4all-lora-quantized', force_download=False):
+        self.bot = None
+        self.model = model
+        assert model in ['gpt4all-lora-quantized', 'gpt4all-lora-unfiltered-quantized']
+        self.executable_path = Path("~/.nomic/gpt4all").expanduser()
+        self.model_path = Path(f"~/.nomic/{model}.bin").expanduser()
+
+        if force_download or not self.executable_path.exists():
+            logger.info('Downloading executable...')
+            self._download_executable()
+        if force_download or not (self.model_path.exists() and self.model_path.stat().st_size > 0):                                   
+            logger.info('Downloading model...')
+            self._download_model()
+
+    def __enter__(self):
+        self.connect()
+        return self
+    
+    def connect(self):
+        if self.bot is not None:
+            self.close()
+        # This is so dumb, but today is not the day I learn C++.
+        self.bot = subprocess.Popen([self.executable_path, '--model', self.model_path],
+                                    stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE)
+
         # queue up the prompt.
         self._parse_to_prompt(write_to_stdout=False)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        logger.debug("Ending session...")
+        self.close()
+
+    def close(self):
+        self.bot.kill()
+        self.bot = None
+
+    def _download_executable(self):
+        if not self.executable_path.exists():
+            plat = platform.platform()
+            if 'macOS' in plat and 'arm64' in plat:
+                upstream = 'https://static.nomic.ai/gpt4all/gpt4all-pywrap-mac-arm64'
+            elif 'Linux' in plat:
+                upstream = 'https://static.nomic.ai/gpt4all/gpt4all-pywrap-linux-x86_64'
+            else:
+                raise NotImplementedError(f"Your platform is not supported: {plat}. Current binaries supported are x86 Linux and ARM Macs.")
+            response = requests.get(upstream, stream=True)
+            if response.status_code == 200:
+                os.makedirs(self.executable_path.parent, exist_ok=True)
+                total_size = int(response.headers.get('content-length', 0))
+                with open(self.executable_path, "wb") as f:
+                    for chunk in tqdm(response.iter_content(chunk_size=8192), total=total_size // 8192, unit='KB'):
+                        f.write(chunk)
+                self.executable_path.chmod(0o755)                
+                print(f"File downloaded successfully to {self.executable_path}")
+
+            else:
+                print(f"Failed to download the file. Status code: {response.status_code}")
+
+    def _download_model(self):
+        # First download the quantized model.
+
+        if not self.model_path.exists():
+            response = requests.get(f'https://the-eye.eu/public/AI/models/nomic-ai/gpt4all/{self.model}.bin',
+                                    stream=True)
+            if response.status_code == 200:
+                os.makedirs(self.model_path.parent, exist_ok=True)
+                total_size = int(response.headers.get('content-length', 0))
+                with open(self.model_path, "wb") as f:
+                    for chunk in tqdm(response.iter_content(chunk_size=8192), total=total_size // 8192, unit='KB'):
+                        f.write(chunk)
+                print(f"File downloaded successfully to {self.model_path}")
+            else:
+                print(f"Failed to download the file. Status code: {response.status_code}")
 
     def _parse_to_prompt(self, write_to_stdout = True):
         bot_says = ['']
@@ -58,24 +136,15 @@ class GPT4All():
                 if len(point) > 4:
                     point = b''
 
-    def prompt(self, prompt, write_to_stdout = True):
+    def prompt(self, prompt, write_to_stdout = False):
+        """
+        Write a prompt to the bot and return the response.
+        """
         bot = self.bot
         bot.stdin.write(prompt.encode('utf-8'))
         bot.stdin.write(b"\n")
         bot.stdin.flush()
         return self._parse_to_prompt(write_to_stdout)
-    
-    def therapy(self):
-        session = eliza.Eliza()
-        session.load('doctor.txt')
-        bot = self.bot
-        eliza_says = session.initial()
-        print("\n\nELIZA: " + eliza_says)
-        while True:
-            bot_says = self.prompt(eliza_says)
-            eliza_says = session.respond(bot_says)
-            print("\n\nELIZA: " + eliza_says)
-        
+
 if __name__ == '__main__':
-    session = BotSession()
-    session.therapy()
+    model = GPT4All(force_download=True)
