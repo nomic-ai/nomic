@@ -56,7 +56,17 @@ def prompt(prompt, model = 'gpt4all-lora-quantized'):
         return gpt4all.prompt(prompt)
     
 class GPT4All():
-    def __init__(self, model = 'gpt4all-lora-quantized', force_download=False):
+    def __init__(self, model = 'gpt4all-lora-quantized', **kwargs):
+        """
+        :param model: The model to use. Currently supported are 'gpt4all-lora-quantized' and 'gpt4all-lora-unfiltered-quantized'
+        :param force_download: If True, will overwrite the model and executable even if they already exist. Please don't do this!
+
+        """
+        force_download = False
+        if 'force_download' in kwargs:
+            force_download = kwargs['force_download']
+            del kwargs['force_download']
+        self.passed_args = kwargs
         self.bot = None
         self.model = model
         assert model in ['gpt4all-lora-quantized', 'gpt4all-lora-unfiltered-quantized']
@@ -78,7 +88,12 @@ class GPT4All():
         if self.bot is not None:
             self.close()
         # This is so dumb, but today is not the day I learn C++.
-        self.bot = subprocess.Popen([self.executable_path, '--model', self.model_path],
+        creation_args = [self.executable_path, '--model', self.model_path]
+        for k, v in self.passed_args.items():
+            creation_args.append(f"--{k}")
+            creation_args.append(str(v))
+        
+        self.bot = subprocess.Popen(creation_args,
                                     stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE)
 
