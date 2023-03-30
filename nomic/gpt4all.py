@@ -35,6 +35,17 @@ class GPT4AllGPU():
         self.model.to(dtype=torch.float16)
         print(f"Mem needed: {self.model.get_memory_footprint() / 1024 / 1024 / 1024:.2f} GB")
 
+    def generate(self, prompt, generate_config=None):
+        if generate_config is None:
+            generate_config = {}
+
+        input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.model.device)
+        outputs = self.model.generate(input_ids=input_ids,
+                                      **generate_config)
+
+        decoded = self.tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        return decoded[len(prompt):]
+
 
 class GPT4All():
     def __init__(self, model = 'gpt4all-lora-quantized', force_download=False):
@@ -147,4 +158,3 @@ class GPT4All():
         bot.stdin.write(b"\n")
         bot.stdin.flush()
         return self._parse_to_prompt(write_to_stdout)
-
