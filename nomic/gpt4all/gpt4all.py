@@ -34,6 +34,10 @@ class GPT4AllGPU():
         print(f"Mem needed: {self.model.get_memory_footprint() / 1024 / 1024 / 1024:.2f} GB")
 
 
+def prompt(prompt, model = 'gpt4all-lora-quantized'):
+    with GPT4All(model) as gpt4all:
+        return gpt4all.prompt(prompt)
+    
 class GPT4All():
     def __init__(self, model = 'gpt4all-lora-quantized', force_download=False):
         self.bot = None
@@ -50,10 +54,10 @@ class GPT4All():
             self._download_model()
 
     def __enter__(self):
-        self.connect()
+        self.open()
         return self
     
-    def connect(self):
+    def open(self):
         if self.bot is not None:
             self.close()
         # This is so dumb, but today is not the day I learn C++.
@@ -141,10 +145,17 @@ class GPT4All():
         Write a prompt to the bot and return the response.
         """
         bot = self.bot
+        continuous_session = self.bot is not None
+        if not continuous_session:
+            logger.warning("Running one-off session. For continuous sessions, use a context manager: `with GPT4All() as bot: bot.prompt('a'), etc.`")
+            self.open()
         bot.stdin.write(prompt.encode('utf-8'))
         bot.stdin.write(b"\n")
         bot.stdin.flush()
-        return self._parse_to_prompt(write_to_stdout)
+        return_value = self._parse_to_prompt(write_to_stdout)
+        if not continuous_session:
+            self.close()
+        return return_value        
 
 if __name__ == '__main__':
     model = GPT4All(force_download=True)
