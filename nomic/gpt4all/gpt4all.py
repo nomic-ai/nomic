@@ -56,19 +56,19 @@ def prompt(prompt, model = 'gpt4all-lora-quantized'):
         return gpt4all.prompt(prompt)
     
 class GPT4All():
-    def __init__(self, model = 'gpt4all-lora-quantized', **kwargs):
+    def __init__(self, model = 'gpt4all-lora-quantized', force_download=False, decoder_config=None):
         """
         :param model: The model to use. Currently supported are 'gpt4all-lora-quantized' and 'gpt4all-lora-unfiltered-quantized'
         :param force_download: If True, will overwrite the model and executable even if they already exist. Please don't do this!
+        :param decoder_config: Default None. A dictionary of key value pairs to be passed to the decoder
 
         """
-        force_download = False
-        if 'force_download' in kwargs:
-            force_download = kwargs['force_download']
-            del kwargs['force_download']
-        self.passed_args = kwargs
+        if decoder_config is None:
+            decoder_config = {}
+
         self.bot = None
         self.model = model
+        self.decoder_config = decoder_config
         assert model in ['gpt4all-lora-quantized', 'gpt4all-lora-unfiltered-quantized']
         self.executable_path = Path("~/.nomic/gpt4all").expanduser()
         self.model_path = Path(f"~/.nomic/{model}.bin").expanduser()
@@ -89,7 +89,7 @@ class GPT4All():
             self.close()
         # This is so dumb, but today is not the day I learn C++.
         creation_args = [self.executable_path, '--model', self.model_path]
-        for k, v in self.passed_args.items():
+        for k, v in self.decoder_config.items():
             creation_args.append(f"--{k}")
             creation_args.append(str(v))
         
