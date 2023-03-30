@@ -6,25 +6,31 @@ from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
 import platform
+try:
+    import torch
+except ImportError:
+    torch = None
+    pass
 
 class GPT4AllGPU():
-    def __init__(self, alpaca_path=None):
-        raise NotImplementedError("GPT4AllGPU is not yet implemented.")
-        # import torch
-        if alpaca_path is None:
+    def __init__(self, llama_path=None):
+        from peft import PeftModelForCausalLM
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        if llama_path is None:
             raise ValueError('Please pass a path to your alpaca model.')
 
-        self.model_path = alpaca_path
-        self.tokenizer_path = alpaca_path
+        self.model_path = llama_path
+        self.tokenizer_path = llama_path
         self.lora_path = 'nomic-ai/vicuna-lora-multi-turn_epoch_2'
         self.model = AutoModelForCausalLM.from_pretrained(self.model_path,
                                                           device_map="auto",
                                                           torch_dtype=torch.float16)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
-        added_tokens = tokenizer.add_special_tokens({"bos_token": "<s>", "eos_token": "</s>", "pad_token": "<pad>"})
+        self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_path)
+        added_tokens = self.tokenizer.add_special_tokens({"bos_token": "<s>", "eos_token": "</s>", "pad_token": "<pad>"})
 
         if added_tokens > 0:
-            model.resize_token_embeddings(len(tokenizer))
+            self.model.resize_token_embeddings(len(self.tokenizer))
 
         self.model = PeftModelForCausalLM.from_pretrained(self.model,
                                                           self.lora_path,
@@ -32,6 +38,17 @@ class GPT4AllGPU():
                                                           torch_dtype=torch.float16)
         self.model.to(dtype=torch.float16)
         print(f"Mem needed: {self.model.get_memory_footprint() / 1024 / 1024 / 1024:.2f} GB")
+
+    def generate(self, prompt, generate_config=None):
+        if generate_config is None:
+            generate_config = {}
+
+        input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.model.device)
+        outputs = self.model.generate(input_ids=input_ids,
+                                      **generate_config)
+
+        decoded = self.tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
+        return decoded[len(prompt):]
 
 
 def prompt(prompt, model = 'gpt4all-lora-quantized'):
@@ -157,5 +174,3 @@ class GPT4All():
             self.close()
         return return_value        
 
-if __name__ == '__main__':
-    model = GPT4All(force_download=True)
