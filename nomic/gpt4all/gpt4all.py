@@ -56,7 +56,7 @@ def prompt(prompt, model = 'gpt4all-lora-quantized'):
         return gpt4all.prompt(prompt)
     
 class GPT4All():
-    def __init__(self, model = 'gpt4all-lora-unfiltered-quantized', force_download=False, decoder_config=None, model_path=None, exec_path=None):
+    def __init__(self, model = 'gpt4all-lora-quantized', force_download=False, decoder_config=None, model_path=None, exec_path=None):
         """
         :param model: The model to use. Currently supported are 'gpt4all-lora-quantized' and 'gpt4all-lora-unfiltered-quantized'
         :param force_download: If True, will overwrite the model and executable even if they already exist. Please don't do this!
