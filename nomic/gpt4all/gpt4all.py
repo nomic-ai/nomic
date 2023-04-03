@@ -56,11 +56,13 @@ def prompt(prompt, model = 'gpt4all-lora-quantized'):
         return gpt4all.prompt(prompt)
     
 class GPT4All():
-    def __init__(self, model = 'gpt4all-lora-quantized', force_download=False, decoder_config=None):
+    def __init__(self, model = 'gpt4all-lora-unfiltered-quantized', force_download=False, decoder_config=None, model_path=None, exec_path=None):
         """
         :param model: The model to use. Currently supported are 'gpt4all-lora-quantized' and 'gpt4all-lora-unfiltered-quantized'
         :param force_download: If True, will overwrite the model and executable even if they already exist. Please don't do this!
         :param decoder_config: Default None. A dictionary of key value pairs to be passed to the decoder
+        :parameter model_path: the path to the .bin model file (if not found the model will be downloaded)
+        :parameter exec_path: the path to the executable (if not found the executable will be downloaded)
 
         """
         if decoder_config is None:
@@ -70,15 +72,22 @@ class GPT4All():
         self.model = model
         self.decoder_config = decoder_config
         assert model in ['gpt4all-lora-quantized', 'gpt4all-lora-unfiltered-quantized']
-        self.executable_path = Path("~/.nomic/gpt4all").expanduser()
-        self.model_path = Path(f"~/.nomic/{model}.bin").expanduser()
+        if exec_path is None:
+            self.executable_path = Path("~/.nomic/gpt4all").expanduser()
+        else:
+            self.executable_path = Path(exec_path)
+
+        if model_path is None:
+            self.model_path = Path(f"~/.nomic/{model}.bin").expanduser()
+        else:
+            self.model_path = Path(model_path)
 
         if force_download or not self.executable_path.exists():
             logger.info('Downloading executable...')
             self._download_executable()
         if force_download or not (self.model_path.exists() and self.model_path.stat().st_size > 0):                                   
             logger.info('Downloading model...')
-            self._download_model()
+            self._download_model()            
 
     def __enter__(self):
         self.open()
