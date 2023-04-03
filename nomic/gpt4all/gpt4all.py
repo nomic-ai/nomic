@@ -87,7 +87,7 @@ class GPT4All():
             self._download_executable()
         if force_download or not (self.model_path.exists() and self.model_path.stat().st_size > 0):                                   
             logger.info('Downloading model...')
-            self._download_model()            
+            self._download_model()
 
     def __enter__(self):
         self.open()
