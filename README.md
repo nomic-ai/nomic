@@ -1,5 +1,5 @@
 <h1 align="center">Atlas</h1>
-<p align="center">Explore, label, search and share massive datasets in your web browser.</p>
+<h2 align="center">Explore, label, search and share massive datasets in your web browser.</h2>
 
 <div align="center">
   <a href="https://colab.research.google.com/drive/1bquOLIaGlu7O_CFc0Wz74HITzWs4UEa4?usp=sharing">Colab Demo</a>
@@ -8,10 +8,10 @@
 <p align="center">
   <a href="https://docs.nomic.ai">:closed_book:	 Atlas Python Client Documentation</a> 
   <br> <br>
-      <a href="https://discord.gg/myY5YDR8z8">:hut: Discord</a> 
+      <a href="https://discord.gg/myY5YDR8z8" ><img src="https://www.vectorlogo.zone/logos/discordapp/discordapp-tile.svg" width=20px align="center"> Discord</a> </p>
   <br> <br>
-  <b>Example Maps</b>
-  <br> <br>
+  <h3 align="center">Example Maps</h3>
+  <p align="center">
   <a href="https://atlas.nomic.ai/map/twitter">:world_map: Map of Twitter</a> (5.4 million tweets)
   <br> <br>
   <a href="https://atlas.nomic.ai/map/stablediffusion">:world_map: Map of StableDiffusion Generations</a> (6.4 million images)
