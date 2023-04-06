@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 description = 'The offical Nomic python client.'
 platform_gpt4all_deps = []
 
-if 'win' in sys.platform:
+if 'win' in sys.platform and sys.platform != 'darwin':
     # We don't have prebuilt wheels for Windows yet.
     pass
 else:
