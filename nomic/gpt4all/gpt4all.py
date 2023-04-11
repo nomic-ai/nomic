@@ -176,11 +176,11 @@ class GPT4All():
         """
         Write a prompt to the bot and return the response.
         """
-        bot = self.bot
         continuous_session = self.bot is not None
         if not continuous_session:
             logger.warning("Running one-off session. For continuous sessions, use a context manager: `with GPT4All() as bot: bot.prompt('a'), etc.`")
             self.open()
+        bot = self.bot
         bot.stdin.write(prompt.encode('utf-8'))
         bot.stdin.write(b"\n")
         bot.stdin.flush()
