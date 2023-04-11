@@ -13,10 +13,18 @@ import uuid
 from .project import AtlasProject
 from .settings import *
 from .utils import get_random_name
+try:
+    import pandas as pd
+    from pandas import DataFrame
+except ImportError:
+    pd = None
+    DataFrame = None
+import pyarrow as pa
+from typing import Union
 
 def map_embeddings(
     embeddings: np.array,
-    data: List[Dict] = None,
+    data: Union[List[Dict], "DataFrame", pa.Table, None] = None,
     id_field: str = None,
     name: str = None,
     description: str = None,
