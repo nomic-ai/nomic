@@ -6,6 +6,7 @@ from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
 import platform
+import asyncio
 try:
     import torch
 except ImportError:
@@ -189,3 +190,71 @@ class GPT4All():
             self.close()
         return return_value        
 
+
+class AsyncGPT4All(GPT4All):
+    async def open(self):
+        if self.bot is not None:
+            await self.close()
+        # This is so dumb, but today is not the day I learn C++.
+        creation_args = [
+            str(self.executable_path.absolute()),
+            "--model",
+            str(self.model_path.absolute()),
+        ]
+        for k, v in self.decoder_config.items():
+            creation_args.append(f"--{k}")
+            creation_args.append(str(v))
+        self.bot = await asyncio.create_subprocess_exec(
+            *creation_args,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+        )
+
+        # queue up the prompt.
+        await self._parse_to_prompt()
+
+    async def __aenter__(self):
+        await self.open()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+    async def _parse_to_prompt(self):
+        bot_says = [""]
+        point = b""
+        bot = self.bot
+        while True:
+            point += await bot.stdout.read(1)
+            try:
+                character = point.decode("utf-8")
+                if character == "\f":  # We've replaced the delimiter character with this.
+                    return "\n".join(bot_says)
+                if character == "\n":
+                    bot_says.append("")
+                else:
+                    bot_says[-1] += character
+                point = b""
+
+            except UnicodeDecodeError:
+                if len(point) > 4:
+                    point = b""
+
+    async def prompt(self, prompt: str):
+        """
+        Write a prompt to the bot and return the response.
+        """
+        continuous_session = self.bot is not None
+        if not continuous_session:
+            await self.open()
+        bot = self.bot
+        bot.stdin.write(prompt.encode("utf-8"))
+        bot.stdin.write(b"\n")
+        return_value = await self._parse_to_prompt()
+        if not continuous_session:
+            await self.close()
+        return return_value
+
+    async def close(self):
+        self.bot.terminate()
+        await self.bot.wait()
