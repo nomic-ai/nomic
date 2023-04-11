@@ -50,3 +50,14 @@ print(response)
 ```
 
 Explore Atlas' [documentation](https://docs.nomic.ai) to make more advanced maps.
+
+## Docker Image
+Build the docker image with:
+```bash
+docker build -t <image_name> .
+```
+Run the docker image with:
+```bash
+sudo docker run --gpus 1 -ti <image_name> /bin/bash
+```
+This will open a bash shell inside the docker container. You can then run the python3 test.py script to test the model. Use the test.py file to change the prompt!
