@@ -558,15 +558,15 @@ class AtlasProjection:
 
         '''
 
-        if self.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+        #if False or self.is_locked:
+        #    raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
 
         offset = 0
         limit = EMBEDDING_PAGINATION_LIMIT
         while True:
             response = requests.get(
-                self.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{self.atlas_index_id}/{offset}/{limit}",
-                headers=self.header,
+                self.project.atlas_api_path + f"/v1/project/data/get/embedding/{self.project.id}/{self.atlas_index_id}/{offset}/{limit}",
+                headers=self.project.header,
             )
             if response.status_code != 200:
                 raise Exception(response.text)
