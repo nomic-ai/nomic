@@ -1,7 +1,6 @@
 import pyarrow as pa
 from typing import List, Union, Dict, Any
 
-
 def from_list(values: Dict[str, Any], schema = None) -> pa.Table:
   tb = pa.Table.from_pylist(values, schema=schema)
   return tb

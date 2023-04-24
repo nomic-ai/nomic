@@ -185,6 +185,7 @@ class AtlasClass(object):
 
         return response.json()
 
+
     def _validate_and_correct_arrow_upload(
         self, data: pa.Table, project: "AtlasProject"
     ) -> pa.Table:
@@ -351,8 +352,9 @@ class AtlasIndex:
     the points in the index that you can browse online.
     """
 
-    def __init__(self, atlas_index_id, name, indexed_field, projections):
+    def __init__(self, project: "AtlasProject", atlas_index_id, name, indexed_field, projections):
         '''Initializes an Atlas index. Atlas indices organize data and store views of the data as maps.'''
+        self.project = project
         self.id = atlas_index_id
         self.name = name
         self.indexed_field = indexed_field
@@ -360,6 +362,9 @@ class AtlasIndex:
 
     def _repr_html_(self):
         return '<br>'.join([d._repr_html_() for d in self.projections])
+    
+    def _arrow_data(self, tags = False):
+        return self.project._arrow_data(index_id = self.id, tags = tags)
 
 class AtlasProjection:
     '''
@@ -385,6 +390,9 @@ class AtlasProjection:
         Retrieves a map link.
         '''
         return f"{self.project.web_path}/map/{self.project.id}/{self.id}"
+
+    def _arrow_data(index_id = None, tags = False):
+        return self.index._arrow_data(index_id, tags)
 
     @property
     def _status(self):
@@ -577,7 +585,6 @@ class AtlasProjection:
             offset += len(content['datum_ids'])
 
             yield content['datum_ids'], content['embeddings']
-
     def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
         Performs vector similarity search over data points on your map.
@@ -643,9 +650,8 @@ class AtlasProjection:
 
         if response.status_code != 200:
             raise Exception(response.text)
-
+        
         response = response.json()
-
         return response['neighbors'], response['distances']
 
     def get_topic_data(self) -> List:
@@ -841,7 +847,6 @@ class AtlasProject(AtlasClass):
         reset_project_if_exists=False,
         add_datums_if_exists=True,
     ):
-
         """
         Creates or loads an Atlas project.
         Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
@@ -1000,6 +1005,46 @@ class AtlasProject(AtlasClass):
 
         self.meta = self._get_project_by_id(self.id)
         return self
+    
+    def _arrow_data(self, index_id = None, tags = False, metadata = False, embeddings = False, topics = False):
+        """
+        Returns the data in the project as a pyarrow table.
+            Args:
+                index_id: Atlas index ID--needed for index-specific data
+                tags: Whether to export tags
+                metadata: Whether to export the core metadata (aside from tags, embeddings)
+                embeddings: Whether to export embeddings
+                topics: Whether to export topics
+            Returns:
+                A pyarrow table with the data.
+
+
+        """
+        query = {
+            "id": self.id,
+            "tags": tags,
+#            "metadata": metadata,
+#            "embeddings": embeddings,
+#            "topics": topics,
+        }
+        if index_id is not None:
+            query['index_id'] = index_id
+        if topics and index_id is None:
+            raise ValueError('You must specify an index_id to export topics')
+        if embeddings and index_id is None:
+            raise ValueError('You must specify an index_id to export embeddings')
+        print(self.atlas_api_path + "/v1/project/data/get/arrow")        
+        response = requests.post(
+            self.atlas_api_path + "/v1/project/data/get/arrow",
+            headers=self.header,
+            json=query,
+        )
+        if response.status_code != 200:
+            print(response.content)
+            raise Exception(f"Failed to get project data: {str(response)}")
+        bytes = io.BytesIO(response.content)
+        return pa.feather.read_table(bytes)
+
 
     @property
     def indices(self) -> List[AtlasIndex]:
@@ -1012,7 +1057,7 @@ class AtlasProject(AtlasClass):
                     project=self, projection_id=projection['id'], atlas_index_id=index['id'], name=index['index_name']
                 )
                 projections.append(projection)
-            index = AtlasIndex(atlas_index_id=index['id'], name=index['index_name'], indexed_field=index['indexed_field'], projections=projections)
+            index = AtlasIndex(project=self, atlas_index_id=index['id'], name=index['index_name'], indexed_field=index['indexed_field'], projections=projections)
             output.append(index)
 
         return output
