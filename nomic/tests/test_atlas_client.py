@@ -17,13 +17,13 @@ def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
     end = start + timedelta(days=365 * years)
     return start + (end - start) * random.random()
 
-
 def test_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
 
-    response = atlas.map_embeddings(embeddings=embeddings)
-    print(response)
+    response = atlas.map_embeddings(name="test1", embeddings=embeddings, reset_project_if_exists = True)
+
+    AtlasProject(name="test1").delete()
 
 
 def test_map_embeddings_with_errors():
@@ -139,6 +139,7 @@ def test_map_text_errors():
             description='test map description',
             reset_project_if_exists=True,
         )
+    AtlasProject(name='test_map_text_errors').delete()
 
 def test_map_embedding_progressive():
     num_embeddings = 100
