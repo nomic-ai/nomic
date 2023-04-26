@@ -104,7 +104,7 @@ def test_map_embeddings():
 def test_date_metadata():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'my_date': datetime.datetime(2022, 1, i),
+    data = [{'my_date': datetime(2022, 1, i),
              'my_random_date': gen_random_datetime()} for i in range(1, len(embeddings) + 1)]
 
     project = atlas.map_embeddings(
