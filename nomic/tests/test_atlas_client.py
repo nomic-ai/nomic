@@ -140,7 +140,6 @@ def test_map_text_errors():
             reset_project_if_exists=True,
         )
 
-
 def test_map_embedding_progressive():
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
@@ -265,6 +264,37 @@ def test_interactive_workflow():
     with p.wait_for_project_lock():
         p.delete()
 
+def test_flawed_ids():
+    """
+    Check that null and empty strings do not block an index build.
+    """
+    p = AtlasProject(
+        name='test_flawed_ids',
+        modality='text',
+        unique_id_field='id',
+        reset_project_if_exists=True
+    )
+
+    elements = []
+    for i in range(10):
+        if i % 3 == 0 and i % 5 == 0:
+            elements.append({'text': 'fizzbuzz', 'id': str(i)})
+        elif i % 3 == 0:
+            elements.append({'text': 'fizz', 'id': str(i)})
+        elif i % 5 == 0:
+            elements.append({'text': 'buzz', 'id': str(i)})
+    p.add_text(data=elements)
+    with pytest.raises(ValueError):
+        p.add_text(data=[{
+            'text': 'fizzbuzz',
+            'id': None
+        }])
+    with pytest.raises(ValueError):
+        p.add_text(data=[{
+            'text': 'fizzbuzz',
+            'id': 'A' * 100
+        }])
+    p.delete()
 
 def test_weird_inputs():
     """
@@ -299,3 +329,4 @@ def test_weird_inputs():
     )
     with p.wait_for_project_lock():
         assert True
+    p.delete()
