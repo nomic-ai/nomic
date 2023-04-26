@@ -1,6 +1,10 @@
 
 # Release Notes
 
+## v1.1.7
+
+Raise correct errors on bad id uploads
+
 ## v1.1.0
 
 ### New Data validation
