@@ -6,13 +6,15 @@ from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
 import platform
+
 try:
     import torch
 except ImportError:
     torch = None
     pass
 
-class GPT4AllGPU():
+
+class GPT4AllGPU:
     def __init__(self, llama_path=None):
         from peft import PeftModelForCausalLM
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -27,7 +29,8 @@ class GPT4AllGPU():
                                                           device_map="auto",
                                                           torch_dtype=torch.float16)
         self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_path)
-        added_tokens = self.tokenizer.add_special_tokens({"bos_token": "<s>", "eos_token": "</s>", "pad_token": "<pad>"})
+        added_tokens = self.tokenizer.add_special_tokens(
+            {"bos_token": "<s>", "eos_token": "</s>", "pad_token": "<pad>"})
 
         if added_tokens > 0:
             self.model.resize_token_embeddings(len(self.tokenizer))
@@ -51,40 +54,46 @@ class GPT4AllGPU():
         return decoded[len(prompt):]
 
 
-def prompt(prompt, model = 'gpt4all-lora-quantized'):
+def prompt(prompt, model='gpt4all-lora-quantized'):
     with GPT4All(model) as gpt4all:
         return gpt4all.prompt(prompt)
-    
-class GPT4All():
-    def __init__(self, model = 'gpt4all-lora-quantized', force_download=False, decoder_config=None):
+
+
+class GPT4All:
+    force_download: bool = False
+    model: str = 'gpt4all-lora-quantized'
+    executable_path: Path = Path("~/.nomic/gpt4all").expanduser()
+    model_path: Path = None
+    decoder_config: dict = {}
+    bot = None
+
+    def __init__(self, **kwargs):
         """
         :param model: The model to use. Currently supported are 'gpt4all-lora-quantized' and 'gpt4all-lora-unfiltered-quantized'
         :param force_download: If True, will overwrite the model and executable even if they already exist. Please don't do this!
         :param decoder_config: Default None. A dictionary of key value pairs to be passed to the decoder
-
+        :param model_path: Default None. Path to the model. Should end with .bin. Will be set if left None.
         """
-        if decoder_config is None:
-            decoder_config = {}
-
-        self.bot = None
-        self.model = model
-        self.decoder_config = decoder_config
-        assert model in ['gpt4all-lora-quantized', 'gpt4all-lora-unfiltered-quantized']
-        self.executable_path = Path("~/.nomic/gpt4all").expanduser()
-        self.model_path = Path(f"~/.nomic/{model}.bin").expanduser()
-
-        if force_download or not self.executable_path.exists():
-            logger.info('Downloading executable...')
-            self._download_executable()
-        if force_download or not (self.model_path.exists() and self.model_path.stat().st_size > 0):                                   
-            logger.info('Downloading model...')
-            self._download_model()
+        self.__dict__.update(**kwargs)
+        assert self.model in ['gpt4all-lora-quantized', 'gpt4all-lora-unfiltered-quantized']
+        if self.model_path is None:
+            self.model_path = Path(f"~/.nomic/{self.model}.bin").expanduser()
 
     def __enter__(self):
         self.open()
         return self
-    
+
+    def _download(self):
+        if self.force_download or not self.executable_path.exists():
+            logger.info('Downloading executable...')
+            self._download_executable()
+        if self.force_download or not (self.model_path.exists() and self.model_path.stat().st_size > 0):
+            logger.info('Downloading model...')
+            self._download_model()
+
     def open(self):
+        self._download()
+
         if self.bot is not None:
             self.close()
         # This is so dumb, but today is not the day I learn C++.
@@ -92,7 +101,7 @@ class GPT4All():
         for k, v in self.decoder_config.items():
             creation_args.append(f"--{k}")
             creation_args.append(str(v))
-        
+
         self.bot = subprocess.Popen(creation_args,
                                     stdin=subprocess.PIPE,
                                     stdout=subprocess.PIPE)
@@ -116,7 +125,8 @@ class GPT4All():
             elif 'Linux' in plat:
                 upstream = 'https://static.nomic.ai/gpt4all/gpt4all-pywrap-linux-x86_64'
             else:
-                raise NotImplementedError(f"Your platform is not supported: {plat}. Current binaries supported are x86 Linux and ARM Macs.")
+                raise NotImplementedError(
+                    f"Your platform is not supported: {plat}. Current binaries supported are x86 Linux and ARM Macs.")
             response = requests.get(upstream, stream=True)
             if response.status_code == 200:
                 os.makedirs(self.executable_path.parent, exist_ok=True)
@@ -124,7 +134,7 @@ class GPT4All():
                 with open(self.executable_path, "wb") as f:
                     for chunk in tqdm(response.iter_content(chunk_size=8192), total=total_size // 8192, unit='KB'):
                         f.write(chunk)
-                self.executable_path.chmod(0o755)                
+                self.executable_path.chmod(0o755)
                 print(f"File downloaded successfully to {self.executable_path}")
 
             else:
@@ -146,7 +156,7 @@ class GPT4All():
             else:
                 print(f"Failed to download the file. Status code: {response.status_code}")
 
-    def _parse_to_prompt(self, write_to_stdout = True):
+    def _parse_to_prompt(self, write_to_stdout=True):
         bot_says = ['']
         point = b''
         bot = self.bot
@@ -154,7 +164,7 @@ class GPT4All():
             point += bot.stdout.read(1)
             try:
                 character = point.decode("utf-8")
-                if character == "\f": # We've replaced the delimiter character with this.
+                if character == "\f":  # We've replaced the delimiter character with this.
                     return "\n".join(bot_says)
                 if character == "\n":
                     bot_says.append('')
@@ -172,14 +182,15 @@ class GPT4All():
                 if len(point) > 4:
                     point = b''
 
-    def prompt(self, prompt, write_to_stdout = False):
+    def prompt(self, prompt, write_to_stdout=False):
         """
         Write a prompt to the bot and return the response.
         """
         bot = self.bot
         continuous_session = self.bot is not None
         if not continuous_session:
-            logger.warning("Running one-off session. For continuous sessions, use a context manager: `with GPT4All() as bot: bot.prompt('a'), etc.`")
+            logger.warning(
+                "Running one-off session. For continuous sessions, use a context manager: `with GPT4All() as bot: bot.prompt('a'), etc.`")
             self.open()
         bot.stdin.write(prompt.encode('utf-8'))
         bot.stdin.write(b"\n")
@@ -187,5 +198,4 @@ class GPT4All():
         return_value = self._parse_to_prompt(write_to_stdout)
         if not continuous_session:
             self.close()
-        return return_value        
-
+        return return_value
