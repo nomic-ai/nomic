@@ -211,6 +211,11 @@ class AtlasClass(object):
         # This includes shuffling the order around if necessary,
         # filling in nulls, etc.
         reformatted = {}
+    
+        if data[project.id_field].null_count > 0:            
+            raise ValueError(f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found.")
+
+
         for field in project.schema:
             if field.name in data.column_names:                
                 # Allow loss of precision in dates and ints, etc.
@@ -244,17 +249,14 @@ class AtlasClass(object):
             logger.warning(f"id_field is not a string. Converting to string from {data[project.id_field].type}")
             data = data.drop([project.id_field]).append_column(project.id_field, data[project.id_field].cast(pa.string()))
 
-        if data[project.id_field].null_count > 0:            
-            raise ValueError(f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found.")
         
         for key in data.column_names:
             if key.startswith('_'):
                 if key == '_embeddings':
                     continue
                 raise ValueError('Metadata fields cannot start with _')
-
         if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
-            first_match = data.filter(data[project.id_field].utf8_length() > 36).to_pylist()[0]
+            first_match = data.filter(pc.greater(pc.utf8_length(data[project.id_field]), 36)).to_pylist()[0][project.id_field]
             raise ValueError(
                 f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
             )
@@ -876,7 +878,7 @@ class AtlasProject(AtlasClass):
             elif not add_datums_if_exists: #prevent adding datums to existing project explicitly
                 raise ValueError(
                     f"Project already exists with the name `{name}` in organization `{organization_name}`. "
-                    f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload."
+                    f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exists=True` on a new upload."
                 )
             else:
                 logger.info(
