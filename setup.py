@@ -18,7 +18,7 @@ else:
     
 setup(
     name='nomic',
-    version='1.1.6',
+    version='1.1.7',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
