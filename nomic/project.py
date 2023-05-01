@@ -1144,6 +1144,8 @@ class AtlasProject(AtlasClass):
         projection_spread: float = DEFAULT_PROJECTION_SPREAD,
         topic_label_field: str = None,
         reuse_embeddings_from_index: str = None,
+        duplicate_detection: bool = False,
+        duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
     ) -> AtlasProjection:
         '''
         Creates an index in the specified project.
@@ -1159,6 +1161,8 @@ class AtlasProject(AtlasClass):
             projection_spread: A projection hyperparameter
             topic_label_field: A text field in your metadata to estimate topic labels from. Defaults to the indexed_field for text projects if not specified.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
+            duplicate_detection: A boolean whether to run duplicate detection 
+            duplicate_threshold: At which threshold to consider points to be duplicates
 
         Returns:
             The projection this index has built.
@@ -1177,6 +1181,9 @@ class AtlasProject(AtlasClass):
                 projection_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
 
         if self.modality == 'embedding':
+            if duplicate_detection:
+                raise ValueError("Cannot tag duplicates in an embedding project.")
+
             build_template = {
                 'project_id': self.id,
                 'index_name': name,
@@ -1244,6 +1251,9 @@ class AtlasProject(AtlasClass):
                 'topic_model_hyperparameters': json.dumps(
                     {'build_topic_model': build_topic_model, 'community_description_target_field': indexed_field}
                 ),
+                'duplicate_detection_hyperparameters': json.dumps(
+                    {'tag_duplicates': duplicate_detection, 'duplicate_cutoff': duplicate_threshold}
+                )
             }
 
         response = requests.post(
