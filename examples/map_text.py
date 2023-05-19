@@ -3,6 +3,10 @@ import numpy as np
 from datasets import load_dataset
 
 dataset = load_dataset('ag_news')['train']
+max_documents = 10000
+subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
+documents = (dataset[i]['text'] for i in subset_idxs)
+matrix = np.fromiter(map(str.split, documents), dtype=np.str_, count=-1)
 
 max_documents = 10000
 subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
