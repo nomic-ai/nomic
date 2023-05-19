@@ -20,15 +20,14 @@ def convert_pyarrow_schema_for_atlas(schema : pa.Schema) -> pa.Schema:
   """
   types = {}
   whitelist = {}
-  for field in schema:      
-      if field.name.startswith('_'):
+  for field in schema:
+      if field.name == '':
+          raise ValueError(f"Empty field names not allowed")
+      if field.name[0] in {'_', '$', "🦆"}:
           # Underscore fields are private to Atlas and will be handled with their own logic.
           if not field.name in {"_embeddings"}:
-            raise ValueError(f"Underscore fields are reserved for Atlas internal use: {field.name}")
+            raise ValueError(f"{field.name} starts with a character that is reserved for Atlas internal use")
           whitelist[field.name] = field.type
-      elif field.name.startswith('$'):
-          # Dollarsign fields are reserved for function application.
-          raise ValueError(f"Field names beginning with '$' are reserved for Atlas internal use: {field.name}")
       elif pa.types.is_boolean(field.type):
           raise TypeError(f"Boolean type not supported: {field.name}")
       elif pa.types.is_list(field.type):
