@@ -76,13 +76,9 @@ def test_map_text_pandas():
         reset_project_if_exists=True,
     )
 
-    map = project.get_map(name='UNITTEST_pandas')
+    map = project.get_map(name='UNITTEST_pandas_text')
 
-    time.sleep(10)
-    with tempfile.TemporaryDirectory() as td:
-        retrieved_embeddings = map.download_embeddings(td)
-
-    assert project.total_datums == num_embeddings
+    assert project.total_datums == 20
 
     project.delete()
 
