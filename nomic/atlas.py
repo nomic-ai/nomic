@@ -164,6 +164,8 @@ def map_text(
     projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
+    duplicate_detection: bool = False,
+    duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD, 
 ) -> AtlasProject:
     '''
     Generates or updates a map of the given text.
@@ -246,6 +248,8 @@ def map_text(
             projection_epochs=projection_epochs,
             projection_spread=projection_spread,
             multilingual=multilingual,
+            duplicate_detection=duplicate_detection,
+            duplicate_threshold=duplicate_threshold,
         )
         logger.info(str(projection))
     else:

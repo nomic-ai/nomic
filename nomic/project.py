@@ -213,7 +213,8 @@ class AtlasClass(object):
                 raise ValueError(msg)
 
         if project.id_field == ATLAS_DEFAULT_ID_FIELD and not ATLAS_DEFAULT_ID_FIELD in data.column_names:
-            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([str(uuid.uuid4()) for _ in range(len(data))]))
+            # Generate random ids.
+            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([base64.b64encode(uuid.uuid4().bytes[:8]).decode('utf-8').rstrip('=') for _ in range(len(data))]))
 
         if project.schema is None:
             project._schema = convert_pyarrow_schema_for_atlas(data.schema)
@@ -221,6 +222,11 @@ class AtlasClass(object):
         # This includes shuffling the order around if necessary,
         # filling in nulls, etc.
         reformatted = {}
+    
+        if data[project.id_field].null_count > 0:            
+            raise ValueError(f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found.")
+
+
         for field in project.schema:
             if field.name in data.column_names:                
                 # Allow loss of precision in dates and ints, etc.
@@ -254,17 +260,14 @@ class AtlasClass(object):
             logger.warning(f"id_field is not a string. Converting to string from {data[project.id_field].type}")
             data = data.drop([project.id_field]).append_column(project.id_field, data[project.id_field].cast(pa.string()))
 
-        if data[project.id_field].null_count > 0:            
-            raise ValueError(f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found.")
         
         for key in data.column_names:
             if key.startswith('_'):
                 if key == '_embeddings':
                     continue
                 raise ValueError('Metadata fields cannot start with _')
-
         if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
-            first_match = data.filter(data[project.id_field].utf8_length() > 36).to_pylist()[0]
+            first_match = data.filter(pc.greater(pc.utf8_length(data[project.id_field]), 36)).to_pylist()[0][project.id_field]
             raise ValueError(
                 f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
             )
@@ -886,7 +889,7 @@ class AtlasProject(AtlasClass):
             elif not add_datums_if_exists: #prevent adding datums to existing project explicitly
                 raise ValueError(
                     f"Project already exists with the name `{name}` in organization `{organization_name}`. "
-                    f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exist=True` on a new upload."
+                    f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exists=True` on a new upload."
                 )
             else:
                 logger.info(
@@ -1154,6 +1157,8 @@ class AtlasProject(AtlasClass):
         projection_spread: float = DEFAULT_PROJECTION_SPREAD,
         topic_label_field: str = None,
         reuse_embeddings_from_index: str = None,
+        duplicate_detection: bool = False,
+        duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
     ) -> AtlasProjection:
         '''
         Creates an index in the specified project.
@@ -1169,6 +1174,8 @@ class AtlasProject(AtlasClass):
             projection_spread: A projection hyperparameter
             topic_label_field: A text field in your metadata to estimate topic labels from. Defaults to the indexed_field for text projects if not specified.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
+            duplicate_detection: A boolean whether to run duplicate detection 
+            duplicate_threshold: At which threshold to consider points to be duplicates
 
         Returns:
             The projection this index has built.
@@ -1187,6 +1194,9 @@ class AtlasProject(AtlasClass):
                 projection_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
 
         if self.modality == 'embedding':
+            if duplicate_detection:
+                raise ValueError("Cannot tag duplicates in an embedding project.")
+
             build_template = {
                 'project_id': self.id,
                 'index_name': name,
@@ -1254,6 +1264,9 @@ class AtlasProject(AtlasClass):
                 'topic_model_hyperparameters': json.dumps(
                     {'build_topic_model': build_topic_model, 'community_description_target_field': indexed_field}
                 ),
+                'duplicate_detection_hyperparameters': json.dumps(
+                    {'tag_duplicates': duplicate_detection, 'duplicate_cutoff': duplicate_threshold}
+                )
             }
 
         response = requests.post(

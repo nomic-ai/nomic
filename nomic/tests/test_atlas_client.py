@@ -18,13 +18,13 @@ def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
     end = start + timedelta(days=365 * years)
     return start + (end - start) * random.random()
 
-
 def test_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
 
-    response = atlas.map_embeddings(embeddings=embeddings)
-    print(response)
+    response = atlas.map_embeddings(name="test1", embeddings=embeddings, reset_project_if_exists = True)
+
+    AtlasProject(name="test1").delete()
 
 
 
@@ -134,7 +134,7 @@ def test_map_embeddings():
 def test_date_metadata():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'my_date': datetime.datetime(2022, 1, i),
+    data = [{'my_date': datetime(2022, 1, i),
              'my_random_date': gen_random_datetime()} for i in range(1, len(embeddings) + 1)]
 
     project = atlas.map_embeddings(
@@ -169,7 +169,7 @@ def test_map_text_errors():
             description='test map description',
             reset_project_if_exists=True,
         )
-
+    AtlasProject(name='test_map_text_errors').delete()
 
 def test_map_embedding_progressive():
     num_embeddings = 100
@@ -295,6 +295,37 @@ def test_interactive_workflow():
     with p.wait_for_project_lock():
         p.delete()
 
+def test_flawed_ids():
+    """
+    Check that null and empty strings do not block an index build.
+    """
+    p = AtlasProject(
+        name='test_flawed_ids',
+        modality='text',
+        unique_id_field='id',
+        reset_project_if_exists=True
+    )
+
+    elements = []
+    for i in range(10):
+        if i % 3 == 0 and i % 5 == 0:
+            elements.append({'text': 'fizzbuzz', 'id': str(i)})
+        elif i % 3 == 0:
+            elements.append({'text': 'fizz', 'id': str(i)})
+        elif i % 5 == 0:
+            elements.append({'text': 'buzz', 'id': str(i)})
+    p.add_text(data=elements)
+    with pytest.raises(ValueError):
+        p.add_text(data=[{
+            'text': 'fizzbuzz',
+            'id': None
+        }])
+    with pytest.raises(ValueError):
+        p.add_text(data=[{
+            'text': 'fizzbuzz',
+            'id': 'A' * 100
+        }])
+    p.delete()
 
 def test_weird_inputs():
     """
@@ -329,3 +360,4 @@ def test_weird_inputs():
     )
     with p.wait_for_project_lock():
         assert True
+    p.delete()
