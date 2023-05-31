@@ -147,7 +147,7 @@ def map_embeddings(
 
 
 def map_text(
-    data: List[Dict],
+    data: Union[List[Dict], "DataFrame", pa.Table],
     indexed_field: str,
     id_field: str = None,
     name: str = None,

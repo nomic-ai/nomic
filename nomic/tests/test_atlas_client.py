@@ -58,6 +58,34 @@ def test_map_embeddings_with_errors():
             reset_project_if_exists=True,
         )
 
+def test_map_text_pandas():
+    size = 20
+    data = pd.DataFrame({
+        'field': [str(uuid.uuid4()) for i in range(size)],
+        'id': [str(uuid.uuid4()) for i in range(size)],
+        'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
+    })
+
+    project = atlas.map_text(
+        name='UNITTEST_pandas_text',
+        id_field='id',
+        indexed_field="color",
+        data=data,
+        is_public=True,
+        colorable_fields=['color'],
+        reset_project_if_exists=True,
+    )
+
+    map = project.get_map(name='UNITTEST_pandas')
+
+    time.sleep(10)
+    with tempfile.TemporaryDirectory() as td:
+        retrieved_embeddings = map.download_embeddings(td)
+
+    assert project.total_datums == num_embeddings
+
+    project.delete()
+
 def test_map_embeddings_pandas():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
