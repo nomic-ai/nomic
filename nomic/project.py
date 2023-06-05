@@ -519,12 +519,12 @@ class AtlasProjection:
             if check_access:
                 return
             try:
-                content = response.json()
+                content = response.content
 
-                shard_name = '{}_{}_{}.pkl'.format(self.atlas_index_id, offset, offset + limit)
+                shard_name = '{}_{}_{}.feather'.format(self.atlas_index_id, offset, offset + limit)
                 shard_path = os.path.join(save_directory, shard_name)
                 with open(shard_path, 'wb') as f:
-                    pickle.dump(content, f)
+                    f.write(content)
 
             except Exception as e:
                 logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
