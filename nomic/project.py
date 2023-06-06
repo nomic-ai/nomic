@@ -61,7 +61,7 @@ class AtlasClass(object):
 
         self.atlas_api_path = f"https://{api_hostname}"
         self.web_path = f"https://{web_hostname}"
-        override_api_path = os.environ['ATLAS_API_PATH']
+        override_api_path = os.environ.get('ATLAS_API_PATH')
         if override_api_path:
             self.atlas_api_path = override_api_path
 
