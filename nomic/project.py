@@ -520,7 +520,9 @@ class AtlasProjection:
                 return
             try:
                 content = response.content
-
+                is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
+                if not is_arrow_format:
+                    raise Exception('Expected response to be in Arrow IPC format')
                 shard_name = '{}_{}_{}.feather'.format(self.atlas_index_id, offset, offset + limit)
                 shard_path = os.path.join(save_directory, shard_name)
                 with open(shard_path, 'wb') as f:
