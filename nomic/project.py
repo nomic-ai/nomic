@@ -467,9 +467,10 @@ class AtlasProjection:
         root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         all_quads = []
-        while len(quads) > 0:
+        sidecars = None
+        while len(quads) > 0:            
             quad = quads.pop(0) + ".feather"
-            all_quads.append(quad)
+            all_quads.append(quad)            
             path = dest / quad
             if not path.exists():
                 data = requests.get(root + quad)
@@ -479,6 +480,16 @@ class AtlasProjection:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 feather.write_feather(tb, path)
             schema = ipc.open_file(path).schema
+            if sidecars is None and b'sidecars' in schema.metadata:
+                # Grab just the filenames
+                sidecars = set([v for k, v in json.loads(schema.metadata.get(b'sidecars')).items()])
+            elif sidecars is None:
+                sidecars = set()
+            for sidecar in sidecars:
+                quads.append(quad.replace('.feather', f'.{sidecar}.feather'))   
+            if 'children' not in schema.metadata:
+                # Sidecars don't have children.
+                continue
             kids = schema.metadata.get(b'children')
             children = json.loads(kids)
             quads.extend(children)
