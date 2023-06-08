@@ -203,7 +203,8 @@ class AtlasClass(object):
                 raise ValueError(msg)
 
         if project.id_field == ATLAS_DEFAULT_ID_FIELD and not ATLAS_DEFAULT_ID_FIELD in data.column_names:
-            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([str(uuid.uuid4()) for _ in range(len(data))]))
+            # Generate random ids.
+            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([base64.b64encode(uuid.uuid4().bytes[:8]).decode('utf-8').rstrip('=') for _ in range(len(data))]))
 
         if project.schema is None:
             project._schema = convert_pyarrow_schema_for_atlas(data.schema)
