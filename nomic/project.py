@@ -454,7 +454,34 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def _download_feather(self, dest: str = "tiles"):
+    def web_tile_data(self, tile_destination="web_tiles"):
+        """
+        Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
+
+        Args:
+            tile_destination: The directory to download the tiles to. Defaults to "web_tiles".
+        """
+        self._download_feather(tile_destination)
+        tbs = []
+        root = feather.read_table(f"{tile_destination}/0/0/0.feather")
+        try:
+            sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
+        except KeyError:
+            sidecars = []
+        for path in Path(tile_destination).glob('**/*.feather'):
+            if len(path.stem.split(".")) > 1:
+                # Sidecars are loaded alonside
+                continue
+            tb = pa.feather.read_table(path)
+            for sidecar_file in sidecars:
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+        return pa.concat_tables(tbs)
+                
+
+    def _download_feather(self, dest: str = "web_tiles"):
         '''
         Downloads the feather tree.
         Args:
@@ -468,8 +495,9 @@ class AtlasProjection:
         quads = [f'0/0/0']
         all_quads = []
         sidecars = None
-        while len(quads) > 0:            
-            quad = quads.pop(0) + ".feather"
+        while len(quads) > 0:
+            rawquad = quads.pop(0)
+            quad = rawquad + ".feather"
             all_quads.append(quad)            
             path = dest / quad
             if not path.exists():
@@ -485,9 +513,11 @@ class AtlasProjection:
                 sidecars = set([v for k, v in json.loads(schema.metadata.get(b'sidecars')).items()])
             elif sidecars is None:
                 sidecars = set()
-            for sidecar in sidecars:
-                quads.append(quad.replace('.feather', f'.{sidecar}.feather'))   
-            if 'children' not in schema.metadata:
+            if not "." in rawquad:
+                for sidecar in sidecars:
+                    # The sidecar loses the feather suffix because it's supposed to be raw.
+                    quads.append(quad.replace(".feather", f'.{sidecar}'))
+            if not schema.metadata or b'children' not in schema.metadata:
                 # Sidecars don't have children.
                 continue
             kids = schema.metadata.get(b'children')
