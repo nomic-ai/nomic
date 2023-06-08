@@ -465,24 +465,24 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def web_tile_data(self, tile_destination: Optional[Union[str, Path]]=None, overwrite: bool = True):
+    def web_tile_data(self, overwrite: bool = True):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
         Args:
-            tile_destination: The directory to download the tiles to. Defaults to "web_tiles".
+            tile_destination: The directory to download the tiles to. Defaults to "~/.nomic/cache/{projection_id}".
             overwrite: If True then overwrite web tile files.
         """
-        self._download_feather(tile_destination, overwrite=overwrite)
+        self._download_feather(overwrite=overwrite)
         tbs = []
-        root = feather.read_table(f"{tile_destination}/0/0/0.feather")
+        root = feather.read_table(self.tile_destination / "0/0/0.feather")
         try:
             sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
         except KeyError:
             sidecars = []
-        for path in Path(tile_destination).glob('**/*.feather'):
+        for path in self.tile_destination.glob('**/*.feather'):
             if len(path.stem.split(".")) > 1:
-                # Sidecars are loaded alonside
+                # Sidecars are loaded alongside
                 continue
             tb = pa.feather.read_table(path)
             for sidecar_file in sidecars:
@@ -494,22 +494,21 @@ class AtlasProjection:
 
         return self.tile_data
                 
+    @property
+    def tile_destination(self):
+        return Path("~/.nomic/cache", self.id).expanduser()
 
     def _download_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
         '''
         Downloads the feather tree.
         Args:
-            dest: the destination to download the quadtree.
             overwrite: if True then overwrite existing feather files.
 
         Returns:
             A list containing all quadtiles downloads
         '''
-        if dest is None:
-            # Default download directory is ~/.nomic/cache/
-            dest = Path("~/.nomic/cache", self.id).expanduser()
-        dest = Path(dest)        
-        dest.mkdir(parents=True, exist_ok=True)
+
+        self.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         all_quads = []
@@ -518,7 +517,7 @@ class AtlasProjection:
             rawquad = quads.pop(0)
             quad = rawquad + ".feather"
             all_quads.append(quad)            
-            path = dest / quad
+            path = self.tile_destination / quad
             if not path.exists() or overwrite:
                 data = requests.get(root + quad)
                 readable = io.BytesIO(data.content)
