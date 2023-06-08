@@ -721,7 +721,7 @@ class AtlasProjection:
         topic_datum_dict = df.groupby("_topic_depth_1")["id"].apply(set).to_dict()
 
         topic_data = self.get_topic_data()
-        topic_df, hierarchy, id_to_label, label_to_id = self._get_topic_artifacts(topic_data)
+        topic_df, hierarchy = self._get_topic_artifacts(topic_data)
 
         result = []
 
@@ -747,7 +747,6 @@ class AtlasProjection:
         topic_df = topic_df.rename(columns={"topic": "topic_id"})
 
         topic_hierarchy = defaultdict(list)
-        topic_id_to_label = {}
         cols = ["topic_id", "_topic_depth_1", "_topic_depth_2", "_topic_depth_3"]
 
         for i, row in topic_df[cols].iterrows():
