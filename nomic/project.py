@@ -696,12 +696,11 @@ class AtlasProjection:
 
         return response['neighbors'], response['distances']
 
-    def group_by_topic(self, datum_id_col, topic_depth = 1):
+    def group_by_topic(self, topic_depth = 1):
         """
         Group datums by topic at a set topic depth.
 
         Args:
-            datum_id_col: Name of datum id column in dataset.
             topic_depth: Topic depth to group datums by. Acceptable values
             currently are (1, 2, 3). Default is 1.
         Returns:
@@ -717,10 +716,13 @@ class AtlasProjection:
         if topic_depth not in (1, 2, 3):
             raise ValueError("Topic depth out of range.")
 
+        # Unique datum id column to aggregate
+        datum_id_col = self.project.meta["unique_id_field"]
+
         cols = [datum_id_col, f"_topic_depth_{topic_depth}"]
 
         df = self.tile_data.select(cols).to_pandas()
-        topic_datum_dict = df.groupby("_topic_depth_1")["id"].apply(set).to_dict()
+        topic_datum_dict = df.groupby(f"_topic_depth_{topic_depth}")["id"].apply(set).to_dict()
 
         topic_data = self.get_topic_data()
         topic_df, hierarchy = self._get_topic_artifacts(topic_data)
