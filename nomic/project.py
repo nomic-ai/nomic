@@ -646,7 +646,7 @@ class AtlasProjection:
 
         Args:
             queries: a 2d numpy array where each row corresponds to a query vector
-            ids: a list of
+            ids: a list of ids
             k: the number of closest data points (neighbors) to return for each input query/data id
         Returns:
             A tuple with two elements containing the following information:
@@ -706,13 +706,13 @@ class AtlasProjection:
 
         return response['neighbors'], response['distances']
 
-    def group_by_topic(self, topic_depth = 1):
+    def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
         """
         Group datums by topic at a set topic depth.
 
         Args:
             topic_depth: Topic depth to group datums by. Acceptable values
-            currently are (1, 2, 3). Default is 1.
+                currently are (1, 2, 3).
         Returns:
             List of dictionaries where each dictionary contains
                 next depth subtopics, topic_id, topic_short_description, topic_long_description,
