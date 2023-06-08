@@ -470,8 +470,10 @@ class AtlasProjection:
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
         Args:
-            tile_destination: The directory to download the tiles to. Defaults to "~/.nomic/cache/{projection_id}".
             overwrite: If True then overwrite web tile files.
+
+        Returns:
+            An Arrow table containing information for all data points in the index.
         """
         self._download_feather(overwrite=overwrite)
         tbs = []
