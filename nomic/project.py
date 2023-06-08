@@ -722,7 +722,7 @@ class AtlasProjection:
         cols = [datum_id_col, f"_topic_depth_{topic_depth}"]
 
         df = self.tile_data.select(cols).to_pandas()
-        topic_datum_dict = df.groupby(f"_topic_depth_{topic_depth}")["id"].apply(set).to_dict()
+        topic_datum_dict = df.groupby(f"_topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
 
         topic_data = self.get_topic_data()
         topic_df, hierarchy = self._get_topic_artifacts(topic_data)
