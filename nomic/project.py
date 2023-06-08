@@ -465,17 +465,13 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def web_tile_data(self, tile_destination=None):
+    def web_tile_data(self, tile_destination : Optional[Union[str, Path]]=None):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
         Args:
             tile_destination: The directory to download the tiles to. Defaults to "web_tiles".
         """
-        if tile_destination is None:
-            # Default download directory is ~/.nomic/cache/
-            home_dir = os.path.expanduser("~")
-            tile_destination = os.path.join(home_dir, ".nomic", "cache")
         self._download_feather(tile_destination, overwrite=True)
         tbs = []
         root = feather.read_table(f"{tile_destination}/0/0/0.feather")
@@ -498,7 +494,7 @@ class AtlasProjection:
         return self.tile_data
                 
 
-    def _download_feather(self, dest: str = None, overwrite: bool = True):
+    def _download_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
         '''
         Downloads the feather tree.
         Args:
@@ -510,11 +506,9 @@ class AtlasProjection:
         '''
         if dest is None:
             # Default download directory is ~/.nomic/cache/
-            home_dir = os.path.expanduser("~")
-            dest = os.path.join(home_dir, ".nomic", "cache")
-            if not os.path.exists(dest):
-                os.mkdir(dest)
-        dest = Path(dest)
+            dest = Path("~/.nomic/cache", self.id).expanduser()
+        dest = Path(dest)        
+        dest.mkdir(parents=True, exist_ok=True)
         root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         all_quads = []
