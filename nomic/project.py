@@ -467,7 +467,7 @@ class AtlasProjection:
             # Default download directory is ~/.nomic/cache/
             home_dir = os.path.expanduser("~")
             tile_destination = os.path.join(home_dir, ".nomic", "cache")
-        self._download_feather(tile_destination)
+        self._download_feather(tile_destination, overwrite=True)
         tbs = []
         root = feather.read_table(f"{tile_destination}/0/0/0.feather")
         try:
@@ -489,11 +489,12 @@ class AtlasProjection:
         return self.tile_data
                 
 
-    def _download_feather(self, dest: str = None):
+    def _download_feather(self, dest: str = None, overwrite: bool = True):
         '''
         Downloads the feather tree.
         Args:
             dest: the destination to download the quadtree.
+            overwrite: if True then overwrite existing feather files.
 
         Returns:
             A list containing all quadtiles downloads
@@ -514,7 +515,7 @@ class AtlasProjection:
             quad = rawquad + ".feather"
             all_quads.append(quad)            
             path = dest / quad
-            if not path.exists():
+            if not path.exists() or overwrite:
                 data = requests.get(root + quad)
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
