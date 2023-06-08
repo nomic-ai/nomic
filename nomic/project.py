@@ -747,9 +747,9 @@ class AtlasProjection:
             topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
 
             result_dict["subtopics"] = hierarchy[topic]
-            result_dict["topic_id"] = topic_metadata["topic_id"]
-            result_dict["topic_short_description"] = topic_metadata["topic_short_description"]
-            result_dict["topic_long_description"] = topic_metadata["topic_description"]
+            result_dict["topic_id"] = topic_metadata["topic_id"].item()
+            result_dict["topic_short_description"] = topic_metadata["topic_short_description"].item()
+            result_dict["topic_long_description"] = topic_metadata["topic_description"].item()
             result_dict["datum_ids"] = datum_ids
             result.append(result_dict)
         return result
