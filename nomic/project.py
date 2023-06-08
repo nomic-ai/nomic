@@ -465,7 +465,7 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def web_tile_data(self, tile_destination : Optional[Union[str, Path]]=None):
+    def web_tile_data(self, tile_destination : Optional[Union[str, Path]]=None, overwrite: bool = True):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
@@ -473,7 +473,7 @@ class AtlasProjection:
             tile_destination: The directory to download the tiles to. Defaults to "web_tiles".
             overwrite: If True then overwrite web tile files.
         """
-        self._download_feather(tile_destination, overwrite=True)
+        self._download_feather(tile_destination, overwrite=overwrite)
         tbs = []
         root = feather.read_table(f"{tile_destination}/0/0/0.feather")
         try:
