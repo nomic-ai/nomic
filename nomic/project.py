@@ -711,7 +711,7 @@ class AtlasProjection:
             List of dictionaries where each dictionary contains next depth 
                 subtopics, subtopic ids, topic_id, topic_short_description, 
                 topic_long_description, and list of datum_ids.
-        '''
+        """
         if not self.tile_data:
             self.web_tile_data()
 
