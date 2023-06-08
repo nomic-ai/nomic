@@ -706,17 +706,17 @@ class AtlasProjection:
         return response['neighbors'], response['distances']
 
     def group_by_topic(self, topic_depth = 1):
-        """
+        '''
         Group datums by topic at a set topic depth.
 
         Args:
             topic_depth: Topic depth to group datums by. Acceptable values
             currently are (1, 2, 3). Default is 1.
         Returns:
-            List of dictionaries where each dictionary contains
-                next depth subtopics, topic_id, topic_short_description, topic_long_description,
-                and list of datum_ids.
-        """
+            List of dictionaries where each dictionary contains next depth 
+                subtopics, subtopic ids, topic_id, topic_short_description, 
+                topic_long_description, and list of datum_ids.
+        '''
         if not self.tile_data:
             self.web_tile_data()
 
@@ -746,7 +746,9 @@ class AtlasProjection:
             result_dict = {}
             topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
 
-            result_dict["subtopics"] = hierarchy[topic]
+            subtopics = hierarchy[topic]
+            result_dict["subtopics"] = subtopics
+            result_dict["subtopic_ids"] = topic_df[topic_df["topic_short_description"].isin(subtopics)]["topic_id"].tolist()
             result_dict["topic_id"] = topic_metadata["topic_id"].item()
             result_dict["topic_short_description"] = topic_metadata["topic_short_description"].item()
             result_dict["topic_long_description"] = topic_metadata["topic_description"].item()
