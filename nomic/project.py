@@ -753,6 +753,8 @@ class AtlasProjection:
 
     @staticmethod
     def _get_topic_artifacts(topic_data):
+        if pd is None:
+            raise Exception("Pandas is required to use this function.")
         topic_df = pd.DataFrame(topic_data)
         topic_df = topic_df.rename(columns={"topic": "topic_id"})
 
