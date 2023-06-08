@@ -465,7 +465,7 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def web_tile_data(self, tile_destination : Optional[Union[str, Path]]=None, overwrite: bool = True):
+    def web_tile_data(self, tile_destination: Optional[Union[str, Path]]=None, overwrite: bool = True):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
