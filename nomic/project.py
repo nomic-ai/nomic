@@ -465,7 +465,7 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def web_tile_data(self, tile_destination=None, overwrite=True):
+    def web_tile_data(self, tile_destination : Optional[Union[str, Path]]=None):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
@@ -473,11 +473,7 @@ class AtlasProjection:
             tile_destination: The directory to download the tiles to. Defaults to "web_tiles".
             overwrite: If True then overwrite web tile files.
         """
-        if tile_destination is None:
-            # Default download directory is ~/.nomic/cache/
-            home_dir = os.path.expanduser("~")
-            tile_destination = os.path.join(home_dir, ".nomic", "cache")
-        self._download_feather(tile_destination, overwrite=overwrite)
+        self._download_feather(tile_destination, overwrite=True)
         tbs = []
         root = feather.read_table(f"{tile_destination}/0/0/0.feather")
         try:
@@ -499,7 +495,7 @@ class AtlasProjection:
         return self.tile_data
                 
 
-    def _download_feather(self, dest: str = None, overwrite: bool = True):
+    def _download_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
         '''
         Downloads the feather tree.
         Args:
@@ -511,11 +507,9 @@ class AtlasProjection:
         '''
         if dest is None:
             # Default download directory is ~/.nomic/cache/
-            home_dir = os.path.expanduser("~")
-            dest = os.path.join(home_dir, ".nomic", "cache")
-            if not os.path.exists(dest):
-                os.mkdir(dest)
-        dest = Path(dest)
+            dest = Path("~/.nomic/cache", self.id).expanduser()
+        dest = Path(dest)        
+        dest.mkdir(parents=True, exist_ok=True)
         root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         all_quads = []
@@ -714,10 +708,10 @@ class AtlasProjection:
             topic_depth: Topic depth to group datums by. Acceptable values
                 currently are (1, 2, 3).
         Returns:
-            List of dictionaries where each dictionary contains
-                next depth subtopics, topic_id, topic_short_description, topic_long_description,
-                and list of datum_ids.
-        """
+            List of dictionaries where each dictionary contains next depth 
+                subtopics, subtopic ids, topic_id, topic_short_description, 
+                topic_long_description, and list of datum_ids.
+        '''
         if not self.tile_data:
             self.web_tile_data()
 
@@ -747,10 +741,12 @@ class AtlasProjection:
             result_dict = {}
             topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
 
-            result_dict["subtopics"] = hierarchy[topic]
-            result_dict["topic_id"] = topic_metadata["topic_id"]
-            result_dict["topic_short_description"] = topic_metadata["topic_short_description"]
-            result_dict["topic_long_description"] = topic_metadata["topic_description"]
+            subtopics = hierarchy[topic]
+            result_dict["subtopics"] = subtopics
+            result_dict["subtopic_ids"] = topic_df[topic_df["topic_short_description"].isin(subtopics)]["topic_id"].tolist()
+            result_dict["topic_id"] = topic_metadata["topic_id"].item()
+            result_dict["topic_short_description"] = topic_metadata["topic_short_description"].item()
+            result_dict["topic_long_description"] = topic_metadata["topic_description"].item()
             result_dict["datum_ids"] = datum_ids
             result.append(result_dict)
         return result
