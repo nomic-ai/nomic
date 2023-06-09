@@ -122,6 +122,9 @@ workflows:
     jobs:
       - pypi-hold:
           type: approval
+          filters:
+            branches:
+              only: main
       - build_deploy_pypi:
           filters:
             branches:
