@@ -465,23 +465,26 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def web_tile_data(self, tile_destination : Optional[Union[str, Path]]=None):
+    def web_tile_data(self, overwrite: bool = True):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
         Args:
-            tile_destination: The directory to download the tiles to. Defaults to "web_tiles".
+            overwrite: If True then overwrite web tile files.
+
+        Returns:
+            An Arrow table containing information for all data points in the index.
         """
-        self._download_feather(tile_destination, overwrite=True)
+        self._download_feather(overwrite=overwrite)
         tbs = []
-        root = feather.read_table(f"{tile_destination}/0/0/0.feather")
+        root = feather.read_table(self.tile_destination / "0/0/0.feather")
         try:
             sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
         except KeyError:
             sidecars = []
-        for path in Path(tile_destination).glob('**/*.feather'):
+        for path in self.tile_destination.glob('**/*.feather'):
             if len(path.stem.split(".")) > 1:
-                # Sidecars are loaded alonside
+                # Sidecars are loaded alongside
                 continue
             tb = pa.feather.read_table(path)
             for sidecar_file in sidecars:
@@ -493,22 +496,21 @@ class AtlasProjection:
 
         return self.tile_data
                 
+    @property
+    def tile_destination(self):
+        return Path("~/.nomic/cache", self.id).expanduser()
 
     def _download_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
         '''
         Downloads the feather tree.
         Args:
-            dest: the destination to download the quadtree.
             overwrite: if True then overwrite existing feather files.
 
         Returns:
             A list containing all quadtiles downloads
         '''
-        if dest is None:
-            # Default download directory is ~/.nomic/cache/
-            dest = Path("~/.nomic/cache", self.id).expanduser()
-        dest = Path(dest)        
-        dest.mkdir(parents=True, exist_ok=True)
+
+        self.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         all_quads = []
@@ -517,7 +519,7 @@ class AtlasProjection:
             rawquad = quads.pop(0)
             quad = rawquad + ".feather"
             all_quads.append(quad)            
-            path = dest / quad
+            path = self.tile_destination / quad
             if not path.exists() or overwrite:
                 data = requests.get(root + quad)
                 readable = io.BytesIO(data.content)
@@ -639,7 +641,7 @@ class AtlasProjection:
 
         Args:
             queries: a 2d numpy array where each row corresponds to a query vector
-            ids: a list of
+            ids: a list of ids
             k: the number of closest data points (neighbors) to return for each input query/data id
         Returns:
             A tuple with two elements containing the following information:
@@ -699,18 +701,18 @@ class AtlasProjection:
 
         return response['neighbors'], response['distances']
 
-    def group_by_topic(self, topic_depth = 1):
-        '''
+    def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
+        """
         Group datums by topic at a set topic depth.
 
         Args:
             topic_depth: Topic depth to group datums by. Acceptable values
-            currently are (1, 2, 3). Default is 1.
+                currently are (1, 2, 3).
         Returns:
             List of dictionaries where each dictionary contains next depth 
                 subtopics, subtopic ids, topic_id, topic_short_description, 
                 topic_long_description, and list of datum_ids.
-        '''
+        """
         if not self.tile_data:
             self.web_tile_data()
 
@@ -752,6 +754,8 @@ class AtlasProjection:
 
     @staticmethod
     def _get_topic_artifacts(topic_data):
+        if pd is None:
+            raise Exception("Pandas is required to use this function.")
         topic_df = pd.DataFrame(topic_data)
         topic_df = topic_df.rename(columns={"topic": "topic_id"})
 
