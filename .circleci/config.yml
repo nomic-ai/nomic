@@ -74,12 +74,12 @@ jobs:
     docker:
       - image: circleci/python:3.8
     steps:
-      - setup_remote_docker
+      - checkout
       - run:
           name: Install dependencies
           command: |
             sudo apt-get update
-            sudo apt-get install -y cmake build-essential
+            sudo apt-get install build-essential
             pip install setuptools twine
       - run:
           name: Build Python package
