@@ -124,11 +124,11 @@ workflows:
           type: approval
           filters:
             branches:
-              only: #main
+              only: main
       - build_deploy_pypi:
           filters:
             branches:
-              only: #main
+              only: main
           requires:
             - pypi-hold
 
