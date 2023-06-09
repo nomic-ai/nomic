@@ -1638,7 +1638,6 @@ class AtlasProject(AtlasClass):
                     self.atlas_api_path + upload_endpoint,
                     headers=self.header,
                     data = buffer,
-                    json={'project_id': self.id},
                 )
                 return response
 
