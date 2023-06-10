@@ -7,6 +7,7 @@ import os
 import pickle
 import time
 import uuid
+from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Iterable, Union
@@ -61,7 +62,13 @@ class AtlasClass(object):
 
         self.atlas_api_path = f"https://{api_hostname}"
         self.web_path = f"https://{web_hostname}"
-        override_api_path = os.environ.get('ATLAS_API_PATH')
+
+
+        try:
+            override_api_path = os.environ['ATLAS_API_PATH']
+        except KeyError:
+            override_api_path = None
+
         if override_api_path:
             self.atlas_api_path = override_api_path
 
@@ -206,7 +213,8 @@ class AtlasClass(object):
                 raise ValueError(msg)
 
         if project.id_field == ATLAS_DEFAULT_ID_FIELD and not ATLAS_DEFAULT_ID_FIELD in data.column_names:
-            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([str(uuid.uuid4()) for _ in range(len(data))]))
+            # Generate random ids.
+            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([base64.b64encode(uuid.uuid4().bytes[:8]).decode('utf-8').rstrip('=') for _ in range(len(data))]))
 
         if project.schema is None:
             project._schema = convert_pyarrow_schema_for_atlas(data.schema)
@@ -373,6 +381,7 @@ class AtlasProjection:
         self.atlas_index_id = atlas_index_id
         self.projection_id = projection_id
         self.name = name
+        self.tile_data = None
 
     @property
     def map_link(self):
@@ -457,24 +466,62 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def _download_feather(self, dest: str = "tiles"):
+    def web_tile_data(self, overwrite: bool = True):
+        """
+        Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
+
+        Args:
+            overwrite: If True then overwrite web tile files.
+
+        Returns:
+            An Arrow table containing information for all data points in the index.
+        """
+        self._download_feather(overwrite=overwrite)
+        tbs = []
+        root = feather.read_table(self.tile_destination / "0/0/0.feather")
+        try:
+            sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
+        except KeyError:
+            sidecars = []
+        for path in self.tile_destination.glob('**/*.feather'):
+            if len(path.stem.split(".")) > 1:
+                # Sidecars are loaded alongside
+                continue
+            tb = pa.feather.read_table(path)
+            for sidecar_file in sidecars:
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+        self.tile_data = pa.concat_tables(tbs)
+
+        return self.tile_data
+                
+    @property
+    def tile_destination(self):
+        return Path("~/.nomic/cache", self.id).expanduser()
+
+    def _download_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
         '''
         Downloads the feather tree.
         Args:
-            dest: the destination to download the quadtree.
+            overwrite: if True then overwrite existing feather files.
 
         Returns:
             A list containing all quadtiles downloads
         '''
-        dest = Path(dest)
+
+        self.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         all_quads = []
+        sidecars = None
         while len(quads) > 0:
-            quad = quads.pop(0) + ".feather"
-            all_quads.append(quad)
-            path = dest / quad
-            if not path.exists():
+            rawquad = quads.pop(0)
+            quad = rawquad + ".feather"
+            all_quads.append(quad)            
+            path = self.tile_destination / quad
+            if not path.exists() or overwrite:
                 data = requests.get(root + quad)
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
@@ -482,6 +529,18 @@ class AtlasProjection:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 feather.write_feather(tb, path)
             schema = ipc.open_file(path).schema
+            if sidecars is None and b'sidecars' in schema.metadata:
+                # Grab just the filenames
+                sidecars = set([v for k, v in json.loads(schema.metadata.get(b'sidecars')).items()])
+            elif sidecars is None:
+                sidecars = set()
+            if not "." in rawquad:
+                for sidecar in sidecars:
+                    # The sidecar loses the feather suffix because it's supposed to be raw.
+                    quads.append(quad.replace(".feather", f'.{sidecar}'))
+            if not schema.metadata or b'children' not in schema.metadata:
+                # Sidecars don't have children.
+                continue
             kids = schema.metadata.get(b'children')
             children = json.loads(kids)
             quads.extend(children)
@@ -588,7 +647,7 @@ class AtlasProjection:
 
         Args:
             queries: a 2d numpy array where each row corresponds to a query vector
-            ids: a list of
+            ids: a list of ids
             k: the number of closest data points (neighbors) to return for each input query/data id
         Returns:
             A tuple with two elements containing the following information:
@@ -647,6 +706,78 @@ class AtlasProjection:
         response = response.json()
 
         return response['neighbors'], response['distances']
+
+    def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
+        """
+        Group datums by topic at a set topic depth.
+
+        Args:
+            topic_depth: Topic depth to group datums by. Acceptable values
+                currently are (1, 2, 3).
+        Returns:
+            List of dictionaries where each dictionary contains next depth 
+                subtopics, subtopic ids, topic_id, topic_short_description, 
+                topic_long_description, and list of datum_ids.
+        """
+        if not self.tile_data:
+            self.web_tile_data()
+
+        topic_cols = []
+        # TODO: This will need to be changed once topic depths becomes dynamic and not hard-coded
+        if topic_depth not in (1, 2, 3):
+            raise ValueError("Topic depth out of range.")
+
+        # Unique datum id column to aggregate
+        datum_id_col = self.project.meta["unique_id_field"]
+
+        cols = [datum_id_col, f"_topic_depth_{topic_depth}"]
+
+        df = self.tile_data.select(cols).to_pandas()
+        topic_datum_dict = df.groupby(f"_topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
+
+        topic_data = self.get_topic_data()
+        topic_df, hierarchy = self._get_topic_artifacts(topic_data)
+
+        result = []
+
+        for topic, datum_ids in topic_datum_dict.items():
+            # Encountered topic with zero datums
+            if len(datum_ids) == 0:
+                continue
+            
+            result_dict = {}
+            topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
+
+            subtopics = hierarchy[topic]
+            result_dict["subtopics"] = subtopics
+            result_dict["subtopic_ids"] = topic_df[topic_df["topic_short_description"].isin(subtopics)]["topic_id"].tolist()
+            result_dict["topic_id"] = topic_metadata["topic_id"].item()
+            result_dict["topic_short_description"] = topic_metadata["topic_short_description"].item()
+            result_dict["topic_long_description"] = topic_metadata["topic_description"].item()
+            result_dict["datum_ids"] = datum_ids
+            result.append(result_dict)
+        return result
+
+    @staticmethod
+    def _get_topic_artifacts(topic_data):
+        if pd is None:
+            raise Exception("Pandas is required to use this function.")
+        topic_df = pd.DataFrame(topic_data)
+        topic_df = topic_df.rename(columns={"topic": "topic_id"})
+
+        topic_hierarchy = defaultdict(list)
+        cols = ["topic_id", "_topic_depth_1", "_topic_depth_2", "_topic_depth_3"]
+
+        for i, row in topic_df[cols].iterrows():
+            # Only consider the non-null values for each row
+            topics = [topic for topic in row if pd.notna(topic)]
+            
+            # Iterate over the topics in each row, adding each topic to the
+            # list of subtopics for the topic at the previous depth
+            for i in range(1, len(topics) - 1):
+                if topics[i + 1] not in topic_hierarchy[topics[i]]:
+                    topic_hierarchy[topics[i]].append(topics[i + 1]) 
+        return topic_df, dict(topic_hierarchy)
 
     def get_topic_data(self) -> List:
         '''
@@ -1517,7 +1648,6 @@ class AtlasProject(AtlasClass):
                     self.atlas_api_path + upload_endpoint,
                     headers=self.header,
                     data = buffer,
-                    json={'project_id': self.id},
                 )
                 return response
 
