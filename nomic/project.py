@@ -40,6 +40,9 @@ from .cli import refresh_bearer_token, validate_api_http_response
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
 from .data_inference import convert_pyarrow_schema_for_atlas
+from .data_operations import (
+    AtlasDuplicates
+)
 
 class AtlasUser:
     def __init__(self):
