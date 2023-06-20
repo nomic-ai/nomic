@@ -9,7 +9,7 @@ class AtlasDuplicates():
     def __init__(self, projection : "AtlasProjection"):
         self.projection = projection
         self.id_field = self.projection.project.id_field
-        self._tb : pa.Table = projection._fetch_tiles().select([self.id_field, '_duplicate_class', '_duplicate_cluster_id'])
+        self._tb : pa.Table = projection._fetch_tiles().select([self.id_field, '_duplicate_class', '_cluster_id'])
 
     @property
     def df(self):
@@ -27,16 +27,16 @@ class AtlasDuplicates():
         """
         return self._tb
 
-    def duplicate_candidates(self) -> List[str]:
+    def deletion_candidates(self) -> List[str]:
         """
         Returns a list of ids for all the the duplicate candidates in the set.
         """
-        dupes = self.tb[self.id_field].filter(pc.equal(self.tb['_duplicate_class'], 'duplicate_candidate'))
+        dupes = self.tb[self.id_field].filter(pc.equal(self.tb['_duplicate_class'], 'deletion candidate'))
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})===\n"
-        duplicate_count = len(self.tb[self.id_field].filter(pc.equal(self.tb['_duplicate_class'], 'duplicate_candidate')))
-        cluster_count = len(self.tb['_duplicate_cluster_id'].value_counts())
-        repr += f"{duplicate_count} duplicate candidates in {cluster_count} clusters"
+        duplicate_count = len(self.tb[self.id_field].filter(pc.equal(self.tb['_duplicate_class'], 'deletion candidate')))
+        cluster_count = len(self.tb['_cluster_id'].value_counts())
+        repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
         return repr + self.df.__repr__()
