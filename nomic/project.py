@@ -40,6 +40,9 @@ from .cli import refresh_bearer_token, validate_api_http_response
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
 from .data_inference import convert_pyarrow_schema_for_atlas
+from .data_operations import (
+    AtlasDuplicates
+)
 
 class AtlasUser:
     def __init__(self):
@@ -121,7 +124,7 @@ class AtlasClass(object):
 
         for field in colorable_fields:
             if field not in data[0]:
-                raise Exception(f"Cannot color by field `{field}` as it is not present in the meta-data.")
+                raise Exception(f"Cannot color by field `{field}` as it is not present in the metadata.")
 
     def _get_current_users_main_organization(self):
         '''
@@ -371,7 +374,6 @@ class AtlasProjection:
     Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
     '''
 
-
     def __init__(self, project : "AtlasProject", atlas_index_id: str, projection_id: str, name):
         """
         Creates an AtlasProjection.
@@ -381,8 +383,11 @@ class AtlasProjection:
         self.atlas_index_id = atlas_index_id
         self.projection_id = projection_id
         self.name = name
-        self.tile_data = None
-
+        self._duplicates = None
+        self._embeddings = None
+        self._topics = None
+        self._tags = None
+        self._tile_data = None
     @property
     def map_link(self):
         '''
@@ -466,7 +471,13 @@ class AtlasProjection:
             {self._embed_html()}
             """
     
-    def web_tile_data(self, overwrite: bool = True):
+    @property
+    def duplicates(self):
+        if self._duplicates is None:
+            self._duplicates = AtlasDuplicates(self)
+        return self._duplicates
+    
+    def _fetch_tiles(self, overwrite: bool = True):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
@@ -475,7 +486,9 @@ class AtlasProjection:
 
         Returns:
             An Arrow table containing information for all data points in the index.
-        """
+        """    
+        if self._tile_data is not None:
+            return self._tile_data    
         self._download_feather(overwrite=overwrite)
         tbs = []
         root = feather.read_table(self.tile_destination / "0/0/0.feather")
@@ -493,9 +506,9 @@ class AtlasProjection:
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
-        self.tile_data = pa.concat_tables(tbs)
+        self._tile_data = pa.concat_tables(tbs)
 
-        return self.tile_data
+        return self._tile_data
                 
     @property
     def tile_destination(self):
@@ -707,6 +720,9 @@ class AtlasProjection:
 
         return response['neighbors'], response['distances']
 
+    @property 
+    def datum_id_field(self):
+        return self.project.meta["unique_id_field"]
     def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
         """
         Group datums by topic at a set topic depth.
@@ -719,8 +735,8 @@ class AtlasProjection:
                 subtopics, subtopic ids, topic_id, topic_short_description, 
                 topic_long_description, and list of datum_ids.
         """
-        if not self.tile_data:
-            self.web_tile_data()
+        if not self._tile_data:
+            self._fetch_tiles()
 
         topic_cols = []
         # TODO: This will need to be changed once topic depths becomes dynamic and not hard-coded
@@ -732,7 +748,7 @@ class AtlasProjection:
 
         cols = [datum_id_col, f"_topic_depth_{topic_depth}"]
 
-        df = self.tile_data.select(cols).to_pandas()
+        df = self._fetch_tiles().select(cols).to_pandas()
         topic_datum_dict = df.groupby(f"_topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
 
         topic_data = self.get_topic_data()

@@ -36,6 +36,7 @@ setup(
         'rich',
         'requests',
         'numpy',
+        'pandas',
         'pydantic',
         'wonderwords',
         'tqdm',
