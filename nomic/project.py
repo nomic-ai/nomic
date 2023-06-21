@@ -366,7 +366,7 @@ class AtlasIndex:
 
 class AtlasProjection:
     '''
-    Manages operations on maps such as text/vector search.
+    Interact and access state of an Atlas Map including text/vector search.
     This class should not be instantiated directly.
     Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
     '''
