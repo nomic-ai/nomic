@@ -6,7 +6,6 @@ import json
 import os
 import pickle
 import time
-import uuid
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
@@ -38,7 +37,7 @@ import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
 from .settings import *
-from .utils import assert_valid_project_id, get_object_size_in_bytes
+from .utils import assert_valid_project_id, get_object_size_in_bytes, ulid_bytes
 from .data_inference import convert_pyarrow_schema_for_atlas
 from .data_operations import (
     AtlasDuplicates
@@ -216,8 +215,8 @@ class AtlasClass(object):
                 raise ValueError(msg)
 
         if project.id_field == ATLAS_DEFAULT_ID_FIELD and not ATLAS_DEFAULT_ID_FIELD in data.column_names:
-            # Generate random ids.
-            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([base64.b64encode(uuid.uuid4().bytes[:8]).decode('utf-8').rstrip('=') for _ in range(len(data))]))
+            # Generate semirandom ids
+            data = data.append_column(ATLAS_DEFAULT_ID_FIELD, pa.array([base64.b64encode(ulid_bytes()).decode('utf-8').rstrip('=') for _ in range(len(data))]))
 
         if project.schema is None:
             project._schema = convert_pyarrow_schema_for_atlas(data.schema)

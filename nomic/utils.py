@@ -1,9 +1,16 @@
 import gc
 import sys
 from uuid import UUID
+import time
+import os
 
 from wonderwords import RandomWord
 
+def ulid_bytes(timebytes=6, randbytes=10):
+    timestamp = int(time.time() * 1000)
+    timebytes = int.to_bytes(timestamp, timebytes, "big")
+    randbytes = os.urandom(randbytes)
+    return timebytes + randbytes
 
 def get_random_name():
     random_words = RandomWord()
