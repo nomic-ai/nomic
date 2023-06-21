@@ -66,6 +66,7 @@ class AtlasClass(object):
         self.atlas_api_path = f"https://{api_hostname}"
         self.web_path = f"https://{web_hostname}"
 
+
         try:
             override_api_path = os.environ['ATLAS_API_PATH']
         except KeyError:
@@ -590,12 +591,17 @@ class AtlasProjection:
             if check_access:
                 return
             try:
-                content = response.json()
-
-                shard_name = '{}_{}_{}.pkl'.format(self.atlas_index_id, offset, offset + limit)
+                shard_name = '{}_{}_{}.feather'.format(self.atlas_index_id, offset, offset + limit)
                 shard_path = os.path.join(save_directory, shard_name)
+
+                content = response.content
+                is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
+
+                if not is_arrow_format:
+                    raise Exception('Expected response to be in Arrow IPC format')
+
                 with open(shard_path, 'wb') as f:
-                    pickle.dump(content, f)
+                    f.write(content)
 
             except Exception as e:
                 logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
