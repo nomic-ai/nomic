@@ -52,24 +52,45 @@ commands:
 
 
 jobs:
-    build_test:
-      machine:
-        image: ubuntu-2004:202010-01 # recommended linux image
-      resource_class: large
-      steps:
-        - prep
-        - test
+  build_test:
+    machine:
+      image: ubuntu-2004:202010-01 # recommended linux image
+    resource_class: large
+    steps:
+      - prep
+      - test
 
-    build_test_deploy:
-      machine:
-        image: ubuntu-2004:202010-01 # recommended linux image
-      resource_class: large
-      steps:
-        - prep
-        - build
+  build_test_deploy:
+    machine:
+      image: ubuntu-2004:202010-01 # recommended linux image
+    resource_class: large
+    steps:
+      - prep
+      - build
 #        - test
-        - deploy
+      - deploy
 
+  build_deploy_pypi:
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install build-essential
+            pip install setuptools twine
+      - run:
+          name: Build Python package
+          command: |
+            python setup.py sdist
+      - run:
+          name: Upload Python package
+          command: |
+            twine upload dist/* --username __token__ --password $PYPI_CRED
+      - store_artifacts:
+          path: dist
 
 workflows:
   version: 2
@@ -96,6 +117,21 @@ workflows:
           filters:
             branches:
               only: prod
+  
+  deploy_pypi:
+    jobs:
+      - pypi-hold:
+          type: approval
+          filters:
+            branches:
+              only: main
+      - build_deploy_pypi:
+          filters:
+            branches:
+              only: main
+          requires:
+            - pypi-hold
+
 #
 #  daily:
 #    jobs:
