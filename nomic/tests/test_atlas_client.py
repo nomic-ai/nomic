@@ -318,6 +318,10 @@ def test_map_embeddings():
     project = AtlasProject(name='UNITTEST1')
     map = project.get_map(name='UNITTEST1')
 
+
+    print(map.embeddings.tb.schema)
+    exit()
+
     project.create_index(name='My new index')
     with project.wait_for_project_lock():
         neighbors, _ = map.vector_search(queries=np.random.rand(1, 10), k=2)

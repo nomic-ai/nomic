@@ -41,7 +41,9 @@ from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
 from .data_inference import convert_pyarrow_schema_for_atlas
 from .data_operations import (
-    AtlasDuplicates
+    AtlasMapDuplicates,
+    AtlasMapTopics,
+    AtlasMapEmbeddings
 )
 
 class AtlasUser:
@@ -473,10 +475,25 @@ class AtlasProjection:
     
     @property
     def duplicates(self):
+        """Duplicate detection state"""
         if self._duplicates is None:
-            self._duplicates = AtlasDuplicates(self)
+            self._duplicates = AtlasMapDuplicates(self)
         return self._duplicates
-    
+
+    @property
+    def topics(self):
+        """Topic state"""
+        if self._topics is None:
+            self._topics = AtlasMapTopics(self)
+        return self._topics
+
+    @property
+    def embeddings(self):
+        """Embedding state"""
+        if self._embeddings is None:
+            self._embeddings = AtlasMapEmbeddings(self)
+        return self._embeddings
+
     def _fetch_tiles(self, overwrite: bool = True):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
@@ -558,68 +575,6 @@ class AtlasProjection:
             children = json.loads(kids)
             quads.extend(children)
         return all_quads
-
-    def download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
-        '''
-        Downloads a mapping from datum_id to embedding in shards to the provided directory
-
-        Args:
-            save_directory: The directory to save your embeddings.
-        Returns:
-            True on success
-
-
-        '''
-        self.project._latest_project_state()
-
-        total_datums = self.project.total_datums
-        if self.project.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
-
-        offset = 0
-        limit = EMBEDDING_PAGINATION_LIMIT
-
-        def download_shard(offset, check_access=False):
-            response = requests.get(
-                self.project.atlas_api_path + f"/v1/project/data/get/embedding/{self.project.id}/{self.atlas_index_id}/{offset}/{limit}",
-                headers=self.project.header,
-            )
-
-            if response.status_code != 200:
-                raise Exception(response.text)
-
-            if check_access:
-                return
-            try:
-                shard_name = '{}_{}_{}.feather'.format(self.atlas_index_id, offset, offset + limit)
-                shard_path = os.path.join(save_directory, shard_name)
-
-                content = response.content
-                is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
-
-                if not is_arrow_format:
-                    raise Exception('Expected response to be in Arrow IPC format')
-
-                with open(shard_path, 'wb') as f:
-                    f.write(content)
-
-            except Exception as e:
-                logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
-
-        download_shard(0, check_access=True)
-
-        with tqdm(total=total_datums // limit) as pbar:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-                futures = {
-                    executor.submit(download_shard, cur_offset): cur_offset
-                    for cur_offset in range(0, total_datums, limit)
-                }
-                for future in concurrent.futures.as_completed(futures):
-                    _ = future.result()
-                    pbar.update(1)
-
-        return True
-
 
     def get_embedding_iterator(self) -> Iterable[Tuple[str, str]]:
         '''
