@@ -319,8 +319,7 @@ def test_map_embeddings():
     map = project.get_map(name='UNITTEST1')
 
 
-    print(map.embeddings.tb.schema)
-    exit()
+    assert len(map.topics.df) == 20
 
     project.create_index(name='My new index')
     with project.wait_for_project_lock():

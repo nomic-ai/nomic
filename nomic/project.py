@@ -605,76 +605,66 @@ class AtlasProjection:
 
             yield content['datum_ids'], content['embeddings']
 
-    def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
+    def download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
-        Performs vector similarity search over data points on your map.
-        If ids is specified, receive back the most similar data ids in vector space to your input ids.
-        If queries is specified, receive back the data ids with representations most similar to the query vectors.
-
-        You should not specify both queries and ids.
+        Downloads shards of arrow tables that map
 
         Args:
-            queries: a 2d numpy array where each row corresponds to a query vector
-            ids: a list of ids
-            k: the number of closest data points (neighbors) to return for each input query/data id
+            save_directory: The directory to save your embeddings.
         Returns:
-            A tuple with two elements containing the following information:
-                neighbors: A set of ids corresponding to the nearest neighbors of each query
-                distances: A set of distances between each query and its neighbors
+            True on success
+
+
         '''
+        self.project._latest_project_state()
 
-        if queries is None and ids is None:
-            raise ValueError('You must specify either a list of datum `ids` or numpy array of `queries` but not both.')
+        total_datums = self.project.total_datums
+        if self.project.is_locked:
+            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
 
-        max_k = 128
-        max_queries = 256
-        if k > max_k:
-            raise Exception(f"Cannot query for more than {max_k} nearest neighbors. Set `k` to {max_k} or lower")
+        offset = 0
+        limit = EMBEDDING_PAGINATION_LIMIT
 
-        if ids is not None:
-            if len(ids) > max_queries:
-                raise Exception(f"Max ids per query is {max_queries}. You sent {len(ids)}.")
-        if queries is not None:
-            if not isinstance(queries, np.ndarray):
-                raise Exception("`queries` must be an instance of np.array.")
-            if queries.shape[0] > max_queries:
-                raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
-
-        if queries is not None:
-            if queries.ndim != 2:
-                raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
-
-            bytesio = io.BytesIO()
-            np.save(bytesio, queries)
-
-        if queries is not None:
-            response = requests.post(
-                self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
+        def download_shard(offset, check_access=False):
+            response = requests.get(
+                self.project.atlas_api_path + f"/v1/project/data/get/embedding/{self.project.id}/{self.atlas_index_id}/{offset}/{limit}",
                 headers=self.project.header,
-                json={'atlas_index_id': self.atlas_index_id,
-                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                      'k': k},
-            )
-        else:
-            response = requests.post(
-                self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
-                headers=self.project.header,
-                json={'atlas_index_id': self.atlas_index_id,
-                      'datum_ids': ids,
-                      'k': k},
             )
 
+            if response.status_code != 200:
+                raise Exception(response.text)
 
-        if response.status_code == 500:
-            raise Exception('Cannot perform vector search on your map at this time. Try again later.')
+            if check_access:
+                return
+            try:
+                shard_name = '{}_{}_{}.feather'.format(self.atlas_index_id, offset, offset + limit)
+                shard_path = os.path.join(save_directory, shard_name)
 
-        if response.status_code != 200:
-            raise Exception(response.text)
+                content = response.content
+                is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
 
-        response = response.json()
+                if not is_arrow_format:
+                    raise Exception('Expected response to be in Arrow IPC format')
 
-        return response['neighbors'], response['distances']
+                with open(shard_path, 'wb') as f:
+                    f.write(content)
 
+            except Exception as e:
+                logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
+
+        download_shard(0, check_access=True)
+
+        with tqdm(total=total_datums // limit) as pbar:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+                futures = {
+                    executor.submit(download_shard, cur_offset): cur_offset
+                    for cur_offset in range(0, total_datums, limit)
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    _ = future.result()
+                    pbar.update(1)
+
+        return True
     @property 
     def datum_id_field(self):
         return self.project.meta["unique_id_field"]
