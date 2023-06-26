@@ -1,18 +1,21 @@
 import os
-import sys
-import requests
-import subprocess
-from tqdm import tqdm
-from pathlib import Path
-from loguru import logger
 import platform
+import subprocess
+import sys
+from pathlib import Path
+
+import requests
+from loguru import logger
+from tqdm import tqdm
+
 try:
     import torch
 except ImportError:
     torch = None
     pass
 
-class GPT4AllGPU():
+
+class GPT4AllGPU:
     def __init__(self, llama_path=None):
         from peft import PeftModelForCausalLM
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -23,19 +26,18 @@ class GPT4AllGPU():
         self.model_path = llama_path
         self.tokenizer_path = llama_path
         self.lora_path = 'nomic-ai/vicuna-lora-multi-turn_epoch_2'
-        self.model = AutoModelForCausalLM.from_pretrained(self.model_path,
-                                                          device_map="auto",
-                                                          torch_dtype=torch.float16)
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_path, device_map="auto", torch_dtype=torch.float16)
         self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_path)
-        added_tokens = self.tokenizer.add_special_tokens({"bos_token": "<s>", "eos_token": "</s>", "pad_token": "<pad>"})
+        added_tokens = self.tokenizer.add_special_tokens(
+            {"bos_token": "<s>", "eos_token": "</s>", "pad_token": "<pad>"}
+        )
 
         if added_tokens > 0:
             self.model.resize_token_embeddings(len(self.tokenizer))
 
-        self.model = PeftModelForCausalLM.from_pretrained(self.model,
-                                                          self.lora_path,
-                                                          device_map="auto",
-                                                          torch_dtype=torch.float16)
+        self.model = PeftModelForCausalLM.from_pretrained(
+            self.model, self.lora_path, device_map="auto", torch_dtype=torch.float16
+        )
         self.model.to(dtype=torch.float16)
         print(f"Mem needed: {self.model.get_memory_footprint() / 1024 / 1024 / 1024:.2f} GB")
 
@@ -44,19 +46,19 @@ class GPT4AllGPU():
             generate_config = {}
 
         input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids.to(self.model.device)
-        outputs = self.model.generate(input_ids=input_ids,
-                                      **generate_config)
+        outputs = self.model.generate(input_ids=input_ids, **generate_config)
 
         decoded = self.tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-        return decoded[len(prompt):]
+        return decoded[len(prompt) :]
 
 
-def prompt(prompt, model = 'gpt4all-lora-quantized'):
+def prompt(prompt, model='gpt4all-lora-quantized'):
     with GPT4All(model) as gpt4all:
         return gpt4all.prompt(prompt)
-    
-class GPT4All():
-    def __init__(self, model = 'gpt4all-lora-quantized', force_download=False, decoder_config=None):
+
+
+class GPT4All:
+    def __init__(self, model='gpt4all-lora-quantized', force_download=False, decoder_config=None):
         """
         :param model: The model to use. Currently supported are 'gpt4all-lora-quantized' and 'gpt4all-lora-unfiltered-quantized'
         :param force_download: If True, will overwrite the model and executable even if they already exist. Please don't do this!
@@ -76,14 +78,14 @@ class GPT4All():
         if force_download or not self.executable_path.exists():
             logger.info('Downloading executable...')
             self._download_executable()
-        if force_download or not (self.model_path.exists() and self.model_path.stat().st_size > 0):                                   
+        if force_download or not (self.model_path.exists() and self.model_path.stat().st_size > 0):
             logger.info('Downloading model...')
             self._download_model()
 
     def __enter__(self):
         self.open()
         return self
-    
+
     def open(self):
         if self.bot is not None:
             self.close()
@@ -92,10 +94,8 @@ class GPT4All():
         for k, v in self.decoder_config.items():
             creation_args.append(f"--{k}")
             creation_args.append(str(v))
-        
-        self.bot = subprocess.Popen(creation_args,
-                                    stdin=subprocess.PIPE,
-                                    stdout=subprocess.PIPE)
+
+        self.bot = subprocess.Popen(creation_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
         # queue up the prompt.
         self._parse_to_prompt(write_to_stdout=False)
@@ -116,7 +116,9 @@ class GPT4All():
             elif 'Linux' in plat:
                 upstream = 'https://static.nomic.ai/gpt4all/gpt4all-pywrap-linux-x86_64'
             else:
-                raise NotImplementedError(f"Your platform is not supported: {plat}. Current binaries supported are x86 Linux and ARM Macs.")
+                raise NotImplementedError(
+                    f"Your platform is not supported: {plat}. Current binaries supported are x86 Linux and ARM Macs."
+                )
             response = requests.get(upstream, stream=True)
             if response.status_code == 200:
                 os.makedirs(self.executable_path.parent, exist_ok=True)
@@ -124,7 +126,7 @@ class GPT4All():
                 with open(self.executable_path, "wb") as f:
                     for chunk in tqdm(response.iter_content(chunk_size=8192), total=total_size // 8192, unit='KB'):
                         f.write(chunk)
-                self.executable_path.chmod(0o755)                
+                self.executable_path.chmod(0o755)
                 print(f"File downloaded successfully to {self.executable_path}")
 
             else:
@@ -134,8 +136,9 @@ class GPT4All():
         # First download the quantized model.
 
         if not self.model_path.exists():
-            response = requests.get(f'https://the-eye.eu/public/AI/models/nomic-ai/gpt4all/{self.model}.bin',
-                                    stream=True)
+            response = requests.get(
+                f'https://the-eye.eu/public/AI/models/nomic-ai/gpt4all/{self.model}.bin', stream=True
+            )
             if response.status_code == 200:
                 os.makedirs(self.model_path.parent, exist_ok=True)
                 total_size = int(response.headers.get('content-length', 0))
@@ -146,7 +149,7 @@ class GPT4All():
             else:
                 print(f"Failed to download the file. Status code: {response.status_code}")
 
-    def _parse_to_prompt(self, write_to_stdout = True):
+    def _parse_to_prompt(self, write_to_stdout=True):
         bot_says = ['']
         point = b''
         bot = self.bot
@@ -154,7 +157,7 @@ class GPT4All():
             point += bot.stdout.read(1)
             try:
                 character = point.decode("utf-8")
-                if character == "\f": # We've replaced the delimiter character with this.
+                if character == "\f":  # We've replaced the delimiter character with this.
                     return "\n".join(bot_says)
                 if character == "\n":
                     bot_says.append('')
@@ -172,14 +175,16 @@ class GPT4All():
                 if len(point) > 4:
                     point = b''
 
-    def prompt(self, prompt, write_to_stdout = False):
+    def prompt(self, prompt, write_to_stdout=False):
         """
         Write a prompt to the bot and return the response.
         """
         bot = self.bot
         continuous_session = self.bot is not None
         if not continuous_session:
-            logger.warning("Running one-off session. For continuous sessions, use a context manager: `with GPT4All() as bot: bot.prompt('a'), etc.`")
+            logger.warning(
+                "Running one-off session. For continuous sessions, use a context manager: `with GPT4All() as bot: bot.prompt('a'), etc.`"
+            )
             self.open()
         bot.stdin.write(prompt.encode('utf-8'))
         bot.stdin.write(b"\n")
@@ -187,5 +192,4 @@ class GPT4All():
         return_value = self._parse_to_prompt(write_to_stdout)
         if not continuous_session:
             self.close()
-        return return_value        
-
+        return return_value

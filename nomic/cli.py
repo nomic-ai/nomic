@@ -15,7 +15,6 @@ tenants = {
 nomic_base_path = Path.home() / '.nomic'
 
 
-
 def validate_api_http_response(response):
     if response.status_code >= 500 and response.status_code < 600:
         raise Exception("Cannot contact establish a connection with Nomic services.")
@@ -86,6 +85,7 @@ def refresh_bearer_token():
             json.dump(credentials, file)
     return credentials
 
+
 def switch(tenant):
     assert tenant in ['staging', 'production', None]
     credentials = get_api_credentials()
@@ -105,7 +105,7 @@ def switch(tenant):
             (nomic_base_path / f'credentials_{tenant}').rename(current_loc)
         else:
             login(token=None, tenant=tenant)
-        
+
 
 @click.command()
 @click.argument('command', nargs=1, default='')
@@ -127,6 +127,7 @@ def cli(command, params):
             switch(tenant=params[0])
     else:
         raise ValueError(f"Command {command} not found.")
-    
+
+
 if __name__ == "__main__":
     cli()
