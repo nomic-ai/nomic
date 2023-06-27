@@ -15,6 +15,7 @@ map = project.maps[0]
 - Topics (`map.topics`)
 - Embeddings (`map.embeddings`)
 - Semantic Duplicate Clusters (`map.duplicates`)
+- Tagging (`map.tags`)
 
 You can learn how to use the operations these attributes encapsulate on their corresponding data in the `Accessing Atlas State` section of the documentation.
 
