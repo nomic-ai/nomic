@@ -346,12 +346,12 @@ def test_map_embeddings():
     for map in project.projections:
         assert map.map_link
 
-    map.tag(ids=[data[0]['id']], tags=['my_tag'])
+    map.tags.tag(ids=[data[0]['id']], tags=['my_tag'])
 
-    assert len(map.get_tags()['my_tag']) == 1
+    assert len(map.tags.get_tags()['my_tag']) == 1
 
-    map.remove_tags(ids=[data[0]['id']], tags=['my_tag'])
+    map.tags.remove_tags(ids=[data[0]['id']], tags=['my_tag'])
 
-    assert 'my_tag' not in map.get_tags()
+    assert 'my_tag' not in map.tags.get_tags()
 
     project.delete()
