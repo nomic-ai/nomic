@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from .project import AtlasProject
 from .settings import *
-from .utils import get_random_name
+from .utils import get_random_name, b64int
 
 
 def map_embeddings(
@@ -78,7 +78,13 @@ def map_embeddings(
         description = description
 
     if data is None:
-        data = [{ATLAS_DEFAULT_ID_FIELD: str(uuid.uuid4())} for _ in range(len(embeddings))]
+        data = [{
+            ATLAS_DEFAULT_ID_FIELD: b64int(i)
+        } for i in range(len(embeddings))]
+
+    if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
+        for i in range(len(data)):
+            data[i][id_field] = b64int(i)
 
     project = AtlasProject(
         name=project_name,
@@ -205,6 +211,10 @@ def map_text(
         reset_project_if_exists=reset_project_if_exists,
         add_datums_if_exists=add_datums_if_exists,
     )
+
+    if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
+        for i in range(len(data)):
+            data[i][id_field] = b64int(i)
 
     project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 

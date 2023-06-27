@@ -208,14 +208,8 @@ class AtlasClass(object):
                 msg = "Must include embeddings in embedding project upload."
                 raise ValueError(msg)
 
-        if project.id_field == ATLAS_DEFAULT_ID_FIELD and not ATLAS_DEFAULT_ID_FIELD in data.column_names:
-            # Generate random ids.
-            data = data.append_column(
-                ATLAS_DEFAULT_ID_FIELD,
-                pa.array(
-                    [base64.b64encode(uuid.uuid4().bytes[:8]).decode('utf-8').rstrip('=') for _ in range(len(data))]
-                ),
-            )
+        if project.id_field not in data.column_names:
+            raise ValueError(f'Data must contain the ID column `{project.id_field}`')
 
         if project.schema is None:
             project._schema = convert_pyarrow_schema_for_atlas(data.schema)
@@ -1366,7 +1360,10 @@ class AtlasProject(AtlasClass):
         if bytesize / n_chunks > 4_000_000:
             shard_size = int(np.ceil(nrow / (bytesize / 4_000_000)))
 
-        data = self._validate_and_correct_arrow_upload(data=data, project=self)
+        data = self._validate_and_correct_arrow_upload(
+                data=data,
+                project=self,
+            )
 
         upload_endpoint = "/v1/project/data/add/arrow"
 
