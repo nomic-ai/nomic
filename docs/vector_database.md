@@ -1,11 +1,12 @@
 # Visualizing a Vector Database
 
-You can visualize datasets in vector databases using Atlas.
-This tutorial will contain how to migrate data from a Weaviate database into Atlas and from a Pinecone database into Atlas to visual vector databases.
+Atlas is an interactive visual layer and debugger for vector databases.
+
+This tutorial will show you how you can visualize your Weaviate and Pinecone vector databases with Atlas.
 
 ## Why Visualize A Vector Database
 
-When you put embeddings in a vector database with no visualization layer, you only have the ability to observe local information about your data (e.g. what is similar to what). By visualizing your embeddings through a visualization tool like Atlas you can gain a global view on your data helping you make more informed decisions.
+Vector databases allow you to query your data semantically by indexing embedding vectors. By interactively visualizing embeddings, you can quickly understand the space of possible query results from your vector database and find bad embeddings which may produce poor query results.
 
 ## Weaviate
 
