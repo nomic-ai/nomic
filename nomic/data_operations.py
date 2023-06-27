@@ -460,7 +460,7 @@ class AtlasMapEmbeddings:
             if check_access:
                 return
 
-            shard_name = '{}_{}_{}.feather'.format(self.project.atlas_index_id, offset, offset + limit)
+            shard_name = '{}_{}_{}.feather'.format(self.projection.atlas_index_id, offset, offset + limit)
             shard_path = os.path.join(save_directory, shard_name)
             try:
 
