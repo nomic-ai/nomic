@@ -11,6 +11,7 @@ project = AtlasProject(name='My Project')
 map = project.maps[0]
 
 ```
+
 - Topics (`map.topics`)
 - Embeddings (`map.embeddings`)
 - Semantic Duplicate Clusters (`map.duplicates`)
