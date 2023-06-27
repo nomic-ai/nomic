@@ -16,7 +16,7 @@ map = project.maps[0]
 - Embeddings (`map.embeddings`)
 - Semantic Duplicate Clusters (`map.duplicates`)
 
-You can learn how to use the operations these attributes encapsulate on their corresponding data in
+You can learn how to use the operations these attributes encapsulate on their corresponding data in the `Accessing Atlas State` section of the documentation.
 
 ## v1.1.7
 
