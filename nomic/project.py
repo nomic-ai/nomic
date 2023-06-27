@@ -34,7 +34,7 @@ import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
 from .data_inference import convert_pyarrow_schema_for_atlas
-from .data_operations import AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTopics, AtlasMapTags
+from .data_operations import AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
 
@@ -1279,9 +1279,9 @@ class AtlasProject(AtlasClass):
             shard_size = int(np.ceil(nrow / (bytesize / 4_000_000)))
 
         data = self._validate_and_correct_arrow_upload(
-                data=data,
-                project=self,
-            )
+            data=data,
+            project=self,
+        )
 
         upload_endpoint = "/v1/project/data/add/arrow"
 

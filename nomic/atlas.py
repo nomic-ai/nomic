@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from .project import AtlasProject
 from .settings import *
-from .utils import get_random_name, b64int
+from .utils import b64int, get_random_name
 
 
 def map_embeddings(
@@ -78,9 +78,7 @@ def map_embeddings(
         description = description
 
     if data is None:
-        data = [{
-            ATLAS_DEFAULT_ID_FIELD: b64int(i)
-        } for i in range(len(embeddings))]
+        data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
 
     if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
         for i in range(len(data)):

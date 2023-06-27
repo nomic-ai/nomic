@@ -14,7 +14,8 @@ import pandas as pd
 import pyarrow as pa
 import requests
 from loguru import logger
-from pyarrow import compute as pc, ipc
+from pyarrow import compute as pc
+from pyarrow import ipc
 from tqdm import tqdm
 
 from .settings import EMBEDDING_PAGINATION_LIMIT
@@ -463,7 +464,6 @@ class AtlasMapEmbeddings:
             shard_name = '{}_{}_{}.feather'.format(self.projection.atlas_index_id, offset, offset + limit)
             shard_path = os.path.join(save_directory, shard_name)
             try:
-
                 content = response.content
                 is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
 
@@ -543,7 +543,12 @@ class AtlasMapTags:
         assert isinstance(tags, list), 'tags must be a list of strings'
 
         colname = json.dumps(
-            {'project_id': self.project.id, 'atlas_index_id': self.projection.atlas_index_id, 'type': 'datum_id', 'tags': tags}
+            {
+                'project_id': self.project.id,
+                'atlas_index_id': self.projection.atlas_index_id,
+                'type': 'datum_id',
+                'tags': tags,
+            }
         )
         payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
         buffer = io.BytesIO()
