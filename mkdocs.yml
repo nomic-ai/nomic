@@ -12,23 +12,26 @@ nav:
     - 'map_your_data.md'
     - 'map_your_text.md'
     - 'dynamic_maps.md'
-    - 'map_your_images.md'
     - 'API Reference':
+      - 'Accessing Atlas State':
+          - 'Embeddings: 2D and Ambient': 'map_state/embeddings.md'
+          - Atlas Topics: 'map_state/topics.md'
+          - Atlas Semantic Clusters: 'map_state/duplicates.md'
+
       - 'atlas_api.md'
-      - Pytorch Lightning Callback: pytorch_embedding_explorer.ipynb
+
     - 'Tutorials':
-#      - 'data_cleaning_in_atlas.md'
-      - Data Exploration, Labeling and Cleaning: data_exploration_cleaning_tagging_in_atlas.ipynb
-      - Monitoring Text Over Time: chatbot_observability.ipynb
-      - Pytorch Latent Space Debugging: pytorch_embedding_explorer.ipynb
-      - 'vector_search_in_atlas.md'
-      - Building a Semantic Search App: 'https://github.com/nomic-ai/semantic-search-app-template'
-      - Grouping Data by Topics: group_by_topics.ipynb
+        - Data Exploration, Labeling and Cleaning: data_exploration_cleaning_tagging_in_atlas.ipynb
+        - Monitoring Text Over Time: chatbot_observability.ipynb
+        - Pytorch Latent Space Debugging: pytorch_embedding_explorer.ipynb
+        - 'vector_search_in_atlas.md'
+        - Building a Semantic Search App: 'https://github.com/nomic-ai/semantic-search-app-template'
     - 'FAQ and Releases':
       - 'how_does_atlas_work.md'
       - 'collection_of_maps.md'
       - 'mapping_faq.md'
       - 'release_notes.md'
+      - 'map_your_images.md'
 
 
 theme:

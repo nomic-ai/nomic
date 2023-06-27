@@ -22,7 +22,7 @@ from .settings import EMBEDDING_PAGINATION_LIMIT
 
 class AtlasMapDuplicates:
     """
-    Atlas Duplicate Detection State
+    Atlas Duplicate Clusters State
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -33,14 +33,14 @@ class AtlasMapDuplicates:
     @property
     def df(self) -> pd.DataFrame:
         """
-        Returns a pandas dataframe with information about duplicate clusters and candidates.
+        Pandas dataframe mapping each data point to its cluster of semantically similar points.
         """
         return self.tb.to_pandas()
 
     @property
     def tb(self) -> pa.Table:
         """
-        Returns a pyarrow table with information about duplicate clusters and candidates.
+        Pyarrow table with information about duplicate clusters and candidates.
         This table is memmapped from the underlying files and is the most efficient way to
         access duplicate information.
         """
@@ -48,9 +48,9 @@ class AtlasMapDuplicates:
 
     def deletion_candidates(self) -> List[str]:
         """
-        Returns a list of ids for all the duplicate candidates in the set.
 
-        If you remove all of these datapoints from your dataset, your dataset will be semantically deduplicated.
+        Returns:
+            The ids for all data points which are semantic duplicates and are candidates for being deleted from the dataset. If you remove these data points from your dataset, your dataset will be semantically deduplicated.
         """
         dupes = self.tb[self.id_field].filter(pc.equal(self.tb['_duplicate_class'], 'deletion candidate'))
         return dupes.to_pylist()
@@ -83,14 +83,14 @@ class AtlasMapTopics:
     @property
     def df(self) -> pandas.DataFrame:
         """
-        Returns a pandas dataframe with information about topics that Atlas assigned to data points.
+        A pandas dataframe associating each datapoint on your map to their topics as each topic depth.
         """
         return self.tb.to_pandas()
 
     @property
     def tb(self) -> pa.Table:
         """
-        Returns a pyarrow table with information associated datapoints to their Atlas assigned topics.
+        Pyarrow table associating each datapoint on the map to their Atlas assigned topics.
         This table is memmapped from the underlying files and is the most efficient way to
         access topic information.
         """
@@ -99,7 +99,11 @@ class AtlasMapTopics:
     @property
     def metadata(self) -> pandas.DataFrame:
         """
-        Metadata about topics.
+        Pandas dataframe where each row gives metadata all map topics including:
+
+        - topic id
+        - a human readable topic description
+        - identifying keywords that differentiate the topic from other topics
         """
         if self._metadata is not None:
             return self._metadata
@@ -122,7 +126,8 @@ class AtlasMapTopics:
     @property
     def hierarchy(self) -> Dict:
         """
-        A dictionary that allows iteration of the topic heirarchy
+        A dictionary that allows iteration of the topic hierarchy. Each key is a topic mapping to its sub-topics.
+        If topic is not a key in the hierarchy, it is leaf in the topic hierarchy.
         """
         if self._hierarchy is not None:
             return self._hierarchy
@@ -147,7 +152,7 @@ class AtlasMapTopics:
 
     def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
         """
-        Group datums by topic at a set topic depth.
+        Associates topics at a given depth in the topic hierarchy to the identifiers of their contained datapoints.
 
         Args:
             topic_depth: Topic depth to group datums by. Acceptable values
@@ -196,7 +201,11 @@ class AtlasMapTopics:
 
     def get_topic_density(self, time_field: str, start: datetime, end: datetime):
         '''
-        Counts the number of datums in each topic within a window
+        Computes the density/frequency of topics in a given interval of a timestamp field.
+
+        Useful for answering questions such as:
+
+        - What topics increased in prevalence between December and January?
 
         Args:
             time_field: Your metadata field containing isoformat timestamps
@@ -218,7 +227,12 @@ class AtlasMapTopics:
 
     def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
         '''
-        Returns the topics best associated with each vector query
+        Given an embedding, returns a normalized distribution over topics.
+
+        Useful for answering the questions such as:
+
+        - What topic does my new datapoint belong to?
+        - Does by datapoint belong to the "Dog" topic or the "Cat" topic.
 
         Args:
             queries: a 2d numpy array where each row corresponds to a query vector
@@ -226,7 +240,7 @@ class AtlasMapTopics:
             depth: (Default 3) the topic depth at which you want to search
 
         Returns:
-            A dict of {topic: posterior probability} for each query
+            A dict mapping {topic: posterior probability} for each query
         '''
 
         if queries.ndim != 2:
@@ -261,7 +275,8 @@ class AtlasMapTopics:
 class AtlasMapEmbeddings:
     """
     Atlas Embeddings State
-    Allows you to associate datapoints with their projected (2D) and latent (ND) embeddings.
+
+    Access high-dimensional and two-dimensional embeddings of your datapoints.
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -273,38 +288,47 @@ class AtlasMapEmbeddings:
     @property
     def df(self):
         """
-        Returns raw representation as a pandas dataframe.
-        Does not include latent embeddings.
+        Pandas dataframe containing information about embeddings of your datapoints.
+
+        Does not include ambient embeddings.
         """
         return self.tb.to_pandas()
 
     @property
     def tb(self) -> pa.Table:
         """
-        Returns a pyarrow table with information associated datapoints to their Atlas projected representations.
+        Pyarrow table with information associated datapoints to their Atlas projected representations.
         This table is memmapped from the underlying files and is the most efficient way to
         access embedding information.
 
-        Does not include latent embeddings
+        Does not include ambient embeddings.
         """
         return self._tb
 
     @property
     def projected(self) -> pd.DataFrame:
+        """
+        Two-dimensional embeddings.
+
+        These are the points you see in your web browser.
+
+        Returns:
+            Pandas dataframe mapping your datapoints to their two-dimensional embeddings.
+        """
         return self.df
 
-    @property
-    def latent(self):
-        """
-        #TODO
-        1. download embeddings and store it in a fixed location on disk (e.g. .nomic directory)
-        2. make sure the embeddings align with the arrow table download order.
-        """
-        raise NotImplementedError()
+    # @property
+    # def ambient(self):
+    #     """
+    #     #TODO
+    #     1. download embeddings and store it in a fixed location on disk (e.g. .nomic directory)
+    #     2. make sure the embeddings align with the arrow table download order.
+    #     """
+    #     raise NotImplementedError()
 
     def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
-        Performs vector similarity search over data points on your map.
+        Performs semantic vector search over data points on your map.
         If ids is specified, receive back the most similar data ids in vector space to your input ids.
         If queries is specified, receive back the data ids with representations most similar to the query vectors.
 

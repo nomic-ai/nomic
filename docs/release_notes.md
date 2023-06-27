@@ -1,6 +1,22 @@
 
 # Release Notes
 
+## v2.0.0
+
+Atlas map state is now accessible as top level attributes of the AtlasProjection ("the Map") class.
+```python
+from atlas import AtlasProject
+
+project = AtlasProject(name='My Project')
+map = project.maps[0]
+
+```
+- Topics (`map.topics`)
+- Embeddings (`map.embeddings`)
+- Semantic Duplicate Clusters (`map.duplicates`)
+
+You can learn how to use the operations these attributes encapsulate on their corresponding data in
+
 ## v1.1.7
 
 Raise correct errors on bad id uploads
