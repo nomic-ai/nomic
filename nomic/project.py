@@ -589,9 +589,9 @@ class AtlasProjection:
 
             if check_access:
                 return
-            shard_name = '{}_{}_{}.feather'.format(self.atlas_index_id, offset, offset + limit)
-            shard_path = os.path.join(save_directory, shard_name)
             try:
+                shard_name = '{}_{}_{}.feather'.format(self.atlas_index_id, offset, offset + limit)
+                shard_path = os.path.join(save_directory, shard_name)
 
                 content = response.content
                 is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
