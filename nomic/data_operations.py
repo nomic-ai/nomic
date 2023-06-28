@@ -338,7 +338,7 @@ class AtlasMapEmbeddings:
     Access high-dimensional and two-dimensional embeddings of your datapoints. High dimensional embeddings
     are not immediately downloaded when you access the embeddings attribute.
 
-    === "Accessing Topics Example"
+    === "Accessing Embeddings Example"
         ``` py
         from nomic import AtlasProject
 
