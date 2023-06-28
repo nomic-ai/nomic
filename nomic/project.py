@@ -22,13 +22,8 @@ from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 
-# Mainly for type checking
-try:
-    import pandas as pd
-    from pandas import DataFrame
-except ImportError:
-    pd = None
-    DataFrame = None
+import pandas as pd
+from pandas import DataFrame
 
 import nomic
 
@@ -370,7 +365,8 @@ class AtlasProjection:
     '''
     Interact and access state of an Atlas Map including text/vector search.
     This class should not be instantiated directly.
-    Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
+
+    Instead instantiate an AtlasProject and use the project.maps attribute to retrieve an AtlasProjection.
     '''
 
     def __init__(self, project: "AtlasProject", atlas_index_id: str, projection_id: str, name):

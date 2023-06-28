@@ -9,18 +9,12 @@ of an AtlasMap.
 ```python
 from nomic import AtlasProject
 
-project = AtlasProject(name='My Project')
+map = AtlasProject(name='My Project').maps[0]
 
-map = project.maps[0]
-
-map.duplicates.df
+map.duplicates
 
 ```
 
-
-
-
-## Atlas Semantic Duplicate Clusters
 ::: nomic.data_operations.AtlasMapDuplicates
     options:
         show_root_heading: True

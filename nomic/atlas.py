@@ -77,12 +77,19 @@ def map_embeddings(
     if description:
         description = description
 
+
+    added_id_field = False
     if data is None:
         data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
+        added_id_field = True
 
     if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
+        added_id_field = True
         for i in range(len(data)):
             data[i][id_field] = b64int(i)
+
+    if added_id_field:
+        logger.warning("An ID field was not specified in your data so one was generated for you..")
 
     project = AtlasProject(
         name=project_name,
@@ -94,8 +101,6 @@ def map_embeddings(
         reset_project_if_exists=reset_project_if_exists,
         add_datums_if_exists=add_datums_if_exists,
     )
-
-    # project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 
     number_of_datums_before_upload = project.total_datums
 
@@ -210,9 +215,15 @@ def map_text(
         add_datums_if_exists=add_datums_if_exists,
     )
 
+    added_id_field = False
+
     if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
+        added_id_field = True
         for i in range(len(data)):
             data[i][id_field] = b64int(i)
+
+    if added_id_field:
+        logger.warning("An ID field was not specified in your data so one was generated for you..")
 
     project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 

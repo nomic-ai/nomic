@@ -24,6 +24,27 @@ from .settings import EMBEDDING_PAGINATION_LIMIT
 class AtlasMapDuplicates:
     """
     Atlas Duplicate Clusters State
+
+    === "Accessing Duplicates Example"
+        ``` py
+        from nomic import AtlasProject
+
+        project = AtlasProject(name='My Project')
+        map = project.maps[0]
+        print(map.duplicates)
+        ```
+    === "Output"
+        ```
+        460 deletion candidates in 9540 clusters
+              id_     _duplicate_class  _cluster_id
+        0      0A            singleton         5178
+        1      0g  retention candidate          271
+        2      0Q            singleton         6672
+        3      0w            singleton         7529
+        4      1A            singleton         1587
+        ...   ...                  ...          ...
+        9999  JZU            singleton         6346
+        ```
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -34,7 +55,27 @@ class AtlasMapDuplicates:
     @property
     def df(self) -> pd.DataFrame:
         """
-        Pandas dataframe mapping each data point to its cluster of semantically similar points.
+        Pandas dataframe mapping each data point to its cluster of semantically similar points
+
+        === "Accessing Duplicates Example"
+            ``` py
+            from nomic import AtlasProject
+
+            project = AtlasProject(name='My Project')
+            map = project.maps[0]
+            print(map.duplicates.df)
+            ```
+        === "Output"
+            ```
+                  id_     _duplicate_class  _cluster_id
+            0      0A            singleton         5178
+            1      0g  retention candidate          271
+            2      0Q            singleton         6672
+            3      0w            singleton         7529
+            4      1A            singleton         1587
+            ...   ...                  ...          ...
+            9999  JZU            singleton         6346
+            ```
         """
         return self.tb.to_pandas()
 
@@ -69,6 +110,23 @@ class AtlasMapDuplicates:
 class AtlasMapTopics:
     """
     Atlas Topics State
+
+    === "Accessing Topics Example"
+        ``` py
+        from nomic import AtlasProject
+
+        project = AtlasProject(name='My Project')
+        map = project.maps[0]
+        print(map.topics)
+        ```
+    === "Output"
+        ```
+                        id_     _topic_depth_1      _topic_depth_2          _topic_depth_3
+        0     000262a5-2811  Space exploration      Hurricane Jeanne        Spacecraft Cassini
+        1     000c453d-ee97   English football      Athens 2004 Olympics    bobby rathore
+        ...
+        9999  fffcc65c-38dc  Space exploration      Presidential elections  Blood
+        ```
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -277,7 +335,27 @@ class AtlasMapEmbeddings:
     """
     Atlas Embeddings State
 
-    Access high-dimensional and two-dimensional embeddings of your datapoints.
+    Access high-dimensional and two-dimensional embeddings of your datapoints. High dimensional embeddings
+    are not immediately downloaded when you access the embeddings attribute.
+
+    === "Accessing Topics Example"
+        ``` py
+        from nomic import AtlasProject
+
+        project = AtlasProject(name='My Project')
+        map = project.maps[0]
+        print(map.embeddings)
+        ```
+    === "Output"
+        ```
+              id_          x          y
+        0      0A  -6.164423  21.517719
+        1      0g  -6.606402  -5.601104
+        2      0Q  -9.206946   7.448542
+        ...   ...        ...        ...
+        9998  JZQ   2.110881 -12.937058
+        9999  JZU   7.865006  -6.876243
+        ```
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -291,18 +369,18 @@ class AtlasMapEmbeddings:
         """
         Pandas dataframe containing information about embeddings of your datapoints.
 
-        Does not include ambient embeddings.
+        Includes only the two-dimensional embeddings
         """
         return self.tb.to_pandas()
 
     @property
     def tb(self) -> pa.Table:
         """
-        Pyarrow table with information associated datapoints to their Atlas projected representations.
+        Pyarrow table containing two-dimensional embeddings of each of your data points.
         This table is memmapped from the underlying files and is the most efficient way to
         access embedding information.
 
-        Does not include ambient embeddings.
+        Does not include high-dimensional embeddings.
         """
         return self._tb
 
@@ -318,14 +396,14 @@ class AtlasMapEmbeddings:
         """
         return self.df
 
-    # @property
-    # def ambient(self):
-    #     """
-    #     #TODO
-    #     1. download embeddings and store it in a fixed location on disk (e.g. .nomic directory)
-    #     2. make sure the embeddings align with the arrow table download order.
-    #     """
-    #     raise NotImplementedError()
+    @property
+    def ambient(self):
+        """
+        #TODO
+        1. download embeddings and store it in a fixed location on disk (e.g. .nomic directory)
+        2. make sure the embeddings align with the arrow table download order.
+        """
+        raise NotImplementedError("Ambient access is not yet implemented. You must use the download_embeddings() method for now.")
 
     def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
@@ -430,7 +508,7 @@ class AtlasMapEmbeddings:
 
     def download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
-        Downloads shards of arrow tables that map
+        Downloads embeddings to the specified save_directory.
 
         Args:
             save_directory: The directory to save your embeddings.
@@ -491,24 +569,90 @@ class AtlasMapEmbeddings:
         return True
 
     def __repr__(self) -> str:
-        raise NotImplementedError()
+        return str(self.df)
 
 
 class AtlasMapTags:
     """
     Atlas Map Tag State
 
-    Tags are shared acrossed all maps in your AtlasProject.
+    Tags are shared across all maps in your AtlasProject. You can manipulate tags by filtering over
+    the associated pandas dataframe
+
+    === "Accessing Tags Example"
+        ``` py
+        from nomic import AtlasProject
+
+        project = AtlasProject(name='My Project')
+        map = project.maps[0]
+        print(map.tags)
+        ```
+    === "Output"
+        ```
+              id_  oil  search_engines
+        0      0A    0               0
+        1      0g    0               0
+        2      0Q    0               0
+        3      0w    0               0
+        4      1A    1               0
+        ...   ...  ...             ...
+        9998  JZQ    0               0
+        9999  JZU    0               0
+        ```
     """
 
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
         self.project = projection.project
         self.id_field = self.projection.project.id_field
+        self._tb: pa.Table = projection._fetch_tiles().select([self.id_field])
 
-    def get_tags(self) -> Dict[str, List[str]]:
+    @property
+    def df(self) -> pd.DataFrame:
+        """
+        Pandas dataframe mapping each data point to its tags.
+
+        === "Accessing Tags Example"
+            ``` py
+            from nomic import AtlasProject
+
+            project = AtlasProject(name='My Project')
+            map = project.maps[0]
+            print(map.tags.df)
+            ```
+        === "Output"
+            ```
+                  id_  oil  search_engines
+            0      0A    0               0
+            1      0g    0               0
+            2      0Q    0               0
+            3      0w    0               0
+            4      1A    1               0
+            ...   ...  ...             ...
+            9998  JZQ    0               0
+            9999  JZU    0               0
+            ```
+        """
+
+        id_frame = self._tb.to_pandas()
+        tag_to_datums = self._get_tags()
+
+        #encoded contains a multi-hot vector withs 1 for all rows that contain that tag
+        encoded = {key: [] for key in list(tag_to_datums.keys())}
+        for id in id_frame[self.id_field]:
+            for key in encoded:
+                if id in tag_to_datums[key]:
+                    encoded[key].append(1)
+                else:
+                    encoded[key].append(0)
+
+        tag_frame = pandas.DataFrame(encoded)
+
+        return pd.concat([id_frame,tag_frame], axis=1)
+
+    def _get_tags(self) -> Dict[str, List[str]]:
         '''
-        Retrieves back all tags made in the web browser for a specific project and map.
+        Retrieves back all tags made in the web browser for a specific map
 
         Returns:
             A dictionary mapping data points to tags.
@@ -526,11 +670,11 @@ class AtlasMapTags:
         for item in datums_and_tags:
             for label in item['labels']:
                 if label not in label_to_datums:
-                    label_to_datums[label] = []
-                label_to_datums[label].append(item['datum_id'])
+                    label_to_datums[label] = set()
+                label_to_datums[label].add(item['datum_id'])
         return label_to_datums
 
-    def tag(self, ids: List[str], tags: List[str]):
+    def add(self, ids: List[str], tags: List[str]):
         '''
         Adds tags to datapoints.
 
@@ -563,14 +707,14 @@ class AtlasMapTags:
         if response.status_code != 200:
             raise Exception("Failed to add tags")
 
-    def remove_tags(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
+    def remove(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
         '''
         Deletes the specified tags from the given data points.
 
         Args:
             ids: The datum_ids to delete tags from.
             tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
-            delete_all: If true, ignores datum_ids and deletes all specified tags from all data points.
+            delete_all: If true, ignores ids parameter and deletes all specified tags from all data points.
 
         Returns:
             True on success
@@ -600,3 +744,7 @@ class AtlasMapTags:
         response = requests.post(self.project.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
         if response.status_code != 200:
             raise Exception("Failed to delete tags")
+
+
+    def __repr__(self) -> str:
+        return str(self.df)

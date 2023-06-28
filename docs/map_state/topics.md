@@ -8,18 +8,13 @@ of an AtlasMap.
 ```python
 from nomic import AtlasProject
 
-project = AtlasProject(name='My Project')
+map = AtlasProject(name='My Project').maps[0]
 
-map = project.maps[0]
-
-map.topics.df
+map.topics
 
 ```
 
 
-
-
-## AtlasTopics
 ::: nomic.data_operations.AtlasMapTopics
     options:
         show_root_heading: True

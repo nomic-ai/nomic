@@ -7,18 +7,12 @@ projected representations.
 ```python
 from nomic import AtlasProject
 
-project = AtlasProject(name='My Project')
+map = AtlasProject(name='My Project').maps[0]
 
-map = project.maps[0]
-
-map.embeddings.df
+map.embeddings
 
 ```
 
-
-
-
-## AtlasTopics
 ::: nomic.data_operations.AtlasMapEmbeddings
     options:
         show_root_heading: True
