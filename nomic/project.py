@@ -14,16 +14,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import pyarrow as pa
 import requests
 from loguru import logger
+from pandas import DataFrame
 from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
-
-import pandas as pd
-from pandas import DataFrame
 
 import nomic
 

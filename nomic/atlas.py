@@ -77,7 +77,6 @@ def map_embeddings(
     if description:
         description = description
 
-
     added_id_field = False
     if data is None:
         data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]

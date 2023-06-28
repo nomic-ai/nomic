@@ -403,7 +403,9 @@ class AtlasMapEmbeddings:
         1. download embeddings and store it in a fixed location on disk (e.g. .nomic directory)
         2. make sure the embeddings align with the arrow table download order.
         """
-        raise NotImplementedError("Ambient access is not yet implemented. You must use the download_embeddings() method for now.")
+        raise NotImplementedError(
+            "Ambient access is not yet implemented. You must use the download_embeddings() method for now."
+        )
 
     def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
@@ -637,7 +639,7 @@ class AtlasMapTags:
         id_frame = self._tb.to_pandas()
         tag_to_datums = self._get_tags()
 
-        #encoded contains a multi-hot vector withs 1 for all rows that contain that tag
+        # encoded contains a multi-hot vector withs 1 for all rows that contain that tag
         encoded = {key: [] for key in list(tag_to_datums.keys())}
         for id in id_frame[self.id_field]:
             for key in encoded:
@@ -648,7 +650,7 @@ class AtlasMapTags:
 
         tag_frame = pandas.DataFrame(encoded)
 
-        return pd.concat([id_frame,tag_frame], axis=1)
+        return pd.concat([id_frame, tag_frame], axis=1)
 
     def _get_tags(self) -> Dict[str, List[str]]:
         '''
@@ -744,7 +746,6 @@ class AtlasMapTags:
         response = requests.post(self.project.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
         if response.status_code != 200:
             raise Exception("Failed to delete tags")
-
 
     def __repr__(self) -> str:
         return str(self.df)
