@@ -66,7 +66,7 @@ class AtlasEmbeddingExplorer(Callback):
         '''
 
         Args:
-            max_points: The maximum points to visualize.
+            max_points: The maximum points to visualize. -1 will visualize all points.
             rebuild_time_delay: Only rebuilds the embedding explorer if 'rebuild_time_delay' seconds have passed since the last rebuild.
             name: The name for your embedding explorer.
             description: A description for your embedding explorer.
