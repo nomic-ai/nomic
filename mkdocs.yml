@@ -22,12 +22,15 @@ nav:
       - 'atlas_api.md'
 
     - 'Tutorials':
-        - Data Exploration, Labeling and Cleaning: data_exploration_cleaning_tagging_in_atlas.ipynb
-        - Monitoring Text Over Time: chatbot_observability.ipynb
-        - Pytorch Latent Space Debugging: pytorch_embedding_explorer.ipynb
-        - 'vector_search_in_atlas.md'
-        - "vector_database.md"
-        - Building a Semantic Search App: 'https://github.com/nomic-ai/semantic-search-app-template'
+        - "Data Manipulation and Monitoring":
+          - Data Exploration, Labeling and Cleaning: data_exploration_cleaning_tagging_in_atlas.ipynb
+          - Monitoring Text Over Time: chatbot_observability.ipynb
+        - 'Visualizing Embeddings':
+          - Pytorch Latent Space Debugging: pytorch_embedding_explorer.ipynb
+          - "vector_database.md"
+        - Vector Operations:
+            - 'vector_search_in_atlas.md'
+            - Building a Semantic Search App: 'https://github.com/nomic-ai/semantic-search-app-template'
     - 'FAQ and Releases':
       - 'how_does_atlas_work.md'
       - 'collection_of_maps.md'

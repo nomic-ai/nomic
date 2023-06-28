@@ -15,10 +15,6 @@ map.tags
 
 ```
 
-
-
-
-## Atlas Tags
 ::: nomic.data_operations.AtlasMapTags
     options:
         show_root_heading: True
