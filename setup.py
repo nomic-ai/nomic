@@ -3,25 +3,17 @@ import os
 import sys
 from setuptools import setup, find_packages
 description = 'The offical Nomic python client.'
-platform_gpt4all_deps = []
 
-if 'win' in sys.platform and sys.platform != 'darwin':
-    # We don't have prebuilt wheels for Windows yet.
-    pass
-else:
-    platform_gpt4all_deps = [
-            'torch',
-            'sentencepiece',
-            f"transformers @ file://localhost/{os.getcwd()}/bin/transformers-4.28.0.dev0-py3-none-any.whl",
-            f"peft @ file://localhost/{os.getcwd()}/bin/peft-0.3.0.dev0-py3-none-any.whl"
-        ]
+from pathlib import Path
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
     
 setup(
     name='nomic',
-    version='2.0.0',
+    version='2.0.1',
     url='https://github.com/nomic-ai/nomic',
     description=description,
-    long_description=description,
+    long_description=long_description,
     packages=find_packages(),
     author_email="support@nomic.ai",
     author="nomic.ai",
@@ -57,8 +49,7 @@ setup(
             "mkdocs-jupyter",
             "pillow",
             "cairosvg"
-        ],
-        'gpt4all': platform_gpt4all_deps,
+        ]
 
     },
     entry_points={
