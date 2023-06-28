@@ -25,6 +25,10 @@ class AtlasMapDuplicates:
     """
     Atlas Duplicate Clusters State
 
+    Atlas automatically groups embeddings that are sufficiently close into semantic clusters.
+    You can use these clusters for semantic duplicate detection allowing you to quickly deduplicate
+    your data.
+
     === "Accessing Duplicates Example"
         ``` py
         from nomic import AtlasProject
@@ -36,7 +40,7 @@ class AtlasMapDuplicates:
     === "Output"
         ```
         460 deletion candidates in 9540 clusters
-              id_     _duplicate_class  _cluster_id
+              id_      duplicate_class   cluster_id
         0      0A            singleton         5178
         1      0g  retention candidate          271
         2      0Q            singleton         6672
@@ -51,6 +55,7 @@ class AtlasMapDuplicates:
         self.projection = projection
         self.id_field = self.projection.project.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, '_duplicate_class', '_cluster_id'])
+        self._tb = self._tb.rename_columns([self.id_field, 'duplicate_class', 'cluster_id'])
 
     @property
     def df(self) -> pd.DataFrame:
@@ -121,7 +126,7 @@ class AtlasMapTopics:
         ```
     === "Output"
         ```
-                        id_     _topic_depth_1      _topic_depth_2          _topic_depth_3
+                        id_      topic_depth_1       topic_depth_2           topic_depth_3
         0     000262a5-2811  Space exploration      Hurricane Jeanne        Spacecraft Cassini
         1     000c453d-ee97   English football      Athens 2004 Olympics    bobby rathore
         ...
@@ -136,6 +141,7 @@ class AtlasMapTopics:
         self._tb: pa.Table = projection._fetch_tiles().select(
             [self.id_field, '_topic_depth_1', '_topic_depth_2', '_topic_depth_3']
         )
+        self._tb = self._tb.rename_columns([self.id_field, 'topic_depth_1', 'topic_depth_2', 'topic_depth_3'])
         self._metadata = None
         self._hierarchy = None
 
@@ -194,7 +200,7 @@ class AtlasMapTopics:
         topic_df = self.metadata
 
         topic_hierarchy = defaultdict(list)
-        cols = ["topic_id", "_topic_depth_1", "_topic_depth_2", "_topic_depth_3"]
+        cols = ["topic_id", "topic_depth_1", "topic_depth_2", "topic_depth_3"]
 
         for i, row in topic_df[cols].iterrows():
             # Only consider the non-null values for each row
@@ -232,7 +238,7 @@ class AtlasMapTopics:
 
         df = self.df
 
-        topic_datum_dict = df.groupby(f"_topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
+        topic_datum_dict = df.groupby(f"topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
 
         topic_df = self.metadata
         hierarchy = self.hierarchy
@@ -329,13 +335,11 @@ class AtlasMapTopics:
     def __repr__(self) -> str:
         return str(self.df)
 
-
-# TODO map embeddings is incomplete.
 class AtlasMapEmbeddings:
     """
     Atlas Embeddings State
 
-    Access high-dimensional and two-dimensional embeddings of your datapoints. High dimensional embeddings
+    Access latent (high-dimensional) and projected (two-dimensional) embeddings of your datapoints. High dimensional embeddings
     are not immediately downloaded when you access the embeddings attribute.
 
     === "Accessing Embeddings Example"
@@ -397,14 +401,14 @@ class AtlasMapEmbeddings:
         return self.df
 
     @property
-    def ambient(self):
-        """
-        #TODO
-        1. download embeddings and store it in a fixed location on disk (e.g. .nomic directory)
-        2. make sure the embeddings align with the arrow table download order.
-        """
+    def latent(self):
+        # """
+        # #TODO
+        # 1. download embeddings and store it in a fixed location on disk (e.g. .nomic directory)
+        # 2. make sure the embeddings align with the arrow table download order.
+        # """
         raise NotImplementedError(
-            "Ambient access is not yet implemented. You must use the download_embeddings() method for now."
+            "Accessing latent embeddings is not yet implemented. You must use map.download_embeddings() method for now."
         )
 
     def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:

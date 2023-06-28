@@ -16,7 +16,7 @@ nav:
       - 'Accessing Atlas State':
           - 'Embeddings: 2D and Ambient': 'map_state/embeddings.md'
           - Atlas Topics: 'map_state/topics.md'
-          - Atlas Semantic Clusters: 'map_state/duplicates.md'
+          - Atlas Duplicate Clustering: 'map_state/duplicates.md'
           - Atlas Tags: 'map_state/tags.md'
 
       - 'atlas_api.md'
