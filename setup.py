@@ -2,7 +2,7 @@
 import os
 import sys
 from setuptools import setup, find_packages
-description = 'The offical Nomic python client.'
+description = 'The official Nomic python client.'
 
 from pathlib import Path
 this_directory = Path(__file__).parent
@@ -13,7 +13,7 @@ setup(
     version='2.0.1',
     url='https://github.com/nomic-ai/nomic',
     description=description,
-    long_description=long_description,
+    long_description=description,
     packages=find_packages(),
     author_email="support@nomic.ai",
     author="nomic.ai",
