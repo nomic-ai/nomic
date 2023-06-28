@@ -13,7 +13,7 @@ setup(
     version='2.0.1',
     url='https://github.com/nomic-ai/nomic',
     description=description,
-    long_description=description,
+    long_description=long_description,
     packages=find_packages(),
     author_email="support@nomic.ai",
     author="nomic.ai",
