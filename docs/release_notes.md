@@ -17,7 +17,7 @@ map = project.maps[0]
 - Semantic Duplicate Clusters (`map.duplicates`)
 - Tagging (`map.tags`)
 
-You can learn how to use the operations these attributes encapsulate on their corresponding data in the `Accessing Atlas State` section of the documentation.
+The `Accessing Atlas State` section of the documentation shows some of the ways you can use this data.
 
 ## v1.1.7
 
