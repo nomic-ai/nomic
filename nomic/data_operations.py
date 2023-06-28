@@ -643,7 +643,7 @@ class AtlasMapTags:
         """
 
         id_frame = self._tb.to_pandas()
-        tag_to_datums = self._get_tags()
+        tag_to_datums = self.get_tags()
 
         # encoded contains a multi-hot vector withs 1 for all rows that contain that tag
         encoded = {key: [] for key in list(tag_to_datums.keys())}
@@ -658,7 +658,7 @@ class AtlasMapTags:
 
         return pd.concat([id_frame, tag_frame], axis=1)
 
-    def _get_tags(self) -> Dict[str, List[str]]:
+    def get_tags(self) -> Dict[str, List[str]]:
         '''
         Retrieves back all tags made in the web browser for a specific map
 
