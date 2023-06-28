@@ -11,8 +11,9 @@ Meet Atlas - a platform for interacting with both small and internet scale unstr
 Atlas enables you to:
 
 * Store, update and organize multi-million point datasets of unstructured text, images and embeddings.
-* Visually interact with your datasets from a web browser.
-* Run semantic search and vector operations over your datasets.
+* [Visually interact](how_does_atlas_work.md#atlas-makes-embeddings-human-interpretable) with embeddings of your data from a web browser.
+* Operate over unstructured data and embeddings with [topic modeling](map_state/topics.md), [semantic duplicate clustering](map_state/duplicates.md) and [semantic search](vector_search_in_atlas.md).
+* [Generate high dimensional and two-dimensional](map_state/embeddings.md) embeddings of your data.
 
 Use Atlas to:
 

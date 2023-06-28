@@ -3,6 +3,7 @@ This class allows for programmatic interactions with Atlas - Nomic's neural data
 or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 
+import uuid
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -11,7 +12,8 @@ from tqdm import tqdm
 
 from .project import AtlasProject
 from .settings import *
-from .utils import get_random_name, b64int
+from .utils import b64int, get_random_name
+
 
 def map_embeddings(
     embeddings: np.array,
@@ -75,14 +77,18 @@ def map_embeddings(
     if description:
         description = description
 
+    added_id_field = False
     if data is None:
-        data = [{
-            ATLAS_DEFAULT_ID_FIELD: b64int(i)
-        } for i in range(len(embeddings))]
+        data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
+        added_id_field = True
 
     if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
+        added_id_field = True
         for i in range(len(data)):
             data[i][id_field] = b64int(i)
+
+    if added_id_field:
+        logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
     project = AtlasProject(
         name=project_name,
@@ -94,8 +100,6 @@ def map_embeddings(
         reset_project_if_exists=reset_project_if_exists,
         add_datums_if_exists=add_datums_if_exists,
     )
-
-    # project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 
     number_of_datums_before_upload = project.total_datums
 
@@ -160,7 +164,7 @@ def map_text(
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
     duplicate_detection: bool = False,
-    duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD, 
+    duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
 ) -> AtlasProject:
     '''
     Generates or updates a map of the given text.
@@ -210,9 +214,15 @@ def map_text(
         add_datums_if_exists=add_datums_if_exists,
     )
 
+    added_id_field = False
+
     if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
+        added_id_field = True
         for i in range(len(data)):
             data[i][id_field] = b64int(i)
+
+    if added_id_field:
+        logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
     project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 

@@ -1,4 +1,4 @@
-# Dynamic Maps
+# Advanced Walkthrough
 Maps made in Atlas dynamically update to reflect the underlying data stored in the project.
 
 When you add, update or delete data in an AtlasProject the underlying map records your changes.

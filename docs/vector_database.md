@@ -6,7 +6,10 @@ This tutorial will show you how you can visualize your Weaviate and Pinecone vec
 
 ## Why Visualize A Vector Database
 
-Vector databases allow you to query your data semantically by indexing embedding vectors. By interactively visualizing embeddings, you can quickly understand the space of possible query results from your vector database and find bad embeddings which may produce poor query results.
+Vector databases allow you to query your data semantically by indexing embedding vectors. By interactively visualizing embeddings, you can quickly:
+
+- Understand the space of possible query results from your vector database
+- Identify bad embeddings in your index which may produce poor query results
 
 ## Weaviate
 

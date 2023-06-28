@@ -5,11 +5,13 @@ from uuid import UUID
 
 from wonderwords import RandomWord
 
+
 def b64int(i: int):
     ibytes = int.to_bytes(i, length=8, byteorder='big').lstrip(b'\x00')
     if ibytes == b'':
         ibytes = b'\x00'
     return base64.b64encode(ibytes).decode('utf8').rstrip('=')
+
 
 def get_random_name():
     random_words = RandomWord()

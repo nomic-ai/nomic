@@ -8,45 +8,35 @@ import pickle
 import time
 import uuid
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Iterable, Union
-from typing import TYPE_CHECKING
-
-from contextlib import contextmanager
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import pyarrow as pa
-from pyarrow import compute as pc
 import requests
 from loguru import logger
+from pandas import DataFrame
 from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 
-
-# Mainly for type checking
-try:
-    from pandas import DataFrame
-    import pandas as pd
-except ImportError:
-    pd = None
-    DataFrame = None
-
 import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
+from .data_inference import convert_pyarrow_schema_for_atlas
+from .data_operations import AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
-from .data_inference import convert_pyarrow_schema_for_atlas
-from .data_operations import (
-    AtlasDuplicates
-)
+
 
 class AtlasUser:
     def __init__(self):
         self.credentials = refresh_bearer_token()
+
 
 class AtlasClass(object):
     def __init__(self):
@@ -65,7 +55,6 @@ class AtlasClass(object):
 
         self.atlas_api_path = f"https://{api_hostname}"
         self.web_path = f"https://{web_hostname}"
-
 
         try:
             override_api_path = os.environ['ATLAS_API_PATH']
@@ -188,13 +177,11 @@ class AtlasClass(object):
 
         return response.json()
 
-    def _validate_and_correct_arrow_upload(
-        self, data: pa.Table, project: "AtlasProject"
-    ) -> pa.Table:
+    def _validate_and_correct_arrow_upload(self, data: pa.Table, project: "AtlasProject") -> pa.Table:
         '''
         Private method. validates upload data against the project arrow schema, and associated other checks.
 
-        1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.        
+        1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.
 
         Args:
             data: an arrow table.
@@ -224,21 +211,26 @@ class AtlasClass(object):
         # This includes shuffling the order around if necessary,
         # filling in nulls, etc.
         reformatted = {}
-    
-        if data[project.id_field].null_count > 0:            
-            raise ValueError(f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found.")
 
+        if data[project.id_field].null_count > 0:
+            raise ValueError(
+                f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found."
+            )
 
         for field in project.schema:
-            if field.name in data.column_names:                
+            if field.name in data.column_names:
                 # Allow loss of precision in dates and ints, etc.
                 reformatted[field.name] = data[field.name].cast(field.type, safe=False)
-            else:                
-                raise KeyError(f"Field {field.name} present in table schema not found in data. Present fields: {data.column_names}")
+            else:
+                raise KeyError(
+                    f"Field {field.name} present in table schema not found in data. Present fields: {data.column_names}"
+                )
             if pa.types.is_string(field.type):
                 # Ugly temporary measures
                 if data[field.name].null_count > 0:
-                    logger.warning(f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version.")
+                    logger.warning(
+                        f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version."
+                    )
                     reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
                 if pc.any(pc.equal(pc.binary_length(reformatted[field.name]), 0)):
                     mask = pc.equal(pc.binary_length(reformatted[field.name]), 0).combine_chunks()
@@ -251,7 +243,7 @@ class AtlasClass(object):
                 else:
                     logger.warning(f"Field {field.name} present in data, but not found in table schema. Ignoring.")
         data = pa.Table.from_pydict(reformatted, schema=project.schema)
-        
+
         if project.meta['insert_update_delete_lock']:
             raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
@@ -260,21 +252,24 @@ class AtlasClass(object):
 
         if not pa.types.is_string(data[project.id_field].type):
             logger.warning(f"id_field is not a string. Converting to string from {data[project.id_field].type}")
-            data = data.drop([project.id_field]).append_column(project.id_field, data[project.id_field].cast(pa.string()))
+            data = data.drop([project.id_field]).append_column(
+                project.id_field, data[project.id_field].cast(pa.string())
+            )
 
-        
         for key in data.column_names:
             if key.startswith('_'):
                 if key == '_embeddings':
                     continue
                 raise ValueError('Metadata fields cannot start with _')
         if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
-            first_match = data.filter(pc.greater(pc.utf8_length(data[project.id_field]), 36)).to_pylist()[0][project.id_field]
+            first_match = data.filter(pc.greater(pc.utf8_length(data[project.id_field]), 36)).to_pylist()[0][
+                project.id_field
+            ]
             raise ValueError(
                 f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
             )
         return data
-    
+
     def _get_organization(self, organization_name=None, organization_id=None) -> Tuple[str, str]:
         '''
         Gets an organization by either it's name or id.
@@ -289,7 +284,7 @@ class AtlasClass(object):
         '''
 
         if organization_name is None:
-            if organization_id is None: #default to current users organization (the one with their name)
+            if organization_id is None:  # default to current users organization (the one with their name)
                 organization = self._get_current_users_main_organization()
                 organization_name = organization['nickname']
                 organization_id = organization['organization_id']
@@ -309,9 +304,6 @@ class AtlasClass(object):
             organization_id = organization_id_request.json()['organization_id']
 
         return organization_name, organization_id
-
-
-
 
     def _get_existing_project_by_name(self, project_name, organization_name) -> Dict:
         '''
@@ -348,6 +340,7 @@ class AtlasClass(object):
         organization_name, organization_id = self._get_organization(organization_name=organization_name)
         return {'organization_id': organization_id, 'organization_name': organization_name}
 
+
 class AtlasIndex:
     """
     An AtlasIndex represents a single view of an Atlas Project at a point in time.
@@ -366,14 +359,16 @@ class AtlasIndex:
     def _repr_html_(self):
         return '<br>'.join([d._repr_html_() for d in self.projections])
 
+
 class AtlasProjection:
     '''
-    Manages operations on maps such as text/vector search.
+    Interact and access state of an Atlas Map including text/vector search.
     This class should not be instantiated directly.
-    Instead instantiate an AtlasProject and use the project.indices or get_map method to retrieve an AtlasProjection.
+
+    Instead instantiate an AtlasProject and use the project.maps attribute to retrieve an AtlasProjection.
     '''
 
-    def __init__(self, project : "AtlasProject", atlas_index_id: str, projection_id: str, name):
+    def __init__(self, project: "AtlasProject", atlas_index_id: str, projection_id: str, name):
         """
         Creates an AtlasProjection.
         """
@@ -387,6 +382,7 @@ class AtlasProjection:
         self._topics = None
         self._tags = None
         self._tile_data = None
+
     @property
     def map_link(self):
         '''
@@ -425,7 +421,7 @@ class AtlasProjection:
             }}
         </style>
         """
-    
+
     def _embed_html(self):
         return f"""<script>
             destroy = function() {{
@@ -469,13 +465,37 @@ class AtlasProjection:
             <h3>Project: {self.name}</h3>
             {self._embed_html()}
             """
-    
+
     @property
     def duplicates(self):
+        """Duplicate detection state"""
         if self._duplicates is None:
-            self._duplicates = AtlasDuplicates(self)
+            self._duplicates = AtlasMapDuplicates(self)
         return self._duplicates
-    
+
+    @property
+    def topics(self):
+        """Topic state"""
+        if self.project.is_locked:
+            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+        if self._topics is None:
+            self._topics = AtlasMapTopics(self)
+        return self._topics
+
+    @property
+    def embeddings(self):
+        """Embedding state"""
+        if self._embeddings is None:
+            self._embeddings = AtlasMapEmbeddings(self)
+        return self._embeddings
+
+    @property
+    def tags(self):
+        """Embedding state"""
+        if self._tags is None:
+            self._tags = AtlasMapTags(self)
+        return self._tags
+
     def _fetch_tiles(self, overwrite: bool = True):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
@@ -485,9 +505,9 @@ class AtlasProjection:
 
         Returns:
             An Arrow table containing information for all data points in the index.
-        """    
+        """
         if self._tile_data is not None:
-            return self._tile_data    
+            return self._tile_data
         self._download_feather(overwrite=overwrite)
         tbs = []
         root = feather.read_table(self.tile_destination / "0/0/0.feather")
@@ -508,7 +528,7 @@ class AtlasProjection:
         self._tile_data = pa.concat_tables(tbs)
 
         return self._tile_data
-                
+
     @property
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
@@ -531,7 +551,7 @@ class AtlasProjection:
         while len(quads) > 0:
             rawquad = quads.pop(0)
             quad = rawquad + ".feather"
-            all_quads.append(quad)            
+            all_quads.append(quad)
             path = self.tile_destination / quad
             if not path.exists() or overwrite:
                 data = requests.get(root + quad)
@@ -558,316 +578,9 @@ class AtlasProjection:
             quads.extend(children)
         return all_quads
 
-    def download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
-        '''
-        Downloads a mapping from datum_id to embedding in shards to the provided directory
-
-        Args:
-            save_directory: The directory to save your embeddings.
-        Returns:
-            True on success
-
-
-        '''
-        self.project._latest_project_state()
-
-        total_datums = self.project.total_datums
-        if self.project.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
-
-        offset = 0
-        limit = EMBEDDING_PAGINATION_LIMIT
-
-        def download_shard(offset, check_access=False):
-            response = requests.get(
-                self.project.atlas_api_path + f"/v1/project/data/get/embedding/{self.project.id}/{self.atlas_index_id}/{offset}/{limit}",
-                headers=self.project.header,
-            )
-
-            if response.status_code != 200:
-                raise Exception(response.text)
-
-            if check_access:
-                return
-            try:
-                shard_name = '{}_{}_{}.feather'.format(self.atlas_index_id, offset, offset + limit)
-                shard_path = os.path.join(save_directory, shard_name)
-
-                content = response.content
-                is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
-
-                if not is_arrow_format:
-                    raise Exception('Expected response to be in Arrow IPC format')
-
-                with open(shard_path, 'wb') as f:
-                    f.write(content)
-
-            except Exception as e:
-                logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
-
-        download_shard(0, check_access=True)
-
-        with tqdm(total=total_datums // limit) as pbar:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-                futures = {
-                    executor.submit(download_shard, cur_offset): cur_offset
-                    for cur_offset in range(0, total_datums, limit)
-                }
-                for future in concurrent.futures.as_completed(futures):
-                    _ = future.result()
-                    pbar.update(1)
-
-        return True
-
-
-    def get_embedding_iterator(self) -> Iterable[Tuple[str, str]]:
-        '''
-        Iterate through embeddings of your datums.
-
-        Returns:
-            A iterable mapping datum ids to their embeddings.
-
-        '''
-
-        if self.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
-
-        offset = 0
-        limit = EMBEDDING_PAGINATION_LIMIT
-        while True:
-            response = requests.get(
-                self.atlas_api_path + f"/v1/project/data/get/embedding/{self.id}/{self.atlas_index_id}/{offset}/{limit}",
-                headers=self.header,
-            )
-            if response.status_code != 200:
-                raise Exception(response.text)
-
-            content = response.json()
-            if len(content['datum_ids']) == 0:
-                break
-            offset += len(content['datum_ids'])
-
-            yield content['datum_ids'], content['embeddings']
-
-    def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
-        '''
-        Performs vector similarity search over data points on your map.
-        If ids is specified, receive back the most similar data ids in vector space to your input ids.
-        If queries is specified, receive back the data ids with representations most similar to the query vectors.
-
-        You should not specify both queries and ids.
-
-        Args:
-            queries: a 2d numpy array where each row corresponds to a query vector
-            ids: a list of ids
-            k: the number of closest data points (neighbors) to return for each input query/data id
-        Returns:
-            A tuple with two elements containing the following information:
-                neighbors: A set of ids corresponding to the nearest neighbors of each query
-                distances: A set of distances between each query and its neighbors
-        '''
-
-        if queries is None and ids is None:
-            raise ValueError('You must specify either a list of datum `ids` or numpy array of `queries` but not both.')
-
-        max_k = 128
-        max_queries = 256
-        if k > max_k:
-            raise Exception(f"Cannot query for more than {max_k} nearest neighbors. Set `k` to {max_k} or lower")
-
-        if ids is not None:
-            if len(ids) > max_queries:
-                raise Exception(f"Max ids per query is {max_queries}. You sent {len(ids)}.")
-        if queries is not None:
-            if not isinstance(queries, np.ndarray):
-                raise Exception("`queries` must be an instance of np.array.")
-            if queries.shape[0] > max_queries:
-                raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
-
-        if queries is not None:
-            if queries.ndim != 2:
-                raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
-
-            bytesio = io.BytesIO()
-            np.save(bytesio, queries)
-
-        if queries is not None:
-            response = requests.post(
-                self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
-                headers=self.project.header,
-                json={'atlas_index_id': self.atlas_index_id,
-                      'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                      'k': k},
-            )
-        else:
-            response = requests.post(
-                self.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
-                headers=self.project.header,
-                json={'atlas_index_id': self.atlas_index_id,
-                      'datum_ids': ids,
-                      'k': k},
-            )
-
-
-        if response.status_code == 500:
-            raise Exception('Cannot perform vector search on your map at this time. Try again later.')
-
-        if response.status_code != 200:
-            raise Exception(response.text)
-
-        response = response.json()
-
-        return response['neighbors'], response['distances']
-
-    @property 
+    @property
     def datum_id_field(self):
         return self.project.meta["unique_id_field"]
-    def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
-        """
-        Group datums by topic at a set topic depth.
-
-        Args:
-            topic_depth: Topic depth to group datums by. Acceptable values
-                currently are (1, 2, 3).
-        Returns:
-            List of dictionaries where each dictionary contains next depth 
-                subtopics, subtopic ids, topic_id, topic_short_description, 
-                topic_long_description, and list of datum_ids.
-        """
-        if not self._tile_data:
-            self._fetch_tiles()
-
-        topic_cols = []
-        # TODO: This will need to be changed once topic depths becomes dynamic and not hard-coded
-        if topic_depth not in (1, 2, 3):
-            raise ValueError("Topic depth out of range.")
-
-        # Unique datum id column to aggregate
-        datum_id_col = self.project.meta["unique_id_field"]
-
-        cols = [datum_id_col, f"_topic_depth_{topic_depth}"]
-
-        df = self._fetch_tiles().select(cols).to_pandas()
-        topic_datum_dict = df.groupby(f"_topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
-
-        topic_data = self.get_topic_data()
-        topic_df, hierarchy = self._get_topic_artifacts(topic_data)
-
-        result = []
-
-        for topic, datum_ids in topic_datum_dict.items():
-            # Encountered topic with zero datums
-            if len(datum_ids) == 0:
-                continue
-            
-            result_dict = {}
-            topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
-
-            subtopics = hierarchy[topic]
-            result_dict["subtopics"] = subtopics
-            result_dict["subtopic_ids"] = topic_df[topic_df["topic_short_description"].isin(subtopics)]["topic_id"].tolist()
-            result_dict["topic_id"] = topic_metadata["topic_id"].item()
-            result_dict["topic_short_description"] = topic_metadata["topic_short_description"].item()
-            result_dict["topic_long_description"] = topic_metadata["topic_description"].item()
-            result_dict["datum_ids"] = datum_ids
-            result.append(result_dict)
-        return result
-
-    @staticmethod
-    def _get_topic_artifacts(topic_data):
-        if pd is None:
-            raise Exception("Pandas is required to use this function.")
-        topic_df = pd.DataFrame(topic_data)
-        topic_df = topic_df.rename(columns={"topic": "topic_id"})
-
-        topic_hierarchy = defaultdict(list)
-        cols = ["topic_id", "_topic_depth_1", "_topic_depth_2", "_topic_depth_3"]
-
-        for i, row in topic_df[cols].iterrows():
-            # Only consider the non-null values for each row
-            topics = [topic for topic in row if pd.notna(topic)]
-            
-            # Iterate over the topics in each row, adding each topic to the
-            # list of subtopics for the topic at the previous depth
-            for i in range(1, len(topics) - 1):
-                if topics[i + 1] not in topic_hierarchy[topics[i]]:
-                    topic_hierarchy[topics[i]].append(topics[i + 1]) 
-        return topic_df, dict(topic_hierarchy)
-
-    def get_topic_data(self) -> List:
-        '''
-        Retrieves metadata about a maps pre-computed topics
-
-        Returns:
-            A dictionary of metadata for each topic in the model
-
-        '''
-        response = requests.get(
-            self.project.atlas_api_path + "/v1/project/{}/index/projection/{}".format(self.project.meta['id'], self.projection_id),
-            headers=self.project.header,
-        )
-        topics = json.loads(response.text)['topic_models'][0]['features']
-        topic_data = [e['properties'] for e in topics]
-        return topic_data
-
-    def get_topic_density(self, time_field: str, start: datetime, end: datetime):
-        '''
-        Counts the number of datums in each topic within a window
-
-        Args:
-            time_field: Your metadata field containing isoformat timestamps
-            start: A datetime object for the window start
-            end: A datetime object for the window end
-
-        Returns:
-            List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count
-        '''
-        response = requests.post(
-            self.project.atlas_api_path + "/v1/project/{}/topic_density".format(self.atlas_index_id),
-            headers=self.project.header,
-            json={'start': start.isoformat(),
-                  'end': end.isoformat(),
-                  'time_field': time_field},
-        )
-        if response.status_code != 200:
-            raise Exception(response.text)
-
-        return response.json()
-
-
-    def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
-        '''
-        Returns the topics best associated with each vector query
-
-        Args:
-            queries: a 2d numpy array where each row corresponds to a query vector
-            k: (Default 32) the number of neighbors to use when estimating the posterior
-            depth: (Default 3) the topic depth at which you want to search
-
-        Returns:
-            A dict of {topic: posterior probability} for each query
-        '''
-
-        if queries.ndim != 2:
-            raise ValueError('Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).')
-
-        bytesio = io.BytesIO()
-        np.save(bytesio, queries)
-
-        response = requests.post(
-            self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
-            headers=self.project.header,
-            json={'atlas_index_id': self.atlas_index_id,
-                  'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                  'k': k,
-                  'depth': depth},
-        )
-
-        if response.status_code != 200:
-            raise Exception(response.text)
-
-        return response.json()
-
 
     def _get_atoms(self, ids: List[str]) -> List[Dict]:
         '''
@@ -895,84 +608,6 @@ class AtlasProjection:
         else:
             raise Exception(response.text)
 
-    def get_tags(self) -> Dict[str, List[str]]:
-        '''
-        Retrieves back all tags made in the web browser for a specific project and map.
-
-        Returns:
-            A dictionary mapping datum ids to tags.
-        '''
-        # now get the tags
-        datums_and_tags = requests.post(
-            self.project.atlas_api_path + '/v1/project/tag/read/all_by_datum',
-            headers=self.project.header,
-            json={
-                'project_id': self.project.id,
-            },
-        ).json()['results']
-
-        label_to_datums = {}
-        for item in datums_and_tags:
-            for label in item['labels']:
-                if label not in label_to_datums:
-                    label_to_datums[label] = []
-                label_to_datums[label].append(item['datum_id'])
-        return label_to_datums
-
-    def tag(self, ids: List[str], tags: List[str]):
-        '''
-
-        Args:
-            ids: The datum ids you want to tag
-            tags: A list containing the tags you want to apply to these data points.
-
-        '''
-        assert isinstance(ids, list), 'ids must be a list of strings'
-        assert isinstance(tags, list), 'tags must be a list of strings'
-
-        colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags})
-        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
-        buffer = io.BytesIO()
-        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
-        writer.write_table(payload_table)
-        writer.close()
-        payload = buffer.getvalue()
-
-        headers = self.project.header.copy()
-        headers['Content-Type'] = 'application/octet-stream'
-        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/add", headers=headers, data=payload)
-        if response.status_code != 200:
-            raise Exception("Failed to add tags")
-
-    def remove_tags(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
-        '''
-        Deletes the specified tags from the given datum_ids.
-
-        Args:
-            ids: The datum_ids to delete tags from.
-            tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
-            delete_all: If true, ignores datum_ids and deletes all specified tags from all data points.
-
-        Returns:
-            True on success
-
-        '''
-        assert isinstance(ids, list), 'datum_ids must be a list of strings'
-        assert isinstance(tags, list), 'tags must be a list of strings'
-
-        colname = json.dumps({'project_id': self.project.id, 'atlas_index_id': self.atlas_index_id, 'type': 'datum_id', 'tags': tags, 'delete_all': delete_all})
-        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
-        buffer = io.BytesIO()
-        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
-        writer.write_table(payload_table)
-        writer.close()
-        payload = buffer.getvalue()
-
-        headers = self.project.header.copy()
-        headers['Content-Type'] = 'application/octet-stream'
-        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
-        if response.status_code != 200:
-            raise Exception("Failed to delete tags")
 
 class AtlasProject(AtlasClass):
     def __init__(
@@ -987,7 +622,6 @@ class AtlasProject(AtlasClass):
         reset_project_if_exists=False,
         add_datums_if_exists=True,
     ):
-
         """
         Creates or loads an Atlas project.
         Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
@@ -1020,27 +654,24 @@ class AtlasProject(AtlasClass):
 
         results = self._get_existing_project_by_name(project_name=name, organization_name=organization_name)
 
-        if 'project_id' in results: #project already exists
+        if 'project_id' in results:  # project already exists
             organization_name = results['organization_name']
             project_id = results['project_id']
-            if reset_project_if_exists: #reset the project
+            if reset_project_if_exists:  # reset the project
                 logger.info(
                     f"Found existing project `{name}` in organization `{organization_name}`. Clearing it of data by request."
                 )
                 self._delete_project_by_id(project_id=project_id)
                 project_id = None
-            elif not add_datums_if_exists: #prevent adding datums to existing project explicitly
+            elif not add_datums_if_exists:  # prevent adding datums to existing project explicitly
                 raise ValueError(
                     f"Project already exists with the name `{name}` in organization `{organization_name}`. "
                     f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exists=True` on a new upload."
                 )
             else:
-                logger.info(
-                    f"Loading existing project `{name}` from organization `{organization_name}`."
-                )
+                logger.info(f"Loading existing project `{name}` from organization `{organization_name}`.")
 
-        if project_id is None: #if there is no existing project, make a new one.
-
+        if project_id is None:  # if there is no existing project, make a new one.
             if unique_id_field is None:
                 unique_id_field = ATLAS_DEFAULT_ID_FIELD
 
@@ -1058,14 +689,11 @@ class AtlasProject(AtlasClass):
                 unique_id_field=unique_id_field,
                 modality=modality,
                 organization_name=organization_name,
-                is_public=is_public
+                is_public=is_public,
             )
-
 
         self.meta = self._get_project_by_id(project_id=project_id)
         self._schema = None
-
-
 
     def delete(self):
         '''
@@ -1087,7 +715,7 @@ class AtlasProject(AtlasClass):
         unique_id_field: str,
         modality: str,
         organization_name: Optional[str] = None,
-        is_public: bool = True
+        is_public: bool = True,
     ):
         '''
         Creates an Atlas project.
@@ -1124,7 +752,7 @@ class AtlasProject(AtlasClass):
         response = requests.post(
             self.atlas_api_path + "/v1/project/create",
             headers=self.header,
-            json = {
+            json={
                 'organization_id': organization_id,
                 'project_name': project_name,
                 'description': description,
@@ -1135,9 +763,8 @@ class AtlasProject(AtlasClass):
         )
         if response.status_code != 201:
             raise Exception(f"Failed to create project: {response.json()}")
-        
-        return response.json()['project_id']
 
+        return response.json()['project_id']
 
     def _latest_project_state(self):
         '''
@@ -1158,7 +785,12 @@ class AtlasProject(AtlasClass):
                     project=self, projection_id=projection['id'], atlas_index_id=index['id'], name=index['index_name']
                 )
                 projections.append(projection)
-            index = AtlasIndex(atlas_index_id=index['id'], name=index['index_name'], indexed_field=index['indexed_field'], projections=projections)
+            index = AtlasIndex(
+                atlas_index_id=index['id'],
+                name=index['index_name'],
+                indexed_field=index['indexed_field'],
+                projections=projections,
+            )
             output.append(index)
 
         return output
@@ -1210,13 +842,13 @@ class AtlasProject(AtlasClass):
     def is_locked(self) -> bool:
         self._latest_project_state()
         return self.meta['insert_update_delete_lock']
-    
+
     @property
     def schema(self) -> Optional[pa.Schema]:
         if self._schema is not None:
             return self._schema
         if 'schema' in self.meta and self.meta['schema'] is not None:
-            self._schema : pa.Schema = ipc.read_schema(io.BytesIO(base64.b64decode(self.meta['schema'])))
+            self._schema: pa.Schema = ipc.read_schema(io.BytesIO(base64.b64decode(self.meta['schema'])))
             return self._schema
         return None
 
@@ -1317,7 +949,7 @@ class AtlasProject(AtlasClass):
             projection_spread: A projection hyperparameter
             topic_label_field: A text field in your metadata to estimate topic labels from. Defaults to the indexed_field for text projects if not specified.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
-            duplicate_detection: A boolean whether to run duplicate detection 
+            duplicate_detection: A boolean whether to run duplicate detection
             duplicate_threshold: At which threshold to consider points to be duplicates
 
         Returns:
@@ -1360,8 +992,7 @@ class AtlasProject(AtlasClass):
             }
 
         elif self.modality == 'text':
-
-            #find the index id of the index with name reuse_embeddings_from_index
+            # find the index id of the index with name reuse_embeddings_from_index
             reuse_embedding_from_index_id = None
             indices = self.indices
             if reuse_embeddings_from_index is not None:
@@ -1370,7 +1001,9 @@ class AtlasProject(AtlasClass):
                         reuse_embedding_from_index_id = index.id
                         break
                 if reuse_embedding_from_index_id is None:
-                    raise Exception(f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}")
+                    raise Exception(
+                        f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}"
+                    )
 
             if indexed_field is None:
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
@@ -1409,7 +1042,7 @@ class AtlasProject(AtlasClass):
                 ),
                 'duplicate_detection_hyperparameters': json.dumps(
                     {'tag_duplicates': duplicate_detection, 'duplicate_cutoff': duplicate_threshold}
-                )
+                ),
             }
 
         response = requests.post(
@@ -1470,14 +1103,14 @@ class AtlasProject(AtlasClass):
                 state = projection._status['index_build_stage']
                 if state == 'Completed':
                     complete_projections.append(projection)
-                html += f"""<li>{projection.name}. Status {state}. <a target="_blank" href="{projection.map_link}">view online</a></li>"""   
+                html += f"""<li>{projection.name}. Status {state}. <a target="_blank" href="{projection.map_link}">view online</a></li>"""
             html += "</ul>"
         if len(complete_projections) >= 1:
             # Display most recent complete projection.
             html += "<hr>"
             html += complete_projections[-1]._embed_html()
         return html
-    
+
     def __str__(self):
         return "\n".join([str(projection) for index in self.indices for projection in index.projections])
 
@@ -1533,13 +1166,7 @@ class AtlasProject(AtlasClass):
         else:
             raise Exception(response.text)
 
-    def add_text(
-        self,
-        data = Union[DataFrame, List[Dict], pa.Table],
-        pbar=None,
-        shard_size=None,
-        num_workers=None
-    ):
+    def add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None, shard_size=None, num_workers=None):
         """
         Add text data to the project.
         data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the project schema.
@@ -1556,21 +1183,22 @@ class AtlasProject(AtlasClass):
         self._add_data(data, pbar=pbar)
 
     def add_embeddings(
-            self,
-            data : Union[DataFrame, List[Dict], pa.Table, None],
-            embeddings: np.array,
-            pbar = None,
-            shard_size=None, num_workers=None
+        self,
+        data: Union[DataFrame, List[Dict], pa.Table, None],
+        embeddings: np.array,
+        pbar=None,
+        shard_size=None,
+        num_workers=None,
     ):
         """
         Add data, with associated embeddings, to the project.
-        
+
         Args:
             data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the project schema.
             embeddings: A numpy array of embeddings: each row corresponds to a row in the table.
             pbar: (Optional). A tqdm progress bar to update.
         """
-        
+
         """
         # TODO: validate embedding size.
         assert embeddings.shape[1] == self.embedding_size, "Embedding size must match the embedding size of the project."
@@ -1583,7 +1211,7 @@ class AtlasProject(AtlasClass):
         assert len(embeddings.shape) == 2, "Embeddings must be a 2D numpy array."
         assert len(data) == embeddings.shape[0], "Data and embeddings must have the same number of rows."
         assert len(data) > 0, "Data must have at least one row."
-        
+
         tb: pa.Table
 
         if DataFrame is not None and isinstance(data, DataFrame):
@@ -1593,8 +1221,10 @@ class AtlasProject(AtlasClass):
         elif isinstance(data, pa.Table):
             tb = data
         else:
-            raise ValueError(f"Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table, not {type(data)}")
-        
+            raise ValueError(
+                f"Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table, not {type(data)}"
+            )
+
         del data
 
         # Add embeddings to the data.
@@ -1642,12 +1272,11 @@ class AtlasProject(AtlasClass):
         # Chunk into 4MB pieces. These will probably compress down a bit.
         if bytesize / n_chunks > 4_000_000:
             shard_size = int(np.ceil(nrow / (bytesize / 4_000_000)))
-        
 
         data = self._validate_and_correct_arrow_upload(
-                data=data,
-                project=self,
-            )
+            data=data,
+            project=self,
+        )
 
         upload_endpoint = "/v1/project/data/add/arrow"
 
@@ -1656,13 +1285,13 @@ class AtlasProject(AtlasClass):
             data_shard = data.slice(i, shard_size)
             with io.BytesIO() as buffer:
                 data_shard = data_shard.replace_schema_metadata({'project_id': self.id})
-                feather.write_feather(data_shard, buffer, compression = 'zstd', compression_level = 6)
+                feather.write_feather(data_shard, buffer, compression='zstd', compression_level=6)
                 buffer.seek(0)
 
                 response = requests.post(
                     self.atlas_api_path + upload_endpoint,
                     headers=self.header,
-                    data = buffer,
+                    data=buffer,
                 )
                 return response
 
@@ -1741,11 +1370,9 @@ class AtlasProject(AtlasClass):
             else:
                 logger.info("Upload succeeded.")
 
-    def update_maps(self,
-                    data: List[Dict],
-                    embeddings: Optional[np.array]=None,
-                    shard_size: int = 1000,
-                    num_workers: int = 10):
+    def update_maps(
+        self, data: List[Dict], embeddings: Optional[np.array] = None, shard_size: int = 1000, num_workers: int = 10
+    ):
         '''
         Utility method to update a projects maps by adding the given data.
 
@@ -1767,9 +1394,10 @@ class AtlasProject(AtlasClass):
             raise ValueError(msg)
 
         if embeddings is not None and len(data) != embeddings.shape[0]:
-            msg = 'Expected data and embeddings to be the same length but found lengths {} and {} respectively.'.format()
+            msg = (
+                'Expected data and embeddings to be the same length but found lengths {} and {} respectively.'.format()
+            )
             raise ValueError(msg)
-
 
         # Add new data
         logger.info("Uploading data to Nomic's neural database Atlas.")
@@ -1777,22 +1405,22 @@ class AtlasProject(AtlasClass):
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
                 if self.modality == 'embedding':
                     self.add_embeddings(
-                        embeddings=embeddings[i: i + MAX_MEMORY_CHUNK, :],
-                        data=data[i: i + MAX_MEMORY_CHUNK],
+                        embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
+                        data=data[i : i + MAX_MEMORY_CHUNK],
                         shard_size=shard_size,
                         num_workers=num_workers,
                         pbar=pbar,
                     )
                 else:
                     self.add_text(
-                        data=data[i: i + MAX_MEMORY_CHUNK],
+                        data=data[i : i + MAX_MEMORY_CHUNK],
                         shard_size=shard_size,
                         num_workers=num_workers,
                         pbar=pbar,
                     )
         logger.info("Upload succeeded.")
 
-        #Update maps
+        # Update maps
         # finally, update all the indices
         return self.rebuild_maps()
 
@@ -1808,10 +1436,7 @@ class AtlasProject(AtlasClass):
         response = requests.post(
             self.atlas_api_path + "/v1/project/update_indices",
             headers=self.header,
-            json={
-                'project_id': self.id,
-                'rebuild_topic_models': rebuild_topic_models
-            },
+            json={'project_id': self.id, 'rebuild_topic_models': rebuild_topic_models},
         )
 
         logger.info(f"Updating maps in project `{self.name}`")
