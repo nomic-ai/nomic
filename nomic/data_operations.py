@@ -126,7 +126,7 @@ class AtlasMapTopics:
         ```
     === "Output"
         ```
-                        id_      topic_depth_1       topic_depth_2           topic_depth_3
+                        id_      topic_depth_1       topic_depth_2          topic_depth_3
         0     000262a5-2811  Space exploration      Hurricane Jeanne        Spacecraft Cassini
         1     000c453d-ee97   English football      Athens 2004 Olympics    bobby rathore
         ...
@@ -140,8 +140,7 @@ class AtlasMapTopics:
         self.id_field = self.projection.project.id_field
         self._tb: pa.Table = projection._fetch_tiles().select(
             [self.id_field, '_topic_depth_1', '_topic_depth_2', '_topic_depth_3']
-        )
-        self._tb = self._tb.rename_columns([self.id_field, 'topic_depth_1', 'topic_depth_2', 'topic_depth_3'])
+        ).rename_columns([self.id_field, 'topic_depth_1', 'topic_depth_2', 'topic_depth_3'])
         self._metadata = None
         self._hierarchy = None
 
@@ -183,7 +182,10 @@ class AtlasMapTopics:
         topics = json.loads(response.text)['topic_models'][0]['features']
         topic_data = [e['properties'] for e in topics]
         topic_data = pd.DataFrame(topic_data)
-        topic_data = topic_data.rename(columns={"topic": "topic_id"})
+        topic_data = topic_data.rename(columns={"topic": "topic_id",
+                                                '_topic_depth_1': 'topic_depth_1',
+                                                '_topic_depth_2': 'topic_depth_2',
+                                                '_topic_depth_3': 'topic_depth_3'})
         self._metadata = topic_data
 
         return topic_data
