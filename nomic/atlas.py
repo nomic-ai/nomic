@@ -88,7 +88,7 @@ def map_embeddings(
             data[i][id_field] = b64int(i)
 
     if added_id_field:
-        logger.warning("An ID field was not specified in your data so one was generated for you..")
+        logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
     project = AtlasProject(
         name=project_name,
@@ -222,7 +222,7 @@ def map_text(
             data[i][id_field] = b64int(i)
 
     if added_id_field:
-        logger.warning("An ID field was not specified in your data so one was generated for you..")
+        logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
     project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
 
