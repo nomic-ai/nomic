@@ -2,7 +2,7 @@
 import os
 import sys
 from setuptools import setup, find_packages
-description = 'The offical Nomic python client.'
+description = 'The official Nomic python client.'
 
 from pathlib import Path
 this_directory = Path(__file__).parent
