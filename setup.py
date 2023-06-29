@@ -3,14 +3,10 @@ import os
 import sys
 from setuptools import setup, find_packages
 description = 'The official Nomic python client.'
-
-from pathlib import Path
-this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
     
 setup(
     name='nomic',
-    version='2.0.1',
+    version='2.0.2',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=long_description,
