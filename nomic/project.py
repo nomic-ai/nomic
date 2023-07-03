@@ -469,6 +469,8 @@ class AtlasProjection:
     @property
     def duplicates(self):
         """Duplicate detection state"""
+        if self.project.is_locked:
+            raise Exception('Project is locked! Please wait until the project is unlocked to access duplicates.')
         if self._duplicates is None:
             self._duplicates = AtlasMapDuplicates(self)
         return self._duplicates
@@ -477,7 +479,7 @@ class AtlasProjection:
     def topics(self):
         """Topic state"""
         if self.project.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+            raise Exception('Project is locked for state access! Please wait until the project is unlocked to access topics.')
         if self._topics is None:
             self._topics = AtlasMapTopics(self)
         return self._topics
@@ -485,6 +487,8 @@ class AtlasProjection:
     @property
     def embeddings(self):
         """Embedding state"""
+        if self.project.is_locked:
+            raise Exception('Project is locked for state access! Please wait until the project is unlocked to access embeddings.')
         if self._embeddings is None:
             self._embeddings = AtlasMapEmbeddings(self)
         return self._embeddings
