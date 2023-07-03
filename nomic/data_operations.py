@@ -141,9 +141,12 @@ class AtlasMapTopics:
         self.projection = projection
         self.project = projection.project
         self.id_field = self.projection.project.id_field
-        self._tb: pa.Table = projection._fetch_tiles().select(
-            [self.id_field, '_topic_depth_1', '_topic_depth_2', '_topic_depth_3']
-        ).rename_columns([self.id_field, 'topic_depth_1', 'topic_depth_2', 'topic_depth_3'])
+        try:
+            self._tb: pa.Table = projection._fetch_tiles().select(
+                [self.id_field, '_topic_depth_1', '_topic_depth_2', '_topic_depth_3']
+            ).rename_columns([self.id_field, 'topic_depth_1', 'topic_depth_2', 'topic_depth_3'])
+        except pa.lib.ArrowInvalid as e:
+            raise ValueError("Topic modeling has not yet been run on this map.")
         self._metadata = None
         self._hierarchy = None
 
