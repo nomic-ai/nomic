@@ -54,7 +54,10 @@ class AtlasMapDuplicates:
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
         self.id_field = self.projection.project.id_field
-        self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, '_duplicate_class', '_cluster_id'])
+        try:
+            self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, '_duplicate_class', '_cluster_id'])
+        except pa.lib.ArrowInvalid as e:
+            raise ValueError("Duplicate detection has not yet been run on this map.")
         self._tb = self._tb.rename_columns([self.id_field, 'duplicate_class', 'cluster_id'])
 
     @property
@@ -99,15 +102,15 @@ class AtlasMapDuplicates:
         Returns:
             The ids for all data points which are semantic duplicates and are candidates for being deleted from the dataset. If you remove these data points from your dataset, your dataset will be semantically deduplicated.
         """
-        dupes = self.tb[self.id_field].filter(pc.equal(self.tb['_duplicate_class'], 'deletion candidate'))
+        dupes = self.tb[self.id_field].filter(pc.equal(self.tb['duplicate_class'], 'deletion candidate'))
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})===\n"
         duplicate_count = len(
-            self.tb[self.id_field].filter(pc.equal(self.tb['_duplicate_class'], 'deletion candidate'))
+            self.tb[self.id_field].filter(pc.equal(self.tb['duplicate_class'], 'deletion candidate'))
         )
-        cluster_count = len(self.tb['_cluster_id'].value_counts())
+        cluster_count = len(self.tb['cluster_id'].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
         return repr + self.df.__repr__()
 
