@@ -18,7 +18,7 @@ Atlas enables you to:
 Use Atlas to:
 
 - [Visualize, interact, collaborate and share large datasets of text and embeddings.](map_your_data.md)
-- [Collaboratively clean, tag and label your datasets](data_cleaning_in_atlas.md)
+- [Collaboratively curate your unstructured datasets (clean, tag and label)](data_exploration_cleaning_tagging_in_atlas.md)
 - [Build high-availability apps powered by semantic search](https://langchain.readthedocs.io/en/latest/ecosystem/atlas.html)
 - [Understand and debug the latent space of your AI model trains](pytorch_embedding_explorer.ipynb)
 
