@@ -205,12 +205,6 @@ class AtlasClass(object):
         if project.id_field not in data.column_names:
             raise ValueError(f'Data must contain the ID column `{project.id_field}`')
 
-        seen = set()
-        for col in data.column_names:
-            if col.lower() in seen:
-                raise ValueError(f'Two different columns have the same lowercased name `{col}`.')
-            seen.add(col.lower())
-            
         if project.schema is None:
             project._schema = convert_pyarrow_schema_for_atlas(data.schema)
         # Reformat to match the schema of the project.
