@@ -7,11 +7,12 @@ import os
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, Iterable, List, Tuple
-
+from io import BytesIO
 import numpy as np
 import pandas
 import pandas as pd
 import pyarrow as pa
+from pyarrow import feather
 import requests
 from loguru import logger
 from pyarrow import compute as pc
@@ -375,6 +376,7 @@ class AtlasMapEmbeddings:
         self.id_field = self.projection.project.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, 'x', 'y'])
         self.project = projection.project
+        self._latent = None
 
     @property
     def df(self):
@@ -409,15 +411,59 @@ class AtlasMapEmbeddings:
         return self.df
 
     @property
-    def latent(self):
-        # """
-        # #TODO
-        # 1. download embeddings and store it in a fixed location on disk (e.g. .nomic directory)
-        # 2. make sure the embeddings align with the arrow table download order.
-        # """
-        raise NotImplementedError(
-            "Accessing latent embeddings is not yet implemented. You must use map.download_embeddings() method for now."
-        )
+    def latent(self) -> np.array:
+        """
+        Returns the embeddings in the high-dimensional space. This returns a memmapped 
+        numpy array where each row corresponds to the datapoint 
+        """
+        if self._latent is not None:
+            return self._latent
+        root_embedding = self.projection.tile_destination / "0/0/0-0.embeddings.feather"
+        # Not the most complete check, hence the warning below.
+        if not root_embedding.exists():
+            self.download_latent()
+        all_embeddings = []
+
+        for path in self.projection._tiles_in_order():
+            # double with-suffix to remove '.embeddings.feather'
+            files = path.parent.glob(path.with_suffix("").stem + "-*.embeddings.feather")
+            # Should there be more than 10, we need to sort by int values, not string values
+            sortable = sorted(files, key=lambda x: int(x.with_suffix("").stem.split("-")[-1]))
+            if len(sortable) == 0:
+                raise FileNotFoundError("Could not find any embeddings for tile {}".format(path) + 
+                " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'.")
+            for file in sortable:
+                tb = feather.read_table(file)
+                dims = tb['_embeddings'].type.list_size
+                all_embeddings.append(pc.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))
+        return np.vstack(all_embeddings)
+
+    def download_latent(self):
+        """
+        Downloads the latent embeddings one file at a time.
+        """
+        limit = 10_000
+        route = self.projection.project.atlas_api_path + '/v1/project/data/get/embedding/paged'
+        last = None
+
+        while True:
+            params = {
+                'projection_id': self.projection.id,
+                "last_file": last,
+                "page_size": limit
+            }
+            r = requests.post(route, headers=self.projection.project.header, json=params)
+            if r.status_code == 204:
+                # Download complete!
+                break
+            fin = BytesIO(r.content)
+            tb = feather.read_table(fin)
+
+            tilename = tb.schema.metadata[b'tile'].decode("utf-8")
+            dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            feather.write_feather(tb, dest)
+            last = tilename
 
     def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
@@ -531,6 +577,7 @@ class AtlasMapEmbeddings:
 
 
         '''
+        raise DeprecationError("Use `download_latent`")
         self.project._latest_project_state()
 
         total_datums = self.project.total_datums
