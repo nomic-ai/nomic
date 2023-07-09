@@ -348,10 +348,11 @@ class AtlasMapEmbeddings:
     """
     Atlas Embeddings State
 
-    Access latent (high-dimensional) and projected (two-dimensional) embeddings of your datapoints. High dimensional embeddings
-    are not immediately downloaded when you access the embeddings attribute.
+    Access latent (high-dimensional) and projected (two-dimensional) embeddings of your datapoints.
 
-    === "Accessing Embeddings Example"
+    ## Two-dimensional projected embeddings
+
+    === "Accessing 2D Embeddings Example"
         ``` py
         from nomic import AtlasProject
 
@@ -369,6 +370,28 @@ class AtlasMapEmbeddings:
         9998  JZQ   2.110881 -12.937058
         9999  JZU   7.865006  -6.876243
         ```
+
+    ## High dimensional latent embeddings
+
+
+    === "Accessing Latent Embeddings Example"
+        ``` py
+        from nomic import AtlasProject
+
+        project = AtlasProject(name='My Project')
+        map = project.maps[0]
+        embeddings = map.embeddings.latent
+        print(embeddings.shape)
+        ```
+    === "Output"
+        ```
+        [10000, 384]
+        ```
+
+
+    !!! warning "High dimensional embeddings"
+        High dimensional embeddings are not immediately downloaded when you access the embeddings attribute - you must explicitly call `map.embeddings.latent`. Once downloaded, subsequent calls will reference your downloaded local copy.
+
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -413,16 +436,20 @@ class AtlasMapEmbeddings:
     @property
     def latent(self) -> np.array:
         """
-        Returns the embeddings in the high-dimensional space. This returns a memmapped 
-        numpy array where each row corresponds to the datapoint 
+        High dimensional embeddings.
+
+        Returns:
+            A memmapped numpy array where each row contains the latent embedding of the corresponding datapoint in the same order as `map.embeddings.projected`.
         """
         if self._latent is not None:
             return self._latent
+
         root_embedding = self.projection.tile_destination / "0/0/0-0.embeddings.feather"
         # Not the most complete check, hence the warning below.
         if not root_embedding.exists():
-            self.download_latent()
+            self._download_latent()
         all_embeddings = []
+
 
         for path in self.projection._tiles_in_order():
             # double with-suffix to remove '.embeddings.feather'
@@ -438,37 +465,41 @@ class AtlasMapEmbeddings:
                 all_embeddings.append(pc.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))
         return np.vstack(all_embeddings)
 
-    def download_latent(self):
+    def _download_latent(self):
         """
         Downloads the latent embeddings one file at a time.
         """
+        logger.warning("Downloading latent embeddings of all datapoints.")
         limit = 10_000
         route = self.projection.project.atlas_api_path + '/v1/project/data/get/embedding/paged'
         last = None
 
-        while True:
-            params = {
-                'projection_id': self.projection.id,
-                "last_file": last,
-                "page_size": limit
-            }
-            r = requests.post(route, headers=self.projection.project.header, json=params)
-            if r.status_code == 204:
-                # Download complete!
-                break
-            fin = BytesIO(r.content)
-            tb = feather.read_table(fin)
+        with tqdm(total=self.project.total_datums//limit) as pbar:
+            while True:
+                params = {
+                    'projection_id': self.projection.id,
+                    "last_file": last,
+                    "page_size": limit
+                }
+                r = requests.post(route, headers=self.projection.project.header, json=params)
+                if r.status_code == 204:
+                    # Download complete!
+                    break
+                fin = BytesIO(r.content)
+                tb = feather.read_table(fin)
 
-            tilename = tb.schema.metadata[b'tile'].decode("utf-8")
-            dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            feather.write_feather(tb, dest)
-            last = tilename
+                tilename = tb.schema.metadata[b'tile'].decode("utf-8")
+                dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                feather.write_feather(tb, dest)
+                last = tilename
+                pbar.update(1)
+
 
     def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
         Performs semantic vector search over data points on your map.
-        If ids is specified, receive back the most similar data ids in vector space to your input ids.
+        If ids is specified, receive back the most similar data ids in latent vector space to your input ids.
         If queries is specified, receive back the data ids with representations most similar to the query vectors.
 
         You should not specify both queries and ids.
@@ -536,14 +567,18 @@ class AtlasMapEmbeddings:
 
         return response['neighbors'], response['distances']
 
-    def get_embedding_iterator(self) -> Iterable[Tuple[str, str]]:
+    def _get_embedding_iterator(self) -> Iterable[Tuple[str, str]]:
         '''
+        Deprecated in favor of `map.embeddings.latent`.
+
         Iterate through embeddings of your datums.
 
         Returns:
-            A iterable mapping datum ids to their embeddings.
+            An iterable mapping datum ids to their embeddings.
 
         '''
+
+        raise DeprecationWarning("Deprecated as of June 2023. Iterate `map.embeddings.latent`.")
 
         if self.project.is_locked:
             raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
@@ -566,8 +601,10 @@ class AtlasMapEmbeddings:
 
             yield content['datum_ids'], content['embeddings']
 
-    def download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
+    def _download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
+        Deprecated in favor of `map.embeddings.latent`.
+
         Downloads embeddings to the specified save_directory.
 
         Args:
@@ -577,7 +614,7 @@ class AtlasMapEmbeddings:
 
 
         '''
-        raise DeprecationError("Use `download_latent`")
+        raise DeprecationWarning("Deprecated as of June 2023. Use `map.embeddings.latent`.")
         self.project._latest_project_state()
 
         total_datums = self.project.total_datums

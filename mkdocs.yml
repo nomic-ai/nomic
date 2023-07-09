@@ -14,7 +14,7 @@ nav:
     - 'dynamic_maps.md'
     - 'API Reference':
       - 'Accessing Atlas State':
-          - 'Embeddings: 2D and Ambient': 'map_state/embeddings.md'
+          - 'Embeddings: 2D and Latent': 'map_state/embeddings.md'
           - Atlas Topics: 'map_state/topics.md'
           - Atlas Duplicate Clustering: 'map_state/duplicates.md'
           - Atlas Tags: 'map_state/tags.md'
