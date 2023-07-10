@@ -326,10 +326,12 @@ def test_map_embeddings():
     map = project.get_map(name='UNITTEST1')
 
     time.sleep(10)
-    with tempfile.TemporaryDirectory() as td:
-        retrieved_embeddings = map.embeddings.download_embeddings(td)
+
+    retrieved_embeddings = map.embeddings.latent
+
 
     assert project.total_datums == num_embeddings
+    assert retrieved_embeddings.shape[0] == num_embeddings
 
     project = AtlasProject(name='UNITTEST1')
     map = project.get_map(name='UNITTEST1')

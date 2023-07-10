@@ -526,10 +526,7 @@ class AtlasProjection:
             sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
         except KeyError:
             sidecars = []
-        for path in self.tile_destination.glob('**/*.feather'):
-            if len(path.stem.split(".")) > 1:
-                # Sidecars are loaded alongside
-                continue
+        for path in self._tiles_in_order():
             tb = pa.feather.read_table(path)
             for sidecar_file in sidecars:
                 carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
@@ -540,6 +537,28 @@ class AtlasProjection:
 
         return self._tile_data
 
+    def _tiles_in_order(self):
+        """
+        Returns:
+            A list of all tiles in the projection in a fixed order so that all 
+            datasets are guaranteed to be aligned.
+        """
+        def children(z, x, y):
+            # This is the definition of a quadtree.
+            return [(z + 1, x * 2, y * 2),
+                    (z + 1, x * 2 + 1, y * 2),
+                    (z + 1, x * 2, y * 2 + 1),
+                    (z + 1, x * 2 + 1, y * 2 + 1)]
+        # start with the root
+        paths = [(0, 0, 0)]
+        # Pop off the front, extend the back (breadth first traversal)
+        while len(paths) > 0:
+            z, x, y = paths.pop(0)
+            path = Path(self.tile_destination, str(z), str(x), str(y)).with_suffix(".feather")
+            if path.exists():
+                yield path
+                paths.extend(children(z,x,y))
+    
     @property
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
