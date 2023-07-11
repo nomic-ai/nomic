@@ -220,9 +220,9 @@ class AtlasMapTopics:
             for i in range(1, len(topics) - 1):
                 if topics[i + 1] not in topic_hierarchy[topics[i]]:
                     topic_hierarchy[topics[i]].append(topics[i + 1])
-        self._heirarchy = dict(topic_hierarchy)
+        self._hierarchy = dict(topic_hierarchy)
 
-        return self._heirarchy
+        return self._hierarchy
 
     def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
         """
@@ -260,8 +260,9 @@ class AtlasMapTopics:
 
             result_dict = {}
             topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
-
-            subtopics = hierarchy[topic]
+            subtopics = []
+            if topic in hierarchy:
+                subtopics = hierarchy[topic]
             result_dict["subtopics"] = subtopics
             result_dict["subtopic_ids"] = topic_df[topic_df["topic_short_description"].isin(subtopics)][
                 "topic_id"
