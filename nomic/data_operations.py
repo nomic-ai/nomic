@@ -461,7 +461,7 @@ class AtlasMapEmbeddings:
                 raise FileNotFoundError("Could not find any embeddings for tile {}".format(path) + 
                 " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'.")
             for file in sortable:
-                tb = feather.read_table(file)
+                tb = feather.read_table(file, memory_map=True)
                 dims = tb['_embeddings'].type.list_size
                 all_embeddings.append(pc.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))
         return np.vstack(all_embeddings)
@@ -487,7 +487,7 @@ class AtlasMapEmbeddings:
                     # Download complete!
                     break
                 fin = BytesIO(r.content)
-                tb = feather.read_table(fin)
+                tb = feather.read_table(fin, memory_map=True)
 
                 tilename = tb.schema.metadata[b'tile'].decode("utf-8")
                 dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
