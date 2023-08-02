@@ -964,6 +964,8 @@ class AtlasProject(AtlasClass):
         reuse_embeddings_from_index: str = None,
         duplicate_detection: bool = False,
         duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
+        topic_model_method: Optional[str] = None,
+        enforce_topic_hierarchy: Optional[bool] = False
     ) -> AtlasProjection:
         '''
         Creates an index in the specified project.
@@ -981,6 +983,8 @@ class AtlasProject(AtlasClass):
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
             duplicate_detection: A boolean whether to run duplicate detection
             duplicate_threshold: At which threshold to consider points to be duplicates
+            topic_model_method: The method to use for topic modeling. Options are 'fast' or None (default method)
+            enforce_topic_hierarchy: Whether to enforce a strict agglomerative topic hierarchy. Defaults to False.
 
         Returns:
             The projection this index has built.
@@ -1017,7 +1021,10 @@ class AtlasProject(AtlasClass):
                     {'n_neighbors': projection_n_neighbors, 'n_epochs': projection_epochs, 'spread': projection_spread}
                 ),
                 'topic_model_hyperparameters': json.dumps(
-                    {'build_topic_model': build_topic_model, 'community_description_target_field': topic_label_field}
+                    {'build_topic_model': build_topic_model, 
+                     'community_description_target_field': topic_label_field,
+                     'cluster_method': topic_model_method,
+                     'enforce_topic_hierarchy': enforce_topic_hierarchy}
                 ),
             }
 
@@ -1068,7 +1075,10 @@ class AtlasProject(AtlasClass):
                     {'n_neighbors': projection_n_neighbors, 'n_epochs': projection_epochs, 'spread': projection_spread}
                 ),
                 'topic_model_hyperparameters': json.dumps(
-                    {'build_topic_model': build_topic_model, 'community_description_target_field': indexed_field}
+                    {'build_topic_model': build_topic_model, 
+                     'community_description_target_field': indexed_field,
+                     'cluster_method': topic_model_method,
+                     'enforce_topic_hierarchy': enforce_topic_hierarchy}
                 ),
                 'duplicate_detection_hyperparameters': json.dumps(
                     {'tag_duplicates': duplicate_detection, 'duplicate_cutoff': duplicate_threshold}
