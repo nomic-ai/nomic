@@ -964,7 +964,7 @@ class AtlasProject(AtlasClass):
         reuse_embeddings_from_index: str = None,
         duplicate_detection: bool = False,
         duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
-        topic_model_method: Optional[str] = None,
+        topic_model_method: Optional[str] = 'fast',
         enforce_topic_hierarchy: Optional[bool] = False
     ) -> AtlasProjection:
         '''
@@ -983,7 +983,7 @@ class AtlasProject(AtlasClass):
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
             duplicate_detection: A boolean whether to run duplicate detection
             duplicate_threshold: At which threshold to consider points to be duplicates
-            topic_model_method: The method to use for topic modeling. Options are 'fast' or None (default method)
+            topic_model_method: The method to use for topic modeling. Options are 'fast' and None (standard method). Defaults to 'fast'. 
             enforce_topic_hierarchy: Whether to enforce a strict agglomerative topic hierarchy. Defaults to False.
 
         Returns:
@@ -1411,7 +1411,7 @@ class AtlasProject(AtlasClass):
                 logger.info("Upload succeeded.")
 
     def update_maps(
-        self, data: List[Dict], embeddings: Optional[np.array] = None, shard_size: int = 1000, num_workers: int = 10
+        self, data: List[Dict], embeddings: Optional[np.array] = None, num_workers: int = 10
     ):
         '''
         Utility method to update a projects maps by adding the given data.
