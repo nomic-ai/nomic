@@ -1119,7 +1119,7 @@ class AtlasProject(AtlasClass):
         self._latest_project_state()
         m = self.meta
         html = f"""
-            <strong><a href="https://atlas.nomic.ai/dashboard/project/{m['id']}">{m['project_name']}</strong></a>
+            <strong><a href="https://atlas.nomic.ai/data/project/{m['id']}">{m['project_name']}</strong></a>
             <br>
             {m['description']} {m['total_datums_in_project']} datums inserted.
             <br>
