@@ -871,18 +871,10 @@ class AtlasMapData:
         root = feather.read_table(self.projection.tile_destination / "0/0/0.feather")
         try:
             small_sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
-            exclude_columns = [
-                '_topic_depth_1', 
-                '_topic_depth_2', 
-                '_topic_depth_3', 
-                'x', 'y', 
-                'ix', 
-                '_id']
-            small_sidecars = [elem for elem in small_sidecars if elem not in exclude_columns]
         except KeyError:
             small_sidecars = []
         for path in self.projection._tiles_in_order():
-            tb = pa.feather.read_table(path)
+            tb = pa.feather.read_table(path).select([self.id_field])
             for sidecar_file in small_sidecars:
                 carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
                 for col in carfile.column_names:
