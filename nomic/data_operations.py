@@ -846,3 +846,98 @@ class AtlasMapTags:
 
     def __repr__(self) -> str:
         return str(self.df)
+
+
+class AtlasMapData:
+    """
+    Atlas Map Metadata State
+    """
+
+    def __init__(self, projection: "AtlasProjection"):
+        self.projection = projection
+        self.project = projection.project
+        self.id_field = self.projection.project.id_field
+        # Run fetch_tiles first to guarantee existence of quad feather files
+        try:
+            self._tb: pa.Table = self.projection._fetch_tiles()
+            sidecars, _ = self._download_data()
+            self._fetch_tiles_with_all_sidecars(sidecars)
+
+        except pa.lib.ArrowInvalid as e:
+            raise ValueError("Failed to fetch tiles for this map")
+        
+    def _fetch_tiles_with_all_sidecars(self, additional_sidecars = None):
+        tbs = []
+        root = feather.read_table(self.projection.tile_destination / "0/0/0.feather")
+        try:
+            small_sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
+            exclude_columns = [
+                '_topic_depth_1', 
+                '_topic_depth_2', 
+                '_topic_depth_3', 
+                'x', 'y', 
+                'ix', 
+                '_id']
+            small_sidecars = [elem for elem in small_sidecars if elem not in exclude_columns]
+        except KeyError:
+            small_sidecars = []
+        for path in self.projection._tiles_in_order():
+            tb = pa.feather.read_table(path)
+            for sidecar_file in small_sidecars:
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            for big_sidecar in additional_sidecars:
+                fname = base64.urlsafe_b64encode(big_sidecar.encode('utf-8')).decode("utf-8")
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather")
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+        self._tb = pa.concat_tables(tbs)
+        return self._tb
+        
+    def _download_data(self):
+        '''
+        Downloads the feather tree for large sidecar columns.
+        '''
+    
+        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
+        root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.projection.id}/quadtree/'
+
+        all_quads = list(self.projection._tiles_in_order(coords_only=True))
+        sidecars =  [field for field in self.project.project_fields if field not in self._tb.column_names]
+        returned_files = []
+
+        for quad in tqdm(all_quads):
+            quad_files = []
+            for sidecar in sidecars:
+                quad_str = "/".join([str(q) for q in quad])
+                encoded_colname = base64.urlsafe_b64encode(sidecar.encode('utf-8')).decode("utf-8")
+                filename = quad_str + "." + encoded_colname + ".feather"
+                path = self.projection.tile_destination / filename
+                quad_files.append(path)
+            
+                data = requests.get(root + filename)
+                readable = io.BytesIO(data.content)
+                readable.seek(0)
+                tb = feather.read_table(readable)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                feather.write_feather(tb, path)
+            returned_files.append(quad_files)
+        return sidecars, returned_files
+        
+    @property
+    def df(self) -> pandas.DataFrame:
+        """
+        A pandas dataframe associating each datapoint on your map to their metadata.
+        """
+        return self.tb.to_pandas()
+        
+    @property
+    def tb(self) -> pa.Table:
+        """
+        Pyarrow table associating each datapoint on the map to their Atlas metadata.
+        This table is memmapped from the underlying files and is the most efficient way to
+        access metadata information.
+        """
+        return self._tb
