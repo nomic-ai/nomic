@@ -28,7 +28,7 @@ import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
 from .data_inference import convert_pyarrow_schema_for_atlas
-from .data_operations import AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
+from .data_operations import  AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics 
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
 
@@ -389,6 +389,7 @@ class AtlasProjection:
         self._topics = None
         self._tags = None
         self._tile_data = None
+        self._data = None
 
     @property
     def map_link(self):
@@ -506,6 +507,13 @@ class AtlasProjection:
         if self._tags is None:
             self._tags = AtlasMapTags(self)
         return self._tags
+    
+    @property
+    def data(self):
+        """Metadata state"""
+        if self._data is None:
+            self._data = AtlasMapData(self)
+        return self._data
 
     def _fetch_tiles(self, overwrite: bool = True):
         """
@@ -537,7 +545,7 @@ class AtlasProjection:
 
         return self._tile_data
 
-    def _tiles_in_order(self):
+    def _tiles_in_order(self, coords_only=False):
         """
         Returns:
             A list of all tiles in the projection in a fixed order so that all 
@@ -556,7 +564,10 @@ class AtlasProjection:
             z, x, y = paths.pop(0)
             path = Path(self.tile_destination, str(z), str(x), str(y)).with_suffix(".feather")
             if path.exists():
-                yield path
+                if coords_only:
+                    yield (z, x, y)
+                else:
+                    yield path
                 paths.extend(children(z,x,y))
     
     @property
