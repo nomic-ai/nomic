@@ -956,7 +956,6 @@ class AtlasMapData:
         A pandas dataframe associating each datapoint on your map to their metadata.
         Converting to pandas dataframe may materialize a large amount of data into memory.
         """
-        logger.warning("Converting to pandas dataframe may materialize a large amount of data into memory.")
         return self._tb.to_pandas()
 
     @property
