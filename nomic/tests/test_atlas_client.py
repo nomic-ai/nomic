@@ -188,6 +188,31 @@ def test_topics():
 
         project.delete()
 
+def test_data():
+    num_embeddings = 100
+    embeddings = np.random.rand(num_embeddings, 10)
+    texts = ['foo', 'bar', 'baz', 'bat']
+    data = [
+        {'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0, 'text': texts[i % 4]}
+        for i in range(len(embeddings))
+    ]
+
+    project = atlas.map_embeddings(
+        embeddings=embeddings,
+        name='test_topics',
+        id_field='id',
+        data=data,
+        is_public=True,
+        build_topic_model=True,
+        topic_label_field='text',
+        reset_project_if_exists=True,
+    )
+
+    with project.wait_for_project_lock():
+        df = project.maps[0].data.df
+        assert len(df) > 0
+        assert "text" in df.columns
+        project.delete()
 
 words = [
     'foo',

@@ -850,7 +850,26 @@ class AtlasMapTags:
 
 class AtlasMapData:
     """
-    Atlas Map Metadata State
+    Atlas Map Data (Metadata) State.
+    This is how you can access text and other associated metadata columns
+    you uploaded with your project.
+
+    === "Accessing Data Example"
+        ``` py
+        from nomic import AtlasProject
+
+        project = AtlasProject(name='My Project')
+        map = project.maps[0]
+        print(map.data)
+        ```
+    === "Output"
+        ```
+                        id_                        text                   title
+        0     000262a5-2811   The Hurricane occurred...        Hurricane Jeanne        
+        1     000c453d-ee97    In the football games...    Athens 2004 Olympics
+        ...
+        9999  fffcc65c-38dc  In 2012, the candidates...  Presidential elections
+        ```
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -874,14 +893,14 @@ class AtlasMapData:
         except KeyError:
             small_sidecars = []
         for path in self.projection._tiles_in_order():
-            tb = pa.feather.read_table(path).select(["_id"])
+            tb = pa.Table()
             for sidecar_file in small_sidecars:
                 carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             for big_sidecar in additional_sidecars:
                 fname = base64.urlsafe_b64encode(big_sidecar.encode('utf-8')).decode("utf-8")
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather")
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -892,7 +911,6 @@ class AtlasMapData:
         '''
         Downloads the feather tree for large sidecar columns.
         '''
-    
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.projection.id}/quadtree/'
 
@@ -908,7 +926,7 @@ class AtlasMapData:
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / filename
                 quad_files.append(path)
-            
+                # WARNING: Potentially large data request here
                 data = requests.get(root + filename)
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
@@ -923,12 +941,12 @@ class AtlasMapData:
         """
         A pandas dataframe associating each datapoint on your map to their metadata.
         """
-        return self.tb.to_pandas()
+        return self._tb.to_pandas()
         
     @property
     def tb(self) -> pa.Table:
         """
-        Pyarrow table associating each datapoint on the map to their Atlas metadata.
+        Pyarrow table associating each datapoint on the map to their metadata columns.
         This table is memmapped from the underlying files and is the most efficient way to
         access metadata information.
         """
