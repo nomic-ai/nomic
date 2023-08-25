@@ -876,8 +876,8 @@ class AtlasMapData:
         self.projection = projection
         self.project = projection.project
         self.id_field = self.projection.project.id_field
-        # Run fetch_tiles first to guarantee existence of quad feather files
         try:
+            # Run fetch_tiles first to guarantee existence of quad feather files
             self._tb: pa.Table = self.projection._fetch_tiles()
             sidecars, _ = self._download_data()
             self._fetch_tiles_with_all_sidecars(sidecars)
