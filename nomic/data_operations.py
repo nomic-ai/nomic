@@ -945,7 +945,6 @@ class AtlasMapData:
 
                 # WARNING: Potentially large data request here
                 data = requests.get(root + filename)
-                logger.warning(str(data))
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
                 tb = feather.read_table(readable)
