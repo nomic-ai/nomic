@@ -865,7 +865,7 @@ class AtlasMapData:
     === "Output"
         ```
                         id_                        text                   title
-        0     000262a5-2811   The Hurricane occurred...        Hurricane Jeanne        
+        0     000262a5-2811   The Hurricane occurred...        Hurricane Jeanne
         1     000c453d-ee97    In the football games...    Athens 2004 Olympics
         ...
         9999  fffcc65c-38dc  In 2012, the candidates...  Presidential elections
@@ -884,23 +884,31 @@ class AtlasMapData:
 
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Failed to fetch tiles for this map")
-        
-    def _fetch_tiles_with_all_sidecars(self, additional_sidecars = None):
+
+    def _fetch_tiles_with_all_sidecars(self, additional_sidecars=None):
         tbs = []
         root = feather.read_table(self.projection.tile_destination / "0/0/0.feather")
         try:
-            small_sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
+            small_sidecars = set(
+                [v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()]
+            )
         except KeyError:
             small_sidecars = []
         for path in self.projection._tiles_in_order():
             tb = pa.feather.read_table(path).select(["_id"])
             for sidecar_file in small_sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
+                carfile = pa.feather.read_table(
+                    path.parent / f"{path.stem}.{sidecar_file}.feather"
+                )
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             for big_sidecar in additional_sidecars:
-                fname = base64.urlsafe_b64encode(big_sidecar.encode('utf-8')).decode("utf-8")
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
+                fname = base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode(
+                    "utf-8"
+                )
+                carfile = pa.feather.read_table(
+                    path.parent / f"{path.stem}.{fname}.feather", memory_map=True
+                )
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tb = tb.drop(["_id"])
@@ -908,29 +916,36 @@ class AtlasMapData:
         self._tb = pa.concat_tables(tbs)
 
         return self._tb
-        
+
     def _download_data(self):
-        '''
+        """
         Downloads the feather tree for large sidecar columns.
-        '''
+        """
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.projection.id}/quadtree/'
+        root = f"{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.projection.id}/quadtree/"
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        sidecars =  [field for field in self.project.project_fields if field not in self._tb.column_names]
+        sidecars = [
+            field
+            for field in self.project.project_fields
+            if field not in self._tb.column_names and field != "_embeddings"
+        ]
         returned_files = []
 
         for quad in tqdm(all_quads):
             quad_files = []
             for sidecar in sidecars:
                 quad_str = "/".join([str(q) for q in quad])
-                encoded_colname = base64.urlsafe_b64encode(sidecar.encode('utf-8')).decode("utf-8")
+                encoded_colname = base64.urlsafe_b64encode(
+                    sidecar.encode("utf-8")
+                ).decode("utf-8")
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / filename
                 quad_files.append(path)
+
                 # WARNING: Potentially large data request here
                 data = requests.get(root + filename)
-                print(data)
+                logger.warning(str(data))
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
                 tb = feather.read_table(readable)
@@ -938,14 +953,14 @@ class AtlasMapData:
                 feather.write_feather(tb, path)
             returned_files.append(quad_files)
         return sidecars, returned_files
-        
+
     @property
     def df(self) -> pandas.DataFrame:
         """
         A pandas dataframe associating each datapoint on your map to their metadata.
         """
         return self._tb.to_pandas()
-        
+
     @property
     def tb(self) -> pa.Table:
         """
