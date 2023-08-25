@@ -893,7 +893,7 @@ class AtlasMapData:
         except KeyError:
             small_sidecars = []
         for path in self.projection._tiles_in_order():
-            tb = pa.Table()
+            tb = pa.feather.read_table(path).select(["_id"])
             for sidecar_file in small_sidecars:
                 carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
                 for col in carfile.column_names:
@@ -903,8 +903,10 @@ class AtlasMapData:
                 carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
+            tb = tb.drop(["_id"])
             tbs.append(tb)
         self._tb = pa.concat_tables(tbs)
+
         return self._tb
         
     def _download_data(self):
