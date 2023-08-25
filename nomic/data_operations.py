@@ -930,6 +930,7 @@ class AtlasMapData:
                 quad_files.append(path)
                 # WARNING: Potentially large data request here
                 data = requests.get(root + filename)
+                print(data)
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
                 tb = feather.read_table(readable)
