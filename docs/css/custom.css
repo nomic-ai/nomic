@@ -3,3 +3,8 @@
 .md-container .jp-Cell-inputWrapper .jp-InputPrompt.jp-InputArea-prompt {
   display: none !important;
 }
+
+.md-nav {
+  max-height:85vh;
+  overflow-y: scroll;
+}
