@@ -533,7 +533,7 @@ class AtlasProjection:
         try:
             sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
         except KeyError:
-            sidecars = []
+            sidecars = set([])
         for path in self._tiles_in_order():
             tb = pa.feather.read_table(path)
             for sidecar_file in sidecars:

@@ -880,12 +880,12 @@ class AtlasMapData:
             # Run fetch_tiles first to guarantee existence of quad feather files
             self._tb: pa.Table = self.projection._fetch_tiles()
             sidecars, _ = self._download_data()
-            self._fetch_tiles_with_all_sidecars(sidecars)
+            self._read_prefetched_tiles_with_sidecars(sidecars)
 
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Failed to fetch tiles for this map")
 
-    def _fetch_tiles_with_all_sidecars(self, additional_sidecars=None):
+    def _read_prefetched_tiles_with_sidecars(self, additional_sidecars=None):
         tbs = []
         root = feather.read_table(self.projection.tile_destination / "0/0/0.feather")
         try:
@@ -893,12 +893,13 @@ class AtlasMapData:
                 [v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()]
             )
         except KeyError:
-            small_sidecars = []
+            small_sidecars = set([])
         for path in self.projection._tiles_in_order():
             tb = pa.feather.read_table(path).select(["_id"])
             for sidecar_file in small_sidecars:
                 carfile = pa.feather.read_table(
-                    path.parent / f"{path.stem}.{sidecar_file}.feather"
+                    path.parent / f"{path.stem}.{sidecar_file}.feather",
+                    memory_map = True
                 )
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
@@ -930,10 +931,8 @@ class AtlasMapData:
             for field in self.project.project_fields
             if field not in self._tb.column_names and field != "_embeddings"
         ]
-        returned_files = []
 
         for quad in tqdm(all_quads):
-            quad_files = []
             for sidecar in sidecars:
                 quad_str = "/".join([str(q) for q in quad])
                 encoded_colname = base64.urlsafe_b64encode(
@@ -941,7 +940,6 @@ class AtlasMapData:
                 ).decode("utf-8")
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / filename
-                quad_files.append(path)
 
                 # WARNING: Potentially large data request here
                 data = requests.get(root + filename)
@@ -950,14 +948,15 @@ class AtlasMapData:
                 tb = feather.read_table(readable)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 feather.write_feather(tb, path)
-            returned_files.append(quad_files)
-        return sidecars, returned_files
+        return sidecars
 
     @property
     def df(self) -> pandas.DataFrame:
         """
         A pandas dataframe associating each datapoint on your map to their metadata.
+        Converting to pandas dataframe may materialize a large amount of data into memory.
         """
+        logger.warning("Converting to pandas dataframe may materialize a large amount of data into memory.")
         return self._tb.to_pandas()
 
     @property

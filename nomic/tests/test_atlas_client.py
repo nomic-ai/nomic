@@ -193,7 +193,7 @@ def test_data():
     embeddings = np.random.rand(num_embeddings, 10)
     texts = ['foo', 'bar', 'baz', 'bat']
     data = [
-        {'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0, 'text': texts[i % 4]}
+        {'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0, 'text': str(i)}
         for i in range(len(embeddings))
     ]
 
