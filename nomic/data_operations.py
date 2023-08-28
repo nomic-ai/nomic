@@ -897,11 +897,10 @@ class AtlasMapData:
             small_sidecars = set([])
         for path in self.projection._tiles_in_order():
             # NOTE: This will have to be extended to more topic depths
-            tb = pa.feather.read_table(path).drop(["_id", 
-                                                   "ix", "x", "y", 
-                                                   "_topic_depth_1", 
-                                                   "_topic_depth_2", 
-                                                   "_topic_depth_3"])
+            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])
+            for col in tb.column_names:
+                if col[0] == "_":
+                    tb = tb.drop([col])
             for sidecar_file in small_sidecars:
                 carfile = pa.feather.read_table(
                     path.parent / f"{path.stem}.{sidecar_file}.feather",
