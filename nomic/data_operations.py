@@ -896,7 +896,6 @@ class AtlasMapData:
         except KeyError:
             small_sidecars = set([])
         for path in self.projection._tiles_in_order():
-            # NOTE: This will have to be extended to more topic depths
             tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])
             for col in tb.column_names:
                 if col[0] == "_":
