@@ -876,10 +876,11 @@ class AtlasMapData:
         self.projection = projection
         self.project = projection.project
         self.id_field = self.projection.project.id_field
+        self._tb = None
         try:
             # Run fetch_tiles first to guarantee existence of quad feather files
-            self._tb: pa.Table = self.projection._fetch_tiles()
-            sidecars, _ = self._download_data()
+            self._basic_data: pa.Table = self.projection._fetch_tiles()
+            sidecars = self._download_data()
             self._read_prefetched_tiles_with_sidecars(sidecars)
 
         except pa.lib.ArrowInvalid as e:
@@ -895,7 +896,7 @@ class AtlasMapData:
         except KeyError:
             small_sidecars = set([])
         for path in self.projection._tiles_in_order():
-            tb = pa.feather.read_table(path).select(["_id"])
+            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])
             for sidecar_file in small_sidecars:
                 carfile = pa.feather.read_table(
                     path.parent / f"{path.stem}.{sidecar_file}.feather",
@@ -912,7 +913,6 @@ class AtlasMapData:
                 )
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
-            tb = tb.drop(["_id"])
             tbs.append(tb)
         self._tb = pa.concat_tables(tbs)
 
@@ -929,7 +929,7 @@ class AtlasMapData:
         sidecars = [
             field
             for field in self.project.project_fields
-            if field not in self._tb.column_names and field != "_embeddings"
+            if field not in self._basic_data.column_names and field != "_embeddings"
         ]
 
         for quad in tqdm(all_quads):
@@ -942,13 +942,17 @@ class AtlasMapData:
                 path = self.projection.tile_destination / filename
 
                 # WARNING: Potentially large data request here
-                data = requests.get(root + filename)
-                readable = io.BytesIO(data.content)
-                readable.seek(0)
-                tb = feather.read_table(readable)
-                path.parent.mkdir(parents=True, exist_ok=True)
-                feather.write_feather(tb, path)
+                self._download_file(root + filename, path)
+        
         return sidecars
+    
+    def _download_file(self, url: str, path: str):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with requests.get(url, stream=True) as response:
+            response.raise_for_status()
+            with open(path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
 
     @property
     def df(self) -> pandas.DataFrame:
