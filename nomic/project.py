@@ -529,15 +529,15 @@ class AtlasProjection:
             return self._tile_data
         self._download_feather(overwrite=overwrite)
         tbs = []
-        root = feather.read_table(self.tile_destination / "0/0/0.feather")
+        root = feather.read_table(self.tile_destination / "0/0/0.feather", memory_map=True)
         try:
             sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
         except KeyError:
             sidecars = set([])
         for path in self._tiles_in_order():
-            tb = pa.feather.read_table(path)
+            tb = pa.feather.read_table(path, memory_map = True)
             for sidecar_file in sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather")
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map = True)
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -598,7 +598,7 @@ class AtlasProjection:
                 data = requests.get(root + quad)
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
-                tb = feather.read_table(readable)
+                tb = feather.read_table(readable, memory_map=True)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 feather.write_feather(tb, path)
             schema = ipc.open_file(path).schema
@@ -1140,7 +1140,7 @@ class AtlasProject(AtlasClass):
         self._latest_project_state()
         m = self.meta
         html = f"""
-            <strong><a href="https://atlas.nomic.ai/dashboard/project/{m['id']}">{m['project_name']}</strong></a>
+            <strong><a href="https://atlas.nomic.ai/data/project/{m['id']}">{m['project_name']}</strong></a>
             <br>
             {m['description']} {m['total_datums_in_project']} datums inserted.
             <br>
