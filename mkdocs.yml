@@ -18,6 +18,7 @@ nav:
           - Atlas Topics: 'map_state/topics.md'
           - Atlas Duplicate Clustering: 'map_state/duplicates.md'
           - Atlas Tags: 'map_state/tags.md'
+          - Atlas Data: 'map_state/data.md'
 
       - 'atlas_api.md'
 

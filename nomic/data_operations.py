@@ -846,3 +846,130 @@ class AtlasMapTags:
 
     def __repr__(self) -> str:
         return str(self.df)
+
+
+class AtlasMapData:
+    """
+    Atlas Map Data (Metadata) State.
+    This is how you can access text and other associated metadata columns
+    you uploaded with your project.
+
+    === "Accessing Data Example"
+        ``` py
+        from nomic import AtlasProject
+
+        project = AtlasProject(name='My Project')
+        map = project.maps[0]
+        print(map.data)
+        ```
+    === "Output"
+        ```
+                        id_                        text                   title
+        0     000262a5-2811   The Hurricane occurred...        Hurricane Jeanne
+        1     000c453d-ee97    In the football games...    Athens 2004 Olympics
+        ...
+        9999  fffcc65c-38dc  In 2012, the candidates...  Presidential elections
+        ```
+    """
+
+    def __init__(self, projection: "AtlasProjection"):
+        self.projection = projection
+        self.project = projection.project
+        self.id_field = self.projection.project.id_field
+        self._tb = None
+        try:
+            # Run fetch_tiles first to guarantee existence of quad feather files
+            self._basic_data: pa.Table = self.projection._fetch_tiles()
+            sidecars = self._download_data()
+            self._read_prefetched_tiles_with_sidecars(sidecars)
+
+        except pa.lib.ArrowInvalid as e:
+            raise ValueError("Failed to fetch tiles for this map")
+
+    def _read_prefetched_tiles_with_sidecars(self, additional_sidecars=None):
+        tbs = []
+        root = feather.read_table(self.projection.tile_destination / "0/0/0.feather")
+        try:
+            small_sidecars = set(
+                [v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()]
+            )
+        except KeyError:
+            small_sidecars = set([])
+        for path in self.projection._tiles_in_order():
+            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])
+            for col in tb.column_names:
+                if col[0] == "_":
+                    tb = tb.drop([col])
+            for sidecar_file in small_sidecars:
+                carfile = pa.feather.read_table(
+                    path.parent / f"{path.stem}.{sidecar_file}.feather",
+                    memory_map = True
+                )
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            for big_sidecar in additional_sidecars:
+                fname = base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode(
+                    "utf-8"
+                )
+                carfile = pa.feather.read_table(
+                    path.parent / f"{path.stem}.{fname}.feather", memory_map=True
+                )
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+        self._tb = pa.concat_tables(tbs)
+
+        return self._tb
+
+    def _download_data(self):
+        """
+        Downloads the feather tree for large sidecar columns.
+        """
+        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
+        root = f"{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.projection.id}/quadtree/"
+
+        all_quads = list(self.projection._tiles_in_order(coords_only=True))
+        sidecars = [
+            field
+            for field in self.project.project_fields
+            if field not in self._basic_data.column_names and field != "_embeddings"
+        ]
+
+        for quad in tqdm(all_quads):
+            for sidecar in sidecars:
+                quad_str = "/".join([str(q) for q in quad])
+                encoded_colname = base64.urlsafe_b64encode(
+                    sidecar.encode("utf-8")
+                ).decode("utf-8")
+                filename = quad_str + "." + encoded_colname + ".feather"
+                path = self.projection.tile_destination / filename
+
+                # WARNING: Potentially large data request here
+                self._download_file(root + filename, path)
+        
+        return sidecars
+    
+    def _download_file(self, url: str, path: str):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with requests.get(url, stream=True) as response:
+            response.raise_for_status()
+            with open(path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+    @property
+    def df(self) -> pandas.DataFrame:
+        """
+        A pandas dataframe associating each datapoint on your map to their metadata.
+        Converting to pandas dataframe may materialize a large amount of data into memory.
+        """
+        return self._tb.to_pandas()
+
+    @property
+    def tb(self) -> pa.Table:
+        """
+        Pyarrow table associating each datapoint on the map to their metadata columns.
+        This table is memmapped from the underlying files and is the most efficient way to
+        access metadata information.
+        """
+        return self._tb
