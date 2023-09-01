@@ -385,7 +385,7 @@ def test_map_embeddings():
 
 
 def test_map_text_pandas():
-    size = 20
+    size = 50
     data = pd.DataFrame({
         'field': [str(uuid.uuid4()) for i in range(size)],
         'id': [str(uuid.uuid4()) for i in range(size)],
@@ -404,6 +404,34 @@ def test_map_text_pandas():
 
     map = project.get_map(name='UNITTEST_pandas_text')
 
-    assert project.total_datums == 20
+    assert project.total_datums == 50
 
+    project.delete()
+
+
+def test_map_text_iterator():
+    size = 50
+    data = [
+        {
+            'field': str(uuid.uuid4()),
+            'id': str(uuid.uuid4()),
+            'color': random.choice(['red', 'blue', 'green'])
+        } 
+        for _ in range(size)
+    ]
+
+    data_iter = iter(data)
+
+    project = atlas.map_text(
+        name='UNITTEST_pandas_text',
+        id_field='id',
+        indexed_field="color",
+        data=data_iter,
+        is_public=True,
+        colorable_fields=['color'],
+        reset_project_if_exists=True,
+    )
+
+    map = project.get_map(name='UNITTEST_pandas_text')
+    assert project.total_datums == 50
     project.delete()
