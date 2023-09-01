@@ -4,9 +4,15 @@ or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
+try:
+    import pandas as pd
+    from pandas import DataFrame
+except ImportError:
+    pd = None
+    DataFrame = None
 from loguru import logger
 from tqdm import tqdm
 
@@ -146,7 +152,7 @@ def map_embeddings(
 
 
 def map_text(
-    data: List[Dict],
+    data: Union[Iterable[Dict], DataFrame],
     indexed_field: str,
     id_field: str = None,
     name: str = None,
@@ -165,12 +171,13 @@ def map_text(
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
     duplicate_detection: bool = False,
     duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
+    upload_batch_size: int = 1000
 ) -> AtlasProject:
     '''
     Generates or updates a map of the given text.
 
     Args:
-        data: An [N,] element list of dictionaries containing metadata for each embedding.
+        data: An [N,] element iterable of dictionaries containing metadata for each embedding.
         indexed_field: The name the data field containing the text your want to map.
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         name: A name for your map.
@@ -185,6 +192,7 @@ def map_text(
         projection_n_neighbors: The number of neighbors to build.
         projection_epochs: The number of epochs to build the map with.
         projection_spread: The spread of the map.
+        upload_batch_size: Batch size of text data to upload at a time. Defaults to 1000.
 
     Returns:
         The AtlasProject containing your map.
@@ -203,6 +211,18 @@ def map_text(
         project_name = name
         index_name = name
 
+    if isinstance(data, pd.DataFrame):
+        # Convert DataFrame to a generator of dictionaries
+        data_iterator = (row._asdict() for row in data.itertuples(index=False))
+    else:
+        data_iterator = iter(data)
+
+    first_sample = next(data_iterator, None)
+
+    if first_sample is None:
+        logger.warning("Passed data has no samples. No project will be created")
+        return
+
     project = AtlasProject(
         name=project_name,
         description=description,
@@ -214,17 +234,15 @@ def map_text(
         add_datums_if_exists=add_datums_if_exists,
     )
 
-    added_id_field = False
+    add_id_field = False
 
-    if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
-        added_id_field = True
-        for i in range(len(data)):
-            data[i][id_field] = b64int(i)
+    if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in first_sample:
+        add_id_field = True
 
-    if added_id_field:
+    if add_id_field:
         logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
-    project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data=data)
+    project._validate_map_data_inputs(colorable_fields=colorable_fields, id_field=id_field, data_sample=first_sample)
 
     number_of_datums_before_upload = project.total_datums
 
@@ -234,10 +252,27 @@ def map_text(
     if num_workers is not None:
         logger.warning("Passing 'num_workers' is deprecated and will be removed in a future release.")
     try:
-        project.add_text(
-            data,
-            shard_size=None,
-        )
+
+        id_to_add = 0
+        if add_id_field:
+            first_sample[id_field] = b64int(id_to_add)
+            id_to_add += 1
+        
+        batch = [first_sample]
+
+        for d in data_iterator:
+            if add_id_field:
+                # necessary to persist change
+                d[id_field] = b64int(id_to_add)
+                id_to_add += 1
+            batch.append(d)
+            if len(batch) >= upload_batch_size:
+                project.add_text(batch)
+                batch = []
+
+        if len(batch) > 0:
+            project.add_text(batch)
+        
     except BaseException as e:
         if number_of_datums_before_upload == 0:
             logger.info(f"{project.name}: Deleting project due to failure in initial upload.")

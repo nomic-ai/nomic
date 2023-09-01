@@ -102,7 +102,7 @@ class AtlasClass(object):
 
         return response.json()
 
-    def _validate_map_data_inputs(self, colorable_fields, id_field, data):
+    def _validate_map_data_inputs(self, colorable_fields, id_field, data_sample):
         '''Validates inputs to map data calls.'''
 
         if not isinstance(colorable_fields, list):
@@ -112,7 +112,7 @@ class AtlasClass(object):
             raise Exception(f'Cannot color by unique id field: {id_field}')
 
         for field in colorable_fields:
-            if field not in data[0]:
+            if field not in data_sample:
                 raise Exception(f"Cannot color by field `{field}` as it is not present in the metadata.")
 
     def _get_current_users_main_organization(self):
