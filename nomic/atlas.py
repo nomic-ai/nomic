@@ -7,12 +7,7 @@ import uuid
 from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
-try:
-    import pandas as pd
-    from pandas import DataFrame
-except ImportError:
-    pd = None
-    DataFrame = None
+from pandas import DataFrame
 from loguru import logger
 from tqdm import tqdm
 
@@ -211,7 +206,7 @@ def map_text(
         project_name = name
         index_name = name
 
-    if isinstance(data, pd.DataFrame):
+    if isinstance(data, DataFrame):
         # Convert DataFrame to a generator of dictionaries
         data_iterator = (row._asdict() for row in data.itertuples(index=False))
     else:
