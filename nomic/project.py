@@ -110,9 +110,19 @@ class AtlasClass(object):
 
         if id_field in colorable_fields:
             raise Exception(f'Cannot color by unique id field: {id_field}')
+        
+        names: List[str]
+        if isinstance(data, pa.Table):
+            names = data.column_names
+        elif pd is not None and isinstance(data, pd.DataFrame):
+            names = list(data.columns)
+        elif isinstance(data, list):
+            names = list(data[0].keys())
+        else:
+            raise ValueError("Invalid data type for data. Must be pyarrow.Table, pandas.DataFrame, or list of dicts.")
 
         for field in colorable_fields:
-            if field not in data[0]:
+            if field not in names:
                 raise Exception(f"Cannot color by field `{field}` as it is not present in the metadata.")
 
     def _get_current_users_main_organization(self):

@@ -12,12 +12,19 @@ from tqdm import tqdm
 
 from .project import AtlasProject
 from .settings import *
+try:
+    import pandas as pd
+    from pandas import DataFrame
+except ImportError:
+    pd = None
+    DataFrame = None
+import pyarrow as pa
+from typing import Union
 from .utils import b64int, get_random_name
-
 
 def map_embeddings(
     embeddings: np.array,
-    data: List[Dict] = None,
+    data: Union[List[Dict], "DataFrame", pa.Table, None] = None,
     id_field: str = None,
     name: str = None,
     description: str = None,
@@ -146,7 +153,7 @@ def map_embeddings(
 
 
 def map_text(
-    data: List[Dict],
+    data: Union[List[Dict], "DataFrame", pa.Table],
     indexed_field: str,
     id_field: str = None,
     name: str = None,
