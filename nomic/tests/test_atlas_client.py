@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import requests
 from nomic import AtlasProject, atlas
-
+import pandas as pd
 
 def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
     # generate a datetime in format yyyy-mm-dd hh:mm:ss.000000
@@ -381,4 +381,57 @@ def test_map_embeddings():
 
     assert 'my_tag' not in map.tags.get_tags()
 
+    project.delete()
+
+
+def test_map_text_pandas():
+    size = 50
+    data = pd.DataFrame({
+        'field': [str(uuid.uuid4()) for i in range(size)],
+        'id': [str(uuid.uuid4()) for i in range(size)],
+        'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
+    })
+
+    project = atlas.map_text(
+        name='UNITTEST_pandas_text',
+        id_field='id',
+        indexed_field="color",
+        data=data,
+        is_public=True,
+        colorable_fields=['color'],
+        reset_project_if_exists=True,
+    )
+
+    map = project.get_map(name='UNITTEST_pandas_text')
+
+    assert project.total_datums == 50
+
+    project.delete()
+
+
+def test_map_text_iterator():
+    size = 50
+    data = [
+        {
+            'field': str(uuid.uuid4()),
+            'id': str(uuid.uuid4()),
+            'color': random.choice(['red', 'blue', 'green'])
+        } 
+        for _ in range(size)
+    ]
+
+    data_iter = iter(data)
+
+    project = atlas.map_text(
+        name='UNITTEST_pandas_text',
+        id_field='id',
+        indexed_field="color",
+        data=data_iter,
+        is_public=True,
+        colorable_fields=['color'],
+        reset_project_if_exists=True,
+    )
+
+    map = project.get_map(name='UNITTEST_pandas_text')
+    assert project.total_datums == 50
     project.delete()
