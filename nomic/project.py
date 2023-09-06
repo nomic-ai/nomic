@@ -1310,10 +1310,10 @@ class AtlasProject(AtlasClass):
 
         num_workers = 10
 
-        # Each worker currently is too slow beyond a shard_size of 50Thi000
+        # Each worker currently is too slow beyond a shard_size of 50000
 
         # The heuristic here is: Never let shards be more than 50,000 items,
-        # OR more than 4MB uncompressed. Whichever is smaller.
+        # OR more than 32MB uncompressed. Whichever is smaller.
 
         bytesize = data.nbytes
         nrow = len(data)
