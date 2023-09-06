@@ -165,8 +165,7 @@ def map_text(
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
     duplicate_detection: bool = False,
-    duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
-    upload_batch_size: int = 1000
+    duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD
 ) -> AtlasProject:
     '''
     Generates or updates a map of the given text.
@@ -187,7 +186,6 @@ def map_text(
         projection_n_neighbors: The number of neighbors to build.
         projection_epochs: The number of epochs to build the map with.
         projection_spread: The spread of the map.
-        upload_batch_size: Batch size of text data to upload at a time. Defaults to 1000.
 
     Returns:
         The AtlasProject containing your map.
@@ -247,7 +245,7 @@ def map_text(
     if num_workers is not None:
         logger.warning("Passing 'num_workers' is deprecated and will be removed in a future release.")
     try:
-
+        upload_batch_size = 100_000
         id_to_add = 0
         if add_id_field:
             first_sample[id_field] = b64int(id_to_add)
