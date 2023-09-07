@@ -1320,7 +1320,7 @@ class AtlasProject(AtlasClass):
 
         shard_size = 50_000
         n_chunks = int(np.ceil(nrow / shard_size))
-        # Chunk into 16MB pieces. These will probably compress down a bit.
+        # Chunk into 32MB pieces. These will probably compress down a bit.
         if bytesize / n_chunks > 32_000_000:
             shard_size = int(np.ceil(nrow / (bytesize / 32_000_000)))
 
