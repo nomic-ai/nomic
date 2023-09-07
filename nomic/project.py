@@ -1310,19 +1310,19 @@ class AtlasProject(AtlasClass):
 
         num_workers = 10
 
-        # Each worker currently is too slow beyond a shard_size of 50000
+        # Each worker currently is too slow beyond a shard_size of 10000
 
-        # The heuristic here is: Never let shards be more than 50,000 items,
-        # OR more than 32MB uncompressed. Whichever is smaller.
+        # The heuristic here is: Never let shards be more than 10,000 items,
+        # OR more than 16MB uncompressed. Whichever is smaller.
 
         bytesize = data.nbytes
         nrow = len(data)
 
-        shard_size = 50_000
+        shard_size = 10_000
         n_chunks = int(np.ceil(nrow / shard_size))
-        # Chunk into 32MB pieces. These will probably compress down a bit.
-        if bytesize / n_chunks > 32_000_000:
-            shard_size = int(np.ceil(nrow / (bytesize / 32_000_000)))
+        # Chunk into 16MB pieces. These will probably compress down a bit.
+        if bytesize / n_chunks > 16_000_000:
+            shard_size = int(np.ceil(nrow / (bytesize / 16_000_000)))
 
         data = self._validate_and_correct_arrow_upload(
             data=data,
