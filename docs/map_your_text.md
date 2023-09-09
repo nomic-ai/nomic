@@ -20,7 +20,7 @@ When sending text you should specify an `indexed_field` in the `map_text` functi
     dataset = load_dataset('ag_news')['train']
     
     max_documents = 10000
-    subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
+    subset_idxs = np.random.choice(len(dataset), size=max_documents, replace=False).tolist()
     documents = [dataset[i] for i in subset_idxs]
     
     project = atlas.map_text(data=documents,
@@ -64,7 +64,7 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
     #make dataset
     max_documents = 10000
     dataset = load_dataset("sentiment140")['train']
-    documents = [dataset[i] for i in np.random.randint(len(dataset), size=max_documents).tolist()]
+    documents = [dataset[i] for i in np.random.choice(len(dataset), size=max_documents, replace=False).tolist()]
     
     
     model = AutoModel.from_pretrained("prajjwal1/bert-mini")
@@ -126,7 +126,7 @@ Add your Cohere API key to the below example to see how their large language mod
     dataset = load_dataset("sentiment140")['train']
     
     max_documents = 10000
-    subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
+    subset_idxs = np.random.choice(len(dataset), size=max_documents, replace=False).tolist()
     documents = [dataset[i] for i in subset_idxs]
 
     embedder = CohereEmbedder(cohere_api_key=cohere_api_key)
