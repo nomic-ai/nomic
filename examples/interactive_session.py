@@ -5,7 +5,7 @@ dataset = load_dataset('ag_news')['train']
 
 np.random.seed(0)
 max_documents = 25000
-subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
+subset_idxs = np.random.choice(len(dataset), size=max_documents, replace=False).tolist()
 documents = [dataset[i] for i in subset_idxs]
 
 project = atlas.map_text(data=documents,

@@ -5,7 +5,7 @@ from datasets import load_dataset
 dataset = load_dataset('wikipedia', '20220301.en')['train']
 
 max_documents = 10000
-subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
+subset_idxs = np.random.choice(len(dataset), size=max_documents, replace=False).tolist()
 documents = [dataset[i] for i in subset_idxs]
 
 response = atlas.map_text(data=documents,

@@ -8,7 +8,7 @@ cohere_api_key = ''
 dataset = load_dataset("sentiment140")['train']
 
 max_documents = 10000
-subset_idxs = np.random.randint(len(dataset), size=max_documents).tolist()
+subset_idxs = np.random.choice(len(dataset), size=max_documents, replace=False).tolist()
 documents = [dataset[i] for i in subset_idxs]
 
 embedder = CohereEmbedder(cohere_api_key=cohere_api_key)
