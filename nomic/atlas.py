@@ -86,6 +86,8 @@ def map_embeddings(
     if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
         added_id_field = True
         for i in range(len(data)):
+            # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
+            data[i] = data[i].copy()
             data[i][id_field] = b64int(i)
 
     if added_id_field:
@@ -255,6 +257,8 @@ def map_text(
 
         for d in data_iterator:
             if add_id_field:
+                # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
+                d = d.copy()
                 # necessary to persist change
                 d[id_field] = b64int(id_to_add)
                 id_to_add += 1
