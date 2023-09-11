@@ -4,7 +4,7 @@ or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 
 import uuid
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 from pandas import DataFrame
@@ -147,7 +147,7 @@ def map_embeddings(
 
 
 def map_text(
-    data: Union[Iterable[Dict], DataFrame],
+    data: Union[List[Dict], DataFrame],
     indexed_field: str,
     id_field: str = None,
     name: str = None,
@@ -204,17 +204,16 @@ def map_text(
         project_name = name
         index_name = name
 
-    if isinstance(data, DataFrame):
-        # Convert DataFrame to a generator of dictionaries
-        data_iterator = (row._asdict() for row in data.itertuples(index=False))
-    else:
-        data_iterator = iter(data)
-
-    first_sample = next(data_iterator, None)
-
-    if first_sample is None:
+    first_sample = None
+    if len(data) <= 0:
         logger.warning("Passed data has no samples. No project will be created")
         return
+
+    is_pandas = isinstance(data, DataFrame)
+    if is_pandas:
+        first_sample = data.iloc[0].to_dict()
+    else:
+        first_sample = data[0]
 
     project = AtlasProject(
         name=project_name,
@@ -230,7 +229,11 @@ def map_text(
     add_id_field = False
 
     if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in first_sample:
-        add_id_field = True
+        if is_pandas:
+            data[id_field] = [str(b64int(i)) for i in range(len(data))]
+        else:
+            for i in range(len(data)):
+                data[i][id_field] = str(b64int(i))
 
     if add_id_field:
         logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
@@ -245,27 +248,10 @@ def map_text(
     if num_workers is not None:
         logger.warning("Passing 'num_workers' is deprecated and will be removed in a future release.")
     try:
-        upload_batch_size = 100_000
-        id_to_add = 0
-        if add_id_field:
-            first_sample[id_field] = b64int(id_to_add)
-            id_to_add += 1
-        
-        batch = [first_sample]
-
-        for d in data_iterator:
-            if add_id_field:
-                # necessary to persist change
-                d[id_field] = b64int(id_to_add)
-                id_to_add += 1
-            batch.append(d)
-            if len(batch) >= upload_batch_size:
-                project.add_text(batch)
-                batch = []
-
-        if len(batch) > 0:
-            project.add_text(batch)
-        
+        project.add_text(
+            data,
+            shard_size=None,
+        )
     except BaseException as e:
         if number_of_datums_before_upload == 0:
             logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
