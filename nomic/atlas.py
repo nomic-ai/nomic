@@ -6,6 +6,7 @@ or in a Jupyter Notebook to organize and interact with your unstructured data.
 import uuid
 from typing import Dict, Iterable, List, Optional, Union
 
+import pyarrow as pa
 import numpy as np
 from pandas import DataFrame
 from loguru import logger
@@ -13,7 +14,7 @@ from tqdm import tqdm
 
 from .project import AtlasProject
 from .settings import *
-from .utils import b64int, get_random_name
+from .utils import b64int, get_random_name, arrow_iterator
 
 
 def map_embeddings(
@@ -209,6 +210,9 @@ def map_text(
     if isinstance(data, DataFrame):
         # Convert DataFrame to a generator of dictionaries
         data_iterator = (row._asdict() for row in data.itertuples(index=False))
+    elif isinstance(data, pa.Table):
+        # Create generator from pyarrow table
+        data_iterator = arrow_iterator(data)
     else:
         data_iterator = iter(data)
 
