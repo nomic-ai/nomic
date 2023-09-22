@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import requests
 from nomic import AtlasProject, atlas
+import pyarrow as pa
 import pandas as pd
 
 def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
@@ -403,6 +404,31 @@ def test_map_text_pandas():
     )
 
     map = project.get_map(name='UNITTEST_pandas_text')
+
+    assert project.total_datums == 50
+
+    project.delete()
+
+    
+def test_map_text_arrow():
+    size = 50
+    data = pa.Table.from_pydict({
+        'field': [str(uuid.uuid4()) for i in range(size)],
+        'id': [str(uuid.uuid4()) for i in range(size)],
+        'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
+    })
+
+    project = atlas.map_text(
+        name='UNITTEST_arrow_text',
+        id_field='id',
+        indexed_field="color",
+        data=data,
+        is_public=True,
+        colorable_fields=['color'],
+        reset_project_if_exists=True,
+    )
+
+    map = project.get_map(name='UNITTEST_arrow_text')
 
     assert project.total_datums == 50
 
