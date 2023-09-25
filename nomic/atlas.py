@@ -262,23 +262,21 @@ def map_text(
         
         batch = [first_sample]
 
-        pbar = tqdm(data_iterator, total=iterator_length)
-        for d in pbar:
-            if add_id_field:
-                # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
-                d = d.copy()
-                # necessary to persist change
-                d[id_field] = b64int(id_to_add)
-                id_to_add += 1
-            batch.append(d)
-            pbar.update(1)
-            if len(batch) >= upload_batch_size:
+        with tqdm(total=iterator_length) as pbar:
+            for d in data:
+                if add_id_field:
+                    # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
+                    d = d.copy()
+                    # necessary to persist change
+                    d[id_field] = b64int(id_to_add)
+                    id_to_add += 1
+                batch.append(d)
+                pbar.update(1)
+                if len(batch) >= upload_batch_size:
+                    project.add_text(batch, pbar=pbar)
+                    batch = []
+            if len(batch) > 0:
                 project.add_text(batch, pbar=pbar)
-                batch = []
-            
-
-        if len(batch) > 0:
-            project.add_text(batch)
         
     except BaseException as e:
         if number_of_datums_before_upload == 0:

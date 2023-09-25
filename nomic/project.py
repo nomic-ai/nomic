@@ -1355,7 +1355,9 @@ class AtlasProject(AtlasClass):
 
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
+        new_pbar = False
         if pbar is None:
+            new_pbar = True
             close_pbar = True
             pbar = tqdm(total=int(len(data)) // shard_size)
         failed = 0
@@ -1385,7 +1387,8 @@ class AtlasProject(AtlasClass):
                             if response.status_code == 413:
                                 # Possibly split in two and retry?
                                 logger.error("Shard upload failed: you are sending meta-data that is too large.")
-                                pbar.update(1)
+                                if new_pbar:
+                                    pbar.update(1)
                                 response.close()
                                 failed += shard_size
                             elif response.status_code == 504:
@@ -1405,12 +1408,14 @@ class AtlasProject(AtlasClass):
                             else:
                                 logger.error(f"{self.name}: Shard upload failed: {response}")
                                 failed += shard_size
-                                pbar.update(1)
+                                if new_pbar:
+                                    pbar.update(1)
                                 response.close()
                     else:
                         # A successful upload.
                         succeeded += shard_size
-                        pbar.update(1)
+                        if new_pbar:
+                            pbar.update(1)
                         response.close()
 
                     # remove the now completed future
