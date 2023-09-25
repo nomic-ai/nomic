@@ -206,10 +206,15 @@ def map_text(
         project_name = name
         index_name = name
 
+    iterator_length = None
+
     if isinstance(data, DataFrame):
+        iterator_length = len(data)
         # Convert DataFrame to a generator of dictionaries
         data_iterator = (row._asdict() for row in data.itertuples(index=False))
     else:
+        if hasattr(data, '__len__'):
+            iterator_length = len(data)
         data_iterator = iter(data)
 
     first_sample = next(data_iterator, None)
@@ -257,7 +262,7 @@ def map_text(
         
         batch = [first_sample]
 
-        pbar = tqdm(data_iterator)
+        pbar = tqdm(data_iterator, total=iterator_length)
         for d in pbar:
             if add_id_field:
                 # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
@@ -266,9 +271,11 @@ def map_text(
                 d[id_field] = b64int(id_to_add)
                 id_to_add += 1
             batch.append(d)
+            pbar.update(1)
             if len(batch) >= upload_batch_size:
                 project.add_text(batch, pbar=pbar)
                 batch = []
+            
 
         if len(batch) > 0:
             project.add_text(batch)
