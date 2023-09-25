@@ -346,8 +346,15 @@ class AtlasClass(object):
 
         organization_name, organization_id = self._get_organization(organization_name=organization_name)
         return {'organization_id': organization_id, 'organization_name': organization_name}
+    
+    def get_projects_in_organization(self, organization_name=None, organization_id=None) -> Dict:
+        org_name, org_id = self._get_organization(organization_name=organization_name, organization_id=organization_id)
+        response = requests.get(self.atlas_api_path + "v1/organization/" + org_id)
 
-
+        if response.status_code != 200:
+            raise Exception(f"Failed to get projects in organization: {response.text}")
+        return response.json()['results']
+        
 class AtlasIndex:
     """
     An AtlasIndex represents a single view of an Atlas Project at a point in time.
@@ -1321,8 +1328,8 @@ class AtlasProject(AtlasClass):
         shard_size = 5_000
         n_chunks = int(np.ceil(nrow / shard_size))
         # Chunk into 16MB pieces. These will probably compress down a bit.
-        if bytesize / n_chunks > 4_000_000:
-            shard_size = int(np.ceil(nrow / (bytesize / 4_000_000)))
+        if bytesize / n_chunks > 16_000_000:
+            shard_size = int(np.ceil(nrow / (bytesize / 16_000_000)))
 
         data = self._validate_and_correct_arrow_upload(
             data=data,

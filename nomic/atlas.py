@@ -250,12 +250,15 @@ def map_text(
         upload_batch_size = 100_000
         id_to_add = 0
         if add_id_field:
+            # do not modify object the user passed in
+            first_sample = first_sample.copy()
             first_sample[id_field] = b64int(id_to_add)
             id_to_add += 1
         
         batch = [first_sample]
 
-        for d in data_iterator:
+        pbar = tqdm(data_iterator)
+        for d in pbar:
             if add_id_field:
                 # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
                 d = d.copy()
@@ -264,7 +267,7 @@ def map_text(
                 id_to_add += 1
             batch.append(d)
             if len(batch) >= upload_batch_size:
-                project.add_text(batch)
+                project.add_text(batch, pbar=pbar)
                 batch = []
 
         if len(batch) > 0:
