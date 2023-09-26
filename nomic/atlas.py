@@ -250,6 +250,7 @@ def map_text(
         upload_batch_size = 100_000
         id_to_add = 0
         if add_id_field:
+            first_sample = first_sample.copy()
             first_sample[id_field] = b64int(id_to_add)
             id_to_add += 1
         
