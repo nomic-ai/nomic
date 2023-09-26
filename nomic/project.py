@@ -1321,8 +1321,8 @@ class AtlasProject(AtlasClass):
         shard_size = 5_000
         n_chunks = int(np.ceil(nrow / shard_size))
         # Chunk into 16MB pieces. These will probably compress down a bit.
-        if bytesize / n_chunks > 4_000_000:
-            shard_size = int(np.ceil(nrow / (bytesize / 4_000_000)))
+        if bytesize / n_chunks > 16_000_000:
+            shard_size = int(np.ceil(nrow / (bytesize / 16_000_000)))
 
         data = self._validate_and_correct_arrow_upload(
             data=data,

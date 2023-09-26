@@ -350,10 +350,9 @@ def test_map_embeddings():
 
     map = project.get_map(name='UNITTEST1')
 
-    time.sleep(10)
-
+    with project.wait_for_project_lock():
+        time.sleep(1)
     retrieved_embeddings = map.embeddings.latent
-
 
     assert project.total_datums == num_embeddings
     assert retrieved_embeddings.shape[0] == num_embeddings
