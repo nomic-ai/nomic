@@ -6,7 +6,7 @@ description = 'The official Nomic python client.'
     
 setup(
     name='nomic',
-    version='2.0.10',
+    version='2.0.11',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
