@@ -263,7 +263,7 @@ def map_text(
         batch = [first_sample]
 
         with tqdm(total=iterator_length) as pbar:
-            for d in data:
+            for d in data_iterator:
                 if add_id_field:
                     # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
                     d = d.copy()
