@@ -143,9 +143,13 @@ class AtlasMapTopics:
         self.project = projection.project
         self.id_field = self.projection.project.id_field
         try:
-            self._tb: pa.Table = projection._fetch_tiles().select(
-                [self.id_field, '_topic_depth_1', '_topic_depth_2', '_topic_depth_3']
-            ).rename_columns([self.id_field, 'topic_depth_1', 'topic_depth_2', 'topic_depth_3'])
+            self._tb: pa.Table = projection._fetch_tiles()
+            topic_fields = [column for column in self._tb.columns if '_topic_depth' in column]
+            self.depth = len(topic_fields)
+            renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
+            self._tb = self._tb.select(
+                [self.id_field] + topic_fields
+            ).rename_columns([self.id_field] + renamed_fields)
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Topic modeling has not yet been run on this map.")
         self._metadata = None
@@ -189,10 +193,10 @@ class AtlasMapTopics:
         topics = json.loads(response.text)['topic_models'][0]['features']
         topic_data = [e['properties'] for e in topics]
         topic_data = pd.DataFrame(topic_data)
-        topic_data = topic_data.rename(columns={"topic": "topic_id",
-                                                '_topic_depth_1': 'topic_depth_1',
-                                                '_topic_depth_2': 'topic_depth_2',
-                                                '_topic_depth_3': 'topic_depth_3'})
+
+        column_list = [(f"_topic_depth_{i}", f"topic_depth_{i}") for i in range(1, self.depth + 1)]
+        column_list.append(("topic", "topic_id"))
+        topic_data = topic_data.rename(columns=dict(column_list))
         self._metadata = topic_data
 
         return topic_data
@@ -209,7 +213,7 @@ class AtlasMapTopics:
         topic_df = self.metadata
 
         topic_hierarchy = defaultdict(list)
-        cols = ["topic_id", "topic_depth_1", "topic_depth_2", "topic_depth_3"]
+        cols = ["topic_id"] +  [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
 
         for i, row in topic_df[cols].iterrows():
             # Only consider the non-null values for each row
@@ -239,7 +243,7 @@ class AtlasMapTopics:
 
         topic_cols = []
         # TODO: This will need to be changed once topic depths becomes dynamic and not hard-coded
-        if topic_depth not in (1, 2, 3):
+        if topic_depth > self.depth or topic_depth < 1:
             raise ValueError("Topic depth out of range.")
 
         # Unique datum id column to aggregate
@@ -290,15 +294,7 @@ class AtlasMapTopics:
         Returns:
             List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count
         '''
-        response = requests.post(
-            self.project.atlas_api_path + "/v1/project/{}/topic_density".format(self.projection.atlas_index_id),
-            headers=self.project.header,
-            json={'start': start.isoformat(), 'end': end.isoformat(), 'time_field': time_field},
-        )
-        if response.status_code != 200:
-            raise Exception(response.text)
-
-        return response.json()
+        return None
 
     def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
         '''
