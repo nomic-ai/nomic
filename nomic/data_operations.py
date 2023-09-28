@@ -144,7 +144,8 @@ class AtlasMapTopics:
         self.id_field = self.projection.project.id_field
         try:
             self._tb: pa.Table = projection._fetch_tiles()
-            topic_fields = [column for column in self._tb.columns if '_topic_depth' in column]
+            topic_fields = [column for column in self._tb.column_names if '_topic_depth' in column]
+            print(topic_fields)
             self.depth = len(topic_fields)
             renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
             self._tb = self._tb.select(
@@ -221,9 +222,9 @@ class AtlasMapTopics:
 
             # Iterate over the topics in each row, adding each topic to the
             # list of subtopics for the topic at the previous depth
-            for i in range(1, len(topics) - 1):
-                if topics[i + 1] not in topic_hierarchy[topics[i]]:
-                    topic_hierarchy[topics[i]].append(topics[i + 1])
+            for depth in range(1, len(topics) - 1):
+                if topics[depth + 1] not in topic_hierarchy[(topics[depth], depth)]:
+                    topic_hierarchy[(topics[depth], depth)].append(topics[depth + 1])
         self._hierarchy = dict(topic_hierarchy)
 
         return self._hierarchy
@@ -248,7 +249,7 @@ class AtlasMapTopics:
 
         # Unique datum id column to aggregate
         datum_id_col = self.project.meta["unique_id_field"]
-
+        # TODO: need to assign datum id based on atom_id
         df = self.df
 
         topic_datum_dict = df.groupby(f"topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
@@ -266,7 +267,7 @@ class AtlasMapTopics:
             topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
             subtopics = []
             if topic in hierarchy:
-                subtopics = hierarchy[topic]
+                subtopics = hierarchy[(topic, topic_depth)]
             result_dict["subtopics"] = subtopics
             result_dict["subtopic_ids"] = topic_df[topic_df["topic_short_description"].isin(subtopics)][
                 "topic_id"
