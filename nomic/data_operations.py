@@ -285,13 +285,32 @@ class AtlasMapTopics:
 
         Args:
             time_field: Your metadata field containing isoformat timestamps
-            start: A datetime object for the window start
+            start: A datetime object for the window start 
             end: A datetime object for the window end
 
         Returns:
             List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count
         '''
-        return None
+        time_data = self.projection._fetch_tiles().select([self.id_field, time_field])
+
+        merged_tb = self._tb.join(time_data, self.id_field, join_type="inner").combine_chunks()
+
+        del time_data # free up memory
+
+        expr = pc.field(time_field) >= start and pc.field(time_field) <= end
+        merged_tb = merged_tb.filter(expr)
+
+        topic_densities = {}
+        for depth in range(1, self.depth + 1):
+            topic_column = f'topic_depth_{depth}'
+            topic_counts = merged_tb.group_by(topic_column).aggregate([([], "count_all")]).to_pandas()
+            for _, row in topic_counts.iterrows():
+                topic = self.metadata[(self.metadata["topic_id"] == row[topic_column]) \
+                                      & (self.metadata["depth"] == depth)]["topic_short_description"].item()
+                if topic not in topic_densities:
+                    topic_densities[topic] = 0
+                topic_densities[topic] += row['count_all']
+        return topic_densities
 
     def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
         '''

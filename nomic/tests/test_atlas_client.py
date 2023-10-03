@@ -183,7 +183,8 @@ def test_topics():
 
         q = np.random.random((3, 10))
         assert len(project.maps[0].topics.vector_search_topics(q, depth=1, k=3)['topics']) == 3
-
+        group = project.maps[0].topics.group_by_topic(topic_depth=1)
+        print(group)
         assert isinstance(project.maps[0].topics.group_by_topic(topic_depth=1), list)
 
         project.delete()
