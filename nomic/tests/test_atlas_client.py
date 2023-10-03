@@ -1,4 +1,3 @@
-import datetime
 import os
 import random
 import tempfile
@@ -162,7 +161,7 @@ def test_topics():
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
     texts = ['foo', 'bar', 'baz', 'bat']
-    dates = [datetime.datetime(2021, 1, 1), datetime.datetime(2022, 1, 1), datetime.datetime(2023, 1, 1)]
+    dates = [datetime(2021, 1, 1), datetime(2022, 1, 1), datetime(2023, 1, 1)]
     data = [
         {'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0, 'text': texts[i % 4], 'date': dates[i % 3]}
         for i in range(len(embeddings))
@@ -186,8 +185,8 @@ def test_topics():
         assert len(project.maps[0].topics.vector_search_topics(q, depth=1, k=3)['topics']) == 3
         assert isinstance(project.maps[0].topics.group_by_topic(topic_depth=1), list)
 
-        start = datetime.datetime(2019, 1, 1)
-        end = datetime.datetime(2025, 1, 1)
+        start = datetime(2019, 1, 1)
+        end = datetime(2025, 1, 1)
         assert isinstance(project.maps[0].topics.get_topic_density("date", start, end), dict)
 
         project.delete()
