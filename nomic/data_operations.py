@@ -259,7 +259,12 @@ class AtlasMapTopics:
                 continue
 
             result_dict = {}
-            topic_metadata = topic_df[(topic_df["topic_id"] == topic) & (topic_df["depth"] == topic_depth)]
+            # New logic
+            if type(topic) == int:
+                topic_metadata = topic_df[(topic_df["topic_id"] == topic) & (topic_df["depth"] == topic_depth)]
+            else:
+                topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
+
             topic_label = topic_metadata["topic_short_description"].item()
             subtopics = []
             if (topic_label, topic_depth) in hierarchy:
@@ -269,7 +274,7 @@ class AtlasMapTopics:
                 "topic_id"
             ].tolist()
             result_dict["topic_id"] = topic_metadata["topic_id"].item()
-            result_dict["topic_short_description"] = topic_metadata["topic_short_description"].item()
+            result_dict["topic_short_description"] = topic_label
             result_dict["topic_long_description"] = topic_metadata["topic_description"].item()
             result_dict["datum_ids"] = datum_ids
             result.append(result_dict)
