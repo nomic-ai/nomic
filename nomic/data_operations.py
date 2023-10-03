@@ -145,7 +145,6 @@ class AtlasMapTopics:
         try:
             self._tb: pa.Table = projection._fetch_tiles()
             topic_fields = [column for column in self._tb.column_names if '_topic_depth' in column]
-            print(topic_fields)
             self.depth = len(topic_fields)
             renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
             self._tb = self._tb.select(
@@ -194,7 +193,6 @@ class AtlasMapTopics:
         topics = json.loads(response.text)['topic_models'][0]['features']
         topic_data = [e['properties'] for e in topics]
         topic_data = pd.DataFrame(topic_data)
-
         column_list = [(f"_topic_depth_{i}", f"topic_depth_{i}") for i in range(1, self.depth + 1)]
         column_list.append(("topic", "topic_id"))
         topic_data = topic_data.rename(columns=dict(column_list))
@@ -205,7 +203,8 @@ class AtlasMapTopics:
     @property
     def hierarchy(self) -> Dict:
         """
-        A dictionary that allows iteration of the topic hierarchy. Each key is a topic mapping to its sub-topics.
+        A dictionary that allows iteration of the topic hierarchy. Each key is of (topic_id, topic depth) 
+        to its direct sub-topics.
         If topic is not a key in the hierarchy, it is leaf in the topic hierarchy.
         """
         if self._hierarchy is not None:
@@ -214,19 +213,19 @@ class AtlasMapTopics:
         topic_df = self.metadata
 
         topic_hierarchy = defaultdict(list)
-        cols = ["topic_id"] +  [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
+        cols = [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
 
-        for i, row in topic_df[cols].iterrows():
+        for _, row in topic_df[cols].iterrows():
             # Only consider the non-null values for each row
             topics = [topic for topic in row if pd.notna(topic)]
 
             # Iterate over the topics in each row, adding each topic to the
             # list of subtopics for the topic at the previous depth
-            for depth in range(1, len(topics) - 1):
-                if topics[depth + 1] not in topic_hierarchy[(topics[depth], depth)]:
-                    topic_hierarchy[(topics[depth], depth)].append(topics[depth + 1])
+            for topic_index in range(len(topics) - 1):
+                # depth is index + 1
+                if topics[topic_index + 1] not in topic_hierarchy[(topics[topic_index], topic_index + 1)]:
+                    topic_hierarchy[(topics[topic_index], topic_index + 1)].append(topics[topic_index + 1])
         self._hierarchy = dict(topic_hierarchy)
-
         return self._hierarchy
 
     def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
@@ -242,21 +241,17 @@ class AtlasMapTopics:
                 topic_long_description, and list of datum_ids.
         """
 
-        topic_cols = []
         # TODO: This will need to be changed once topic depths becomes dynamic and not hard-coded
         if topic_depth > self.depth or topic_depth < 1:
             raise ValueError("Topic depth out of range.")
 
         # Unique datum id column to aggregate
         datum_id_col = self.project.meta["unique_id_field"]
-        # TODO: need to assign datum id based on atom_id
         df = self.df
 
         topic_datum_dict = df.groupby(f"topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
-
         topic_df = self.metadata
         hierarchy = self.hierarchy
-
         result = []
         for topic, datum_ids in topic_datum_dict.items():
             # Encountered topic with zero datums
@@ -264,10 +259,11 @@ class AtlasMapTopics:
                 continue
 
             result_dict = {}
-            topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
+            topic_metadata = topic_df[(topic_df["topic_id"] == topic) & (topic_df["depth"] == topic_depth)]
+            topic_label = topic_metadata["topic_short_description"].item()
             subtopics = []
-            if topic in hierarchy:
-                subtopics = hierarchy[(topic, topic_depth)]
+            if (topic_label, topic_depth) in hierarchy:
+                subtopics = hierarchy[(topic_label, topic_depth)]
             result_dict["subtopics"] = subtopics
             result_dict["subtopic_ids"] = topic_df[topic_df["topic_short_description"].isin(subtopics)][
                 "topic_id"
@@ -333,7 +329,6 @@ class AtlasMapTopics:
                 'depth': depth,
             },
         )
-
         if response.status_code != 200:
             raise Exception(response.text)
 
