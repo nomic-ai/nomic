@@ -264,7 +264,6 @@ class AtlasMapTopics:
                 continue
 
             result_dict = {}
-            # New logic
             if self.using_topic_ids:
                 topic_metadata = topic_df[(topic_df["topic_id"] == topic) & (topic_df["depth"] == topic_depth)]
             else:
