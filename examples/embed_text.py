@@ -1,5 +1,5 @@
-from nomic import embeddings
+from nomic import embed
 
 
-embeddings = embeddings.text(texts=['Hello world'], model='nomic-embed-text-v1')
+embeddings = embed.text(texts=['Hello world'], model='nomic-embed-text-v1')
 print(embeddings)
