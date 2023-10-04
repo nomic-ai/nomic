@@ -122,9 +122,6 @@ class AtlasMapTopics:
     topic_depth columns contain the topic id at that depth.
     Topic ids are unique for each depth.
     Corresponding labels can be found in `topics.metadata`.
-    
-    Backwards Compatibility Note:  
-    Before October 2023, topic_depth columns contained the topic label.
 
     === "Accessing Topics Example"
         ``` py
