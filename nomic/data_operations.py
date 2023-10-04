@@ -123,7 +123,7 @@ class AtlasMapTopics:
     Topic ids are unique for each depth.
     Corresponding labels can be found in `topics.metadata`.
     
-    Backwards Compatibility Note: 
+    Backwards Compatibility Note:  
     Before October 2023, topic_depth columns contained the topic label.
 
     === "Accessing Topics Example"
@@ -188,7 +188,7 @@ class AtlasMapTopics:
         Pandas dataframe where each row gives metadata all map topics including:
 
         - topic id
-        - a human readable topic description
+        - a human readable topic description (topic label)
         - identifying keywords that differentiate the topic from other topics
         """
         if self._metadata is not None:
