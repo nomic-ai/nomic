@@ -119,6 +119,12 @@ class AtlasMapDuplicates:
 class AtlasMapTopics:
     """
     Atlas Topics State
+    topic_depth columns contain the topic id at that depth.
+    Topic ids are unique for each depth.
+    Corresponding labels can be found in `topics.metadata`.
+    
+    Backwards Compatibility Note: 
+    Before October 2023, topic_depth columns contained the topic label.
 
     === "Accessing Topics Example"
         ``` py
@@ -130,11 +136,11 @@ class AtlasMapTopics:
         ```
     === "Output"
         ```
-                        id_      topic_depth_1       topic_depth_2          topic_depth_3
-        0     000262a5-2811  Space exploration      Hurricane Jeanne        Spacecraft Cassini
-        1     000c453d-ee97   English football      Athens 2004 Olympics    bobby rathore
+                        id_   topic_depth_1    topic_depth_2    topic_depth_3
+        0     000262a5-2811               4               23               76
+        1     000c453d-ee97               1                5              128
         ...
-        9999  fffcc65c-38dc  Space exploration      Presidential elections  Blood
+        9999  fffcc65c-38dc               7               53               12
         ```
     """
 
@@ -147,7 +153,7 @@ class AtlasMapTopics:
         self.using_topic_ids = False
         try:
             self._tb: pa.Table = projection._fetch_tiles()
-            topic_fields = [column for column in self._tb.column_names if '_topic_depth' in column]
+            topic_fields = [column for column in self._tb.column_names if column.startswith("_topic_depth_")]
             if 'int' in topic_fields[0]:
                 self.using_topic_ids = True
             self.depth = len(topic_fields)
@@ -208,7 +214,7 @@ class AtlasMapTopics:
     @property
     def hierarchy(self) -> Dict:
         """
-        A dictionary that allows iteration of the topic hierarchy. Each key is of (topic_id, topic depth) 
+        A dictionary that allows iteration of the topic hierarchy. Each key is of (topic label, topic depth) 
         to its direct sub-topics.
         If topic is not a key in the hierarchy, it is leaf in the topic hierarchy.
         """
@@ -238,15 +244,14 @@ class AtlasMapTopics:
         Associates topics at a given depth in the topic hierarchy to the identifiers of their contained datapoints.
 
         Args:
-            topic_depth: Topic depth to group datums by. Acceptable values
-                currently are (1, 2, 3).
+            topic_depth: Topic depth to group datums by.
+
         Returns:
             List of dictionaries where each dictionary contains next depth
                 subtopics, subtopic ids, topic_id, topic_short_description,
                 topic_long_description, and list of datum_ids.
         """
 
-        # TODO: This will need to be changed once topic depths becomes dynamic and not hard-coded
         if topic_depth > self.depth or topic_depth < 1:
             raise ValueError("Topic depth out of range.")
 
