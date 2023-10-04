@@ -145,23 +145,35 @@ class AtlasMapTopics:
         self.projection = projection
         self.project = projection.project
         self.id_field = self.projection.project.id_field
-        # Required for backwards compatibility - we go from topic labels to topic ids.
-        # Rather than doing this in below methods, check once here on load
-        self.using_topic_ids = False
+        self._metadata = None
+        self._hierarchy = None
+
         try:
             self._tb: pa.Table = projection._fetch_tiles()
             topic_fields = [column for column in self._tb.column_names if column.startswith("_topic_depth_")]
-            if 'int' in topic_fields[0]:
-                self.using_topic_ids = True
             self.depth = len(topic_fields)
+            
+            # If using topic ids, fetch topic labels
+            if 'int' in topic_fields[0]:
+                new_topic_fields = []
+                metadata = self.metadata
+                label_df = metadata[["topic_id", "depth", "topic_short_description"]]
+                for d in range(1, self.depth + 1):
+                    column = f"_topic_depth_{d}_int"
+                    topic_ids_to_label = self._tb[column].to_pandas().rename('topic_id')
+                    topic_ids_to_label = label_df[label_df["depth"] == d].merge(topic_ids_to_label, on='topic_id', how='right')
+                    new_column = f"_topic_depth_{d}"
+                    self._tb = self._tb.append_column(new_column, pa.Array.from_pandas(topic_ids_to_label["topic_short_description"]))
+                    new_topic_fields.append(new_column)
+                topic_fields = new_topic_fields
+
             renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
             self._tb = self._tb.select(
                 [self.id_field] + topic_fields
             ).rename_columns([self.id_field] + renamed_fields)
+
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Topic modeling has not yet been run on this map.")
-        self._metadata = None
-        self._hierarchy = None
 
     @property
     def df(self) -> pandas.DataFrame:
@@ -266,10 +278,7 @@ class AtlasMapTopics:
                 continue
 
             result_dict = {}
-            if self.using_topic_ids:
-                topic_metadata = topic_df[(topic_df["topic_id"] == topic) & (topic_df["depth"] == topic_depth)]
-            else:
-                topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
+            topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
 
             topic_label = topic_metadata["topic_short_description"].item()
             subtopics = []
@@ -315,12 +324,7 @@ class AtlasMapTopics:
             topic_column = f'topic_depth_{depth}'
             topic_counts = merged_tb.group_by(topic_column).aggregate([(self.id_field, "count")]).to_pandas()
             for _, row in topic_counts.iterrows():
-                if self.using_topic_ids:
-                    # fetch topic label
-                    topic = self.metadata[(self.metadata["topic_id"] == row[topic_column]) \
-                                        & (self.metadata["depth"] == depth)]["topic_short_description"].item()
-                else:
-                    topic = row[topic_column]
+                topic = row[topic_column]
                 if topic not in topic_densities:
                     topic_densities[topic] = 0
                 topic_densities[topic] += row[self.id_field + '_count']
