@@ -119,9 +119,6 @@ class AtlasMapDuplicates:
 class AtlasMapTopics:
     """
     Atlas Topics State
-    topic_depth columns contain the topic id at that depth.
-    Topic ids are unique for each depth.
-    Corresponding labels can be found in `topics.metadata`.
 
     === "Accessing Topics Example"
         ``` py
@@ -133,11 +130,11 @@ class AtlasMapTopics:
         ```
     === "Output"
         ```
-                        id_   topic_depth_1    topic_depth_2    topic_depth_3
-        0     000262a5-2811               4               23               76
-        1     000c453d-ee97               1                5              128
+                        id_      topic_depth_1       topic_depth_2          topic_depth_3
+        0     000262a5-2811  Space exploration      Hurricane Jeanne        Spacecraft Cassini
+        1     000c453d-ee97   English football      Athens 2004 Olympics    bobby rathore
         ...
-        9999  fffcc65c-38dc               7               53               12
+        9999  fffcc65c-38dc  Space exploration      Presidential elections  Blood
         ```
     """
 
