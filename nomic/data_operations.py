@@ -142,14 +142,35 @@ class AtlasMapTopics:
         self.projection = projection
         self.project = projection.project
         self.id_field = self.projection.project.id_field
-        try:
-            self._tb: pa.Table = projection._fetch_tiles().select(
-                [self.id_field, '_topic_depth_1', '_topic_depth_2', '_topic_depth_3']
-            ).rename_columns([self.id_field, 'topic_depth_1', 'topic_depth_2', 'topic_depth_3'])
-        except pa.lib.ArrowInvalid as e:
-            raise ValueError("Topic modeling has not yet been run on this map.")
         self._metadata = None
         self._hierarchy = None
+
+        try:
+            self._tb: pa.Table = projection._fetch_tiles()
+            topic_fields = [column for column in self._tb.column_names if column.startswith("_topic_depth_")]
+            self.depth = len(topic_fields)
+            
+            # If using topic ids, fetch topic labels
+            if 'int' in topic_fields[0]:
+                new_topic_fields = []
+                metadata = self.metadata
+                label_df = metadata[["topic_id", "depth", "topic_short_description"]]
+                for d in range(1, self.depth + 1):
+                    column = f"_topic_depth_{d}_int"
+                    topic_ids_to_label = self._tb[column].to_pandas().rename('topic_id')
+                    topic_ids_to_label = label_df[label_df["depth"] == d].merge(topic_ids_to_label, on='topic_id', how='right')
+                    new_column = f"_topic_depth_{d}"
+                    self._tb = self._tb.append_column(new_column, pa.Array.from_pandas(topic_ids_to_label["topic_short_description"]))
+                    new_topic_fields.append(new_column)
+                topic_fields = new_topic_fields
+
+            renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
+            self._tb = self._tb.select(
+                [self.id_field] + topic_fields
+            ).rename_columns([self.id_field] + renamed_fields)
+
+        except pa.lib.ArrowInvalid as e:
+            raise ValueError("Topic modeling has not yet been run on this map.")
 
     @property
     def df(self) -> pandas.DataFrame:
@@ -173,7 +194,7 @@ class AtlasMapTopics:
         Pandas dataframe where each row gives metadata all map topics including:
 
         - topic id
-        - a human readable topic description
+        - a human readable topic description (topic label)
         - identifying keywords that differentiate the topic from other topics
         """
         if self._metadata is not None:
@@ -189,10 +210,9 @@ class AtlasMapTopics:
         topics = json.loads(response.text)['topic_models'][0]['features']
         topic_data = [e['properties'] for e in topics]
         topic_data = pd.DataFrame(topic_data)
-        topic_data = topic_data.rename(columns={"topic": "topic_id",
-                                                '_topic_depth_1': 'topic_depth_1',
-                                                '_topic_depth_2': 'topic_depth_2',
-                                                '_topic_depth_3': 'topic_depth_3'})
+        column_list = [(f"_topic_depth_{i}", f"topic_depth_{i}") for i in range(1, self.depth + 1)]
+        column_list.append(("topic", "topic_id"))
+        topic_data = topic_data.rename(columns=dict(column_list))
         self._metadata = topic_data
 
         return topic_data
@@ -200,7 +220,8 @@ class AtlasMapTopics:
     @property
     def hierarchy(self) -> Dict:
         """
-        A dictionary that allows iteration of the topic hierarchy. Each key is a topic mapping to its sub-topics.
+        A dictionary that allows iteration of the topic hierarchy. Each key is of (topic label, topic depth) 
+        to its direct sub-topics.
         If topic is not a key in the hierarchy, it is leaf in the topic hierarchy.
         """
         if self._hierarchy is not None:
@@ -209,19 +230,19 @@ class AtlasMapTopics:
         topic_df = self.metadata
 
         topic_hierarchy = defaultdict(list)
-        cols = ["topic_id", "topic_depth_1", "topic_depth_2", "topic_depth_3"]
+        cols = [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
 
-        for i, row in topic_df[cols].iterrows():
+        for _, row in topic_df[cols].iterrows():
             # Only consider the non-null values for each row
             topics = [topic for topic in row if pd.notna(topic)]
 
             # Iterate over the topics in each row, adding each topic to the
             # list of subtopics for the topic at the previous depth
-            for i in range(1, len(topics) - 1):
-                if topics[i + 1] not in topic_hierarchy[topics[i]]:
-                    topic_hierarchy[topics[i]].append(topics[i + 1])
+            for topic_index in range(len(topics) - 1):
+                # depth is index + 1
+                if topics[topic_index + 1] not in topic_hierarchy[(topics[topic_index], topic_index + 1)]:
+                    topic_hierarchy[(topics[topic_index], topic_index + 1)].append(topics[topic_index + 1])
         self._hierarchy = dict(topic_hierarchy)
-
         return self._hierarchy
 
     def group_by_topic(self, topic_depth: int = 1) -> List[Dict]:
@@ -229,29 +250,24 @@ class AtlasMapTopics:
         Associates topics at a given depth in the topic hierarchy to the identifiers of their contained datapoints.
 
         Args:
-            topic_depth: Topic depth to group datums by. Acceptable values
-                currently are (1, 2, 3).
+            topic_depth: Topic depth to group datums by.
+
         Returns:
             List of dictionaries where each dictionary contains next depth
                 subtopics, subtopic ids, topic_id, topic_short_description,
                 topic_long_description, and list of datum_ids.
         """
 
-        topic_cols = []
-        # TODO: This will need to be changed once topic depths becomes dynamic and not hard-coded
-        if topic_depth not in (1, 2, 3):
+        if topic_depth > self.depth or topic_depth < 1:
             raise ValueError("Topic depth out of range.")
 
         # Unique datum id column to aggregate
         datum_id_col = self.project.meta["unique_id_field"]
-
         df = self.df
 
         topic_datum_dict = df.groupby(f"topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
-
         topic_df = self.metadata
         hierarchy = self.hierarchy
-
         result = []
         for topic, datum_ids in topic_datum_dict.items():
             # Encountered topic with zero datums
@@ -260,15 +276,17 @@ class AtlasMapTopics:
 
             result_dict = {}
             topic_metadata = topic_df[topic_df["topic_short_description"] == topic]
+
+            topic_label = topic_metadata["topic_short_description"].item()
             subtopics = []
-            if topic in hierarchy:
-                subtopics = hierarchy[topic]
+            if (topic_label, topic_depth) in hierarchy:
+                subtopics = hierarchy[(topic_label, topic_depth)]
             result_dict["subtopics"] = subtopics
             result_dict["subtopic_ids"] = topic_df[topic_df["topic_short_description"].isin(subtopics)][
                 "topic_id"
             ].tolist()
             result_dict["topic_id"] = topic_metadata["topic_id"].item()
-            result_dict["topic_short_description"] = topic_metadata["topic_short_description"].item()
+            result_dict["topic_short_description"] = topic_label
             result_dict["topic_long_description"] = topic_metadata["topic_description"].item()
             result_dict["datum_ids"] = datum_ids
             result.append(result_dict)
@@ -284,21 +302,30 @@ class AtlasMapTopics:
 
         Args:
             time_field: Your metadata field containing isoformat timestamps
-            start: A datetime object for the window start
+            start: A datetime object for the window start 
             end: A datetime object for the window end
 
         Returns:
             List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count
         '''
-        response = requests.post(
-            self.project.atlas_api_path + "/v1/project/{}/topic_density".format(self.projection.atlas_index_id),
-            headers=self.project.header,
-            json={'start': start.isoformat(), 'end': end.isoformat(), 'time_field': time_field},
-        )
-        if response.status_code != 200:
-            raise Exception(response.text)
+        data = AtlasMapData(self.projection, fields=[time_field])
+        time_data = data._tb.select([self.id_field, time_field])
+        merged_tb = self._tb.join(time_data, self.id_field, join_type="inner").combine_chunks()
 
-        return response.json()
+        del time_data # free up memory
+
+        expr = (pc.field(time_field) >= start) & (pc.field(time_field) <= end)
+        merged_tb = merged_tb.filter(expr)
+        topic_densities = {}
+        for depth in range(1, self.depth + 1):
+            topic_column = f'topic_depth_{depth}'
+            topic_counts = merged_tb.group_by(topic_column).aggregate([(self.id_field, "count")]).to_pandas()
+            for _, row in topic_counts.iterrows():
+                topic = row[topic_column]
+                if topic not in topic_densities:
+                    topic_densities[topic] = 0
+                topic_densities[topic] += row[self.id_field + '_count']
+        return topic_densities
 
     def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
         '''
@@ -336,7 +363,6 @@ class AtlasMapTopics:
                 'depth': depth,
             },
         )
-
         if response.status_code != 200:
             raise Exception(response.text)
 
@@ -872,15 +898,16 @@ class AtlasMapData:
         ```
     """
 
-    def __init__(self, projection: "AtlasProjection"):
+    def __init__(self, projection: "AtlasProjection", fields=None):
         self.projection = projection
         self.project = projection.project
         self.id_field = self.projection.project.id_field
         self._tb = None
+        self.fields = fields
         try:
             # Run fetch_tiles first to guarantee existence of quad feather files
             self._basic_data: pa.Table = self.projection._fetch_tiles()
-            sidecars = self._download_data()
+            sidecars = self._download_data(fields=fields)
             self._read_prefetched_tiles_with_sidecars(sidecars)
 
         except pa.lib.ArrowInvalid as e:
@@ -921,7 +948,7 @@ class AtlasMapData:
 
         return self._tb
 
-    def _download_data(self):
+    def _download_data(self, fields=None):
         """
         Downloads the feather tree for large sidecar columns.
         """
@@ -929,11 +956,16 @@ class AtlasMapData:
         root = f"{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.projection.id}/quadtree/"
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        sidecars = [
-            field
-            for field in self.project.project_fields
-            if field not in self._basic_data.column_names and field != "_embeddings"
-        ]
+        sidecars = fields
+        if sidecars is None:
+            sidecars = [
+                field
+                for field in self.project.project_fields
+                if field not in self._basic_data.column_names and field != "_embeddings"
+            ]
+        else:
+            for field in sidecars:
+                assert field in self.project.project_fields, f"Field {field} not found in project fields."
 
         for quad in tqdm(all_quads):
             for sidecar in sidecars:
