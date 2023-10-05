@@ -1,10 +1,20 @@
 import base64
 import gc
 import sys
+import pyarrow as pa
 from uuid import UUID
 
 from wonderwords import RandomWord
 
+
+def arrow_iterator(table: pa.Table):
+    # TODO: setting to 10k so it doesn't take too long?
+    # Wrote this as a generator so we don't realize the whole table in memory
+    reader = table.to_reader(max_chunksize=10_000)
+    for batch in reader:
+        for item in batch.to_pylist():
+            yield item
+    
 
 def b64int(i: int):
     ibytes = int.to_bytes(i, length=8, byteorder='big').lstrip(b'\x00')

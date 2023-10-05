@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import requests
 from nomic import AtlasProject, atlas
+import pyarrow as pa
 import pandas as pd
 
 def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
@@ -353,8 +354,13 @@ def test_map_embeddings():
 
     map = project.get_map(name='UNITTEST1')
 
-    with project.wait_for_project_lock():
-        time.sleep(1)
+    num_tries = 0
+    while map.project.is_locked:
+        time.sleep(10)
+        num_tries += 1
+        if num_tries > 5:
+            raise TimeoutError('Timed out while waiting for project to unlock')
+
     retrieved_embeddings = map.embeddings.latent
 
     assert project.total_datums == num_embeddings
@@ -405,6 +411,31 @@ def test_map_text_pandas():
     )
 
     map = project.get_map(name='UNITTEST_pandas_text')
+
+    assert project.total_datums == 50
+
+    project.delete()
+
+    
+def test_map_text_arrow():
+    size = 50
+    data = pa.Table.from_pydict({
+        'field': [str(uuid.uuid4()) for i in range(size)],
+        'id': [str(uuid.uuid4()) for i in range(size)],
+        'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
+    })
+
+    project = atlas.map_text(
+        name='UNITTEST_arrow_text',
+        id_field='id',
+        indexed_field="color",
+        data=data,
+        is_public=True,
+        colorable_fields=['color'],
+        reset_project_if_exists=True,
+    )
+
+    map = project.get_map(name='UNITTEST_arrow_text')
 
     assert project.total_datums == 50
 
