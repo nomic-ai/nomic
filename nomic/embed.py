@@ -1,4 +1,6 @@
 import requests
+import os
+import base64
 from typing import List
 from .project import AtlasClass
 
@@ -23,6 +25,43 @@ def text(texts: List[str], model: str = 'nomic-embed-text-v1'):
         atlas_class.atlas_api_path + "/v1/embedding/text",
         headers=atlas_class.header,
         json={'texts': texts, 'model': model},
+    )
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(str(response.json()))
+
+def images(images: List[str], model: str = 'nomic-embed-image-v1'):
+    """
+    Generates embeddings for the given images.
+
+    Args:
+        images: the images to embed. Can be filepaths, bytes or Pillow objects
+        model: the model to use when embedding
+
+    Returns:
+        An object containing your embeddings and request metadata
+    """
+
+    image_batch = []
+
+    for image in images:
+        #TODO implement check for bytes.
+        #TODO implement check for pillow image.
+        #TODO implement check for a valid image.
+        if os.path.exists(image):
+            with open(image, "rb") as image_file:
+                base64_image_string = base64.b64encode(image_file.read()).decode('utf-8')
+                image_batch.append(base64_image_string)
+        else:
+            raise ValueError(f"Not a valid file: {image}")
+
+
+    response = requests.post(
+        atlas_class.atlas_api_path + "/v1/embedding/image",
+        headers=atlas_class.header,
+        json={'images': images, 'model': model},
     )
 
     if response.status_code == 200:
