@@ -13,7 +13,7 @@ atlas_class = AtlasClass()
 
 
 
-def text(texts: List[Union[str, PIL.Image.Image]], model: str = 'nomic-embed-text-v1'):
+def text(texts: List[str], model: str = 'nomic-embed-text-v1'):
     """
     Generates embeddings for the given text.
 
@@ -36,7 +36,7 @@ def text(texts: List[Union[str, PIL.Image.Image]], model: str = 'nomic-embed-tex
     else:
         raise Exception(str(response.json()))
 
-def images(images: List[str], model: str = 'nomic-embed-image-v1'):
+def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
 
@@ -48,34 +48,59 @@ def images(images: List[str], model: str = 'nomic-embed-image-v1'):
         An object containing your embeddings and request metadata
     """
 
-    image_batch = []
+    batch_size = 250
 
-    for image in images:
-        #TODO implement check for bytes.
-        #TODO implement check for pillow image.
-        #TODO implement check for a valid image.
-        if isinstance(image, str) and os.path.exists(image):
-            with open(image, "rb") as image_file:
-                base64_image_string = base64.b64encode(image_file.read()).decode('utf-8')
-                image_batch.append(base64_image_string)
-        elif isinstance(image, PIL.Image.Image):
-            buffered = BytesIO()
-            image.save(buffered, format="JPEG")
-            image_batch.append(base64.b64encode(buffered.getvalue()).decode('utf-8'))
+    def run_inference(batch):
+        response = requests.post(
+            atlas_class.atlas_api_path + "/v1/embedding/image",
+            headers=atlas_class.header,
+            json={'images': batch, 'model': model},
+        )
+
+        if response.status_code == 200:
+            return response.json()
         else:
-            raise ValueError(f"Not a valid file: {image}")
+            raise Exception(response.status_code)
 
 
-    response = requests.post(
-        atlas_class.atlas_api_path + "/v1/embedding/image",
-        headers=atlas_class.header,
-        json={'images': image_batch, 'model': model},
-    )
+    #naive batching, we should parallelize this across threads like we do with uploads.
+    #TODO this should all be re-written prior to public release
+    responses = []
+    for i in range(0, len(images), batch_size):
+        image_batch = []
 
-    if response.status_code == 200:
-        return response.json()
-    else:
-        raise Exception(str(response.json()))
+        # process images into base64 encoded strings (for now)
+        for image in images[i:i + batch_size]:
+            #TODO implement check for bytes.
+            #TODO implement check for a valid image.
+            if isinstance(image, str) and os.path.exists(image):
+                with open(image, "rb") as image_file:
+                    base64_image_string = base64.b64encode(image_file.read()).decode('utf-8')
+                    image_batch.append(base64_image_string)
+            elif isinstance(image, PIL.Image.Image):
+                buffered = BytesIO()
+                image.save(buffered, format="JPEG")
+                image_batch.append(base64.b64encode(buffered.getvalue()).decode('utf-8'))
+            else:
+                raise ValueError(f"Not a valid file: {image}")
+        print(len(image_batch))
+        response = run_inference(batch=image_batch)
+        print(response['usage'])
+        responses.append(response)
+
+    final_response = {}
+    final_response['embeddings'] = [embedding for response in responses for embedding in response['embeddings']]
+    final_response['usage'] = {}
+    final_response['usage']['prompt_tokens'] = sum([response['usage']['prompt_tokens'] for response in responses])
+    final_response['usage']['total_tokens'] = final_response['usage']['prompt_tokens']
+
+    return final_response
+
+
+
+
+
+
 
 
 
