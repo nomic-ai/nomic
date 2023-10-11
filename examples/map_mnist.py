@@ -14,7 +14,7 @@ datums = []
 for idx, image in enumerate(dataset):
     images.append(image['image'])
     datums.append({'id': str(idx), 'label': str(image['label'])})
-    if idx >= 20000:
+    if idx >= 10000:
         break
 
 start = time.time()
