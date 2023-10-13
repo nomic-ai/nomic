@@ -4,6 +4,7 @@ import concurrent.futures
 import io
 import json
 import os
+from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, Iterable, List, Tuple
@@ -915,7 +916,7 @@ class AtlasMapData:
 
     def _read_prefetched_tiles_with_sidecars(self, additional_sidecars=None):
         tbs = []
-        root = feather.read_table(self.projection.tile_destination / "0/0/0.feather")
+        root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))
         try:
             small_sidecars = set(
                 [v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()]
@@ -973,7 +974,7 @@ class AtlasMapData:
                 encoded_colname = base64.urlsafe_b64encode(
                     sidecar.encode("utf-8")
                 ).decode("utf-8")
-                filename = quad_str + "." + encoded_colname + ".feather"
+                filename = Path(quad_str + "." + encoded_colname + ".feather")
                 path = self.projection.tile_destination / filename
 
                 # WARNING: Potentially large data request here
