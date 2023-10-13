@@ -974,8 +974,8 @@ class AtlasMapData:
                 encoded_colname = base64.urlsafe_b64encode(
                     sidecar.encode("utf-8")
                 ).decode("utf-8")
-                filename = Path(quad_str + "." + encoded_colname + ".feather")
-                path = self.projection.tile_destination / filename
+                filename = quad_str + "." + encoded_colname + ".feather"
+                path = self.projection.tile_destination / Path(filename)
 
                 # WARNING: Potentially large data request here
                 self._download_file(root + filename, path)
