@@ -137,14 +137,18 @@ latent_embeddings = map.embeddings.latent
 
 ```python
 print(projected_embeddings)
+```
 
+```
 # Response:
 id 	x 	y
 0 	9.815330 	-8.105308
 1 	-8.725819 	5.980628
 2 	13.199472 	-1.103389
 ... 	... 	... 	...
+```
 
+```python
 print(latent_embeddings)
 ```
 
