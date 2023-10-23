@@ -46,7 +46,7 @@ With Nomic Atlas, you can:
 ## Quick Resources
 
 <p >
-  Try the <a href="https://colab.research.google.com/drive/1bquOLIaGlu7O_CFc0Wz74HITzWs4UEa4?usp=sharing">:notebook: Colab Demo</a> to get started in Python
+  Try the <a href="https://colab.research.google.com/drive/1CZBo3LV0FoRTVRN3v068tvNJgbeWpcSX?usp=sharing">:notebook: Colab Demo</a> to get started in Python
 </p>
 
 <p>
