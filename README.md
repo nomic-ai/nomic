@@ -3,7 +3,7 @@
       <img src="./assets/example_map.png" alt="Atlas Map example" style="width: 33%; max-height: 160px; width: auto">
 </p>
 
-<h1 align="center">Atlas by Nomic AI</h1>
+<h1 align="center">Nomic Atlas Python Client</h1>
 <h3 align="center">Explore, label, search and share massive datasets in your web browser.</h3>
 <p>Nomic is a Python package for working with Atlas (<a href="https://atlas.nomic.ai/">https://atlas.nomic.ai/</a>), the world’s most powerful unstructured data visualization tool. Atlas supports datasets from hundreds to tens of millions of points, and supports modalities ranging from text to image to audio to video. Atlas provides an easy-to-use pipeline that automatically generates vector embeddings for your data, projects your data into an intuitive map, and allows you to smoothly explore and manipulate your data at scale. </p>
 
