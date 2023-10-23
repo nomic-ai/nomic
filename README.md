@@ -1,12 +1,9 @@
-<p align="center">
-      <img src="./assets/NOMIC_x2.png" alt="Nomic Logo" style="width: 40%; max-height: 160px; width: auto">
-      <img src="./assets/example_map.png" alt="Atlas Map example" style="width: 33%; max-height: 160px; width: auto">
-</p>
-
 <h1 align="center">Nomic Atlas Python Client</h1>
 <h3 align="center">Explore, label, search and share massive datasets in your web browser.</h3>
-<p>This repository contains Python bindings for working with [Nomic Atlas][https://atlas.nomic.ai/], the world’s most powerful unstructured data interaction platform. Atlas supports datasets from hundreds to tens of millions of points, and supports data modalities ranging from text to image to audio to video. </p>
+<p>This repository contains Python bindings for working with <a href="https://atlas.nomic.ai/">Nomic Atlas</a>, the world’s most powerful unstructured data interaction platform. Atlas supports datasets from hundreds to tens of millions of points, and supports data modalities ranging from text to image to audio to video. </p>
+
 With Nomic Atlas, you can:
+
 - Generate, store and retrieve embeddings for your unstructured data.
 - Find insights in your unstructured data and embeddings all from your web browser.
 - Share and present your datasets and data findings to anyone.
@@ -41,6 +38,7 @@ With Nomic Atlas, you can:
 - [Atlas usage examples](#atlas-usage-examples)
   - [Access your embeddings](#access-your-embeddings)
   - [View your data's topic model](#view-your-datas-topic-model)
+  - [Search for data semantically](#search-for-data-semantically)
 - [Documentation](#documentation)
 - [Discussion](#discussion)
 - [Community](#community)
@@ -187,7 +185,7 @@ id topic_depth_1 topic_depth_2
 
 ```
 
-### Search for nearest neighbors
+### Search for data semantically
 
 Use Atlas to automatically find nearest neighbors in your vector database.
 
