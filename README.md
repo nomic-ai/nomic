@@ -5,7 +5,11 @@
 
 <h1 align="center">Nomic Atlas Python Client</h1>
 <h3 align="center">Explore, label, search and share massive datasets in your web browser.</h3>
-<p>Nomic is a Python package for working with Atlas (<a href="https://atlas.nomic.ai/">https://atlas.nomic.ai/</a>), the world’s most powerful unstructured data visualization tool. Atlas supports datasets from hundreds to tens of millions of points, and supports modalities ranging from text to image to audio to video. Atlas provides an easy-to-use pipeline that automatically generates vector embeddings for your data, projects your data into an intuitive map, and allows you to smoothly explore and manipulate your data at scale. </p>
+<p>This repository contains Python bindings for working with [Nomic Atlas][https://atlas.nomic.ai/], the world’s most powerful unstructured data interaction platform. Atlas supports datasets from hundreds to tens of millions of points, and supports data modalities ranging from text to image to audio to video. </p>
+With Nomic Atlas, you can:
+- Generate, store and retrieve embeddings for your unstructured data.
+- Find insights in your unstructured data and embeddings all from your web browser.
+- Share and present your datasets and data findings to anyone.
 
 ### Where to find us?
 
