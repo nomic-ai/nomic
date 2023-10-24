@@ -30,6 +30,7 @@ setup(
         'tqdm',
         'cohere',
         'pyarrow',
+	'pillow',
     ],
     extras_require={
         'dev': [
