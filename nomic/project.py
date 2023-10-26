@@ -963,7 +963,7 @@ class AtlasProject(AtlasClass):
 
     def create_index(
         self,
-        name: str,
+        name: str = None,
         indexed_field: str = None,
         colorable_fields: list = [],
         multilingual: bool = False,
@@ -982,7 +982,7 @@ class AtlasProject(AtlasClass):
         Creates an index in the specified project.
 
         Args:
-            name: The name of the index and the map.
+            name: The name of the index and the map. Defaults to a number
             indexed_field: For text projects, name the data field corresponding to the text to be mapped.
             colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
             multilingual: Should the map take language into account? If true, points from different languages but semantically similar text are close together.
@@ -1003,7 +1003,8 @@ class AtlasProject(AtlasClass):
         '''
 
         self._latest_project_state()
-
+        if name is None:
+            name = f"Index #{1 + len(self.indices)}"
         # for large projects, alter the default projection configurations.
         if self.total_datums >= 1_000_000:
             if (
