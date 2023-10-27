@@ -1279,8 +1279,9 @@ class AtlasProject(AtlasClass):
         del data
 
         # Add embeddings to the data.
-        embeddings = embeddings.astype(np.float16)
-
+        # Allow 2d embeddings to stay at single-fp precision.
+        if not (embeddings.shape[1] == 2 and embeddings.dtype == np.float32):
+            embeddings = embeddings.astype(np.float16)
         # Fail if any embeddings are NaN or Inf.
         assert not np.isnan(embeddings).any(), "Embeddings must not contain NaN values."
         assert not np.isinf(embeddings).any(), "Embeddings must not contain Inf values."
