@@ -110,7 +110,6 @@ def map_embeddings(
     # sends several requests to allow for threadpool refreshing. Threadpool hogs memory and new ones need to be created.
     logger.info("Uploading embeddings to Atlas.")
 
-    embeddings = embeddings.astype(np.float16)
     if shard_size is not None:
         logger.warning("Passing `shard_size` is deprecated and will raise an error in a future release")
     if num_workers is not None:
