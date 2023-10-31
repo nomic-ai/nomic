@@ -806,7 +806,6 @@ class AtlasProject(AtlasClass):
                 'is_public': is_public,
             },
         )
-        print(response.json())
         if response.status_code != 201:
             raise Exception(f"Failed to create project: {response.json()}")
 
