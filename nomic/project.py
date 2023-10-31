@@ -589,7 +589,7 @@ class AtlasProjection:
         '''
 
         self.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
+        root = f'{self.project.atlas_api_path}/v1/project/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         all_quads = []
         sidecars = None
