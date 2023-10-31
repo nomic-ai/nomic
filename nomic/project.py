@@ -503,7 +503,9 @@ class AtlasProjection:
 
     @property
     def tags(self):
-        """Embedding state"""
+        """Tag state"""
+        if self.project.is_locked:
+            raise Exception('Project is locked for state access! Please wait until the project is unlocked to access tags.')
         if self._tags is None:
             self._tags = AtlasMapTags(self)
         return self._tags
@@ -511,6 +513,8 @@ class AtlasProjection:
     @property
     def data(self):
         """Metadata state"""
+        if self.project.is_locked:
+            raise Exception('Project is locked for state access! Please wait until the project is unlocked to access data.')
         if self._data is None:
             self._data = AtlasMapData(self)
         return self._data
@@ -585,7 +589,7 @@ class AtlasProjection:
         '''
 
         self.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f'{self.project.atlas_api_path}/v1/project/public/{self.project.id}/index/projection/{self.id}/quadtree/'
+        root = f'{self.project.atlas_api_path}/v1/project/{self.project.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
         all_quads = []
         sidecars = None
