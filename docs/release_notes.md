@@ -1,5 +1,9 @@
 # Release Notes
 
+## v2.0.14
+
+Improvements for stability and scale.
+
 ## v2.0.0
 
 Atlas map state is now accessible as top level attributes of the AtlasProjection ("the Map") class.
