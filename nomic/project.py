@@ -970,7 +970,6 @@ class AtlasProject(AtlasClass):
         name: str,
         indexed_field: str = None,
         colorable_fields: list = [],
-        multilingual: bool = False,
         build_topic_model: bool = False,
         projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
         projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
@@ -989,7 +988,6 @@ class AtlasProject(AtlasClass):
             name: The name of the index and the map.
             indexed_field: For text projects, name the data field corresponding to the text to be mapped.
             colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-            multilingual: Should the map take language into account? If true, points from different languages but semantically similar text are close together.
             build_topic_model: Should a topic model be built?
             projection_n_neighbors: A projection hyperparameter
             projection_epochs: A projection hyperparameter
@@ -1064,8 +1062,6 @@ class AtlasProject(AtlasClass):
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.project_fields}")
 
             model = 'NomicEmbed'
-            if multilingual:
-                model = 'NomicEmbedMultilingual'
 
             build_template = {
                 'project_id': self.id,

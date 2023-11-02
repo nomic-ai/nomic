@@ -155,7 +155,6 @@ def map_text(
     name: str = None,
     description: str = None,
     build_topic_model: bool = True,
-    multilingual: bool = False,
     is_public: bool = True,
     colorable_fields: list = [],
     num_workers: None = None,
@@ -179,7 +178,6 @@ def map_text(
         name: A name for your map.
         description: A description for your map.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.
-        multilingual: Should the map take language into account? If true, points from different with semantically similar text are considered similar.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
         colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
         organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user account's default organization.
@@ -292,7 +290,6 @@ def map_text(
             projection_n_neighbors=projection_n_neighbors,
             projection_epochs=projection_epochs,
             projection_spread=projection_spread,
-            multilingual=multilingual,
             duplicate_detection=duplicate_detection,
             duplicate_threshold=duplicate_threshold,
         )
