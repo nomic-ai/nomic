@@ -282,7 +282,7 @@ class AtlasClass(object):
 
     def _get_organization(self, organization_name=None, organization_id=None) -> Tuple[str, str]:
         '''
-        Gets an organization by either it's name or id.
+        Gets an organization by either its name or id.
 
         Args:
             organization_name: the name of the organization
