@@ -44,7 +44,7 @@ class AtlasMapDuplicates:
     @property
     def df(self) -> pd.DataFrame:
         """
-        Pandas dataframe mapping each data point to its cluster of semantically similar points
+        Pandas DataFrame mapping each data point to its cluster of semantically similar points
         """
         return self.tb.to_pandas()
 
@@ -67,7 +67,7 @@ class AtlasMapDuplicates:
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
-        repr = f"===Atlas Duplicates for ({self.projection})===\n"
+        repr = f"===Atlas Duplicates for ({self.projection})    git push --set-upstream origin docs-clean\n"
         duplicate_count = len(
             self.tb[self.id_field].filter(pc.equal(self.tb['duplicate_class'], 'deletion candidate'))
         )
@@ -118,7 +118,7 @@ class AtlasMapTopics:
     @property
     def df(self) -> pandas.DataFrame:
         """
-        A pandas dataframe associating each datapoint on your map to their topics as each topic depth.
+        A pandas DataFrame associating each datapoint on your map to their topics as each topic depth.
         """
         return self.tb.to_pandas()
 
@@ -134,7 +134,7 @@ class AtlasMapTopics:
     @property
     def metadata(self) -> pandas.DataFrame:
         """
-        Pandas dataframe where each row gives metadata all map topics including:
+        Pandas DataFrame where each row gives metadata all map topics including:
 
         - topic id
         - a human readable topic description (topic label)
@@ -329,7 +329,7 @@ class AtlasMapEmbeddings:
     @property
     def df(self):
         """
-        Pandas dataframe containing information about embeddings of your datapoints.
+        Pandas DataFrame containing information about embeddings of your datapoints.
 
         Includes only the two-dimensional embeddings
         """
@@ -354,7 +354,7 @@ class AtlasMapEmbeddings:
         These are the points you see in your web browser.
 
         Returns:
-            Pandas dataframe mapping your datapoints to their two-dimensional embeddings.
+            Pandas DataFrame mapping your datapoints to their two-dimensional embeddings.
         """
         return self.df
 
@@ -598,7 +598,7 @@ class AtlasMapEmbeddings:
 class AtlasMapTags:
     """
     Atlas Map Tag State. Tags are shared across all maps in your AtlasProject. You can manipulate tags by filtering over
-    the associated pandas dataframe
+    the associated pandas DataFrame
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -610,7 +610,7 @@ class AtlasMapTags:
     @property
     def df(self) -> pd.DataFrame:
         """
-        Pandas dataframe mapping each data point to its tags.
+        Pandas DataFrame mapping each data point to its tags.
         """
 
         id_frame = self._tb.to_pandas()
@@ -828,8 +828,8 @@ class AtlasMapData:
     @property
     def df(self) -> pandas.DataFrame:
         """
-        A pandas dataframe associating each datapoint on your map to their metadata.
-        Converting to pandas dataframe may materialize a large amount of data into memory.
+        A pandas DataFrame associating each datapoint on your map to their metadata.
+        Converting to pandas DataFrame may materialize a large amount of data into memory.
         """
         return self._tb.to_pandas()
 

@@ -168,7 +168,7 @@ of an AtlasMap.
 # Access your Atlas map
 map = project.maps[0]
 
-# Access a pandas dataframe associating each datum on your map to their topics at each topic depth.
+# Access a pandas DataFrame associating each datum on your map to their topics at each topic depth.
 topic_df = map.topics.df
 
 print(map.topics.df)
