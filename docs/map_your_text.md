@@ -16,7 +16,7 @@ When sending text you should specify an `indexed_field` in the `map_text` functi
     from datasets import load_dataset
 
     #Make a dataset with the shape [{'col1': 'val', 'col2': 'val', ...}, etc]
-    #Tip: if you're working with a pandas dataframe
+    #Tip: if you're working with a pandas DataFrame
     #     use pandas.DataFrame.to_dict('records')
 
     dataset = load_dataset('ag_news')['train']

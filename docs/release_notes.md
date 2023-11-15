@@ -36,7 +36,7 @@ Raise correct errors on bad id uploads
 ### New Data validation
 
 1. Uploads are now internally handled as Arrow tables, allowing greater type safety and data throughput.
-2. In addition to passing lists of dicts, you can directly pass pandas dataframes or pyarrow tables to any upload methods.
+2. In addition to passing lists of dicts, you can directly pass pandas DataFrames or pyarrow tables to any upload methods.
 3. Datetime formats are now passed as native python dates or datetimes (or as pandas date or datetime). ISO-formatted strings will no longer be automatically coerced--just pass your own.
 4. Null values are now allowed in any fields except for embeddings and ids. These can be passed either by setting the key to None, omiting a key from a dictionary, or using a pandas null type.
 5. Typechecking is stricter than before, with the aim of raising errors on the client side sooner.
