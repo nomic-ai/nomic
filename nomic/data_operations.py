@@ -30,27 +30,6 @@ class AtlasMapDuplicates:
     Atlas automatically groups embeddings that are sufficiently close into semantic clusters.
     You can use these clusters for semantic duplicate detection allowing you to quickly deduplicate
     your data.
-
-    === "Accessing Duplicates Example"
-        ``` py
-        from nomic import AtlasProject
-
-        project = AtlasProject(name='My Project')
-        map = project.maps[0]
-        print(map.duplicates)
-        ```
-    === "Output"
-        ```
-        460 deletion candidates in 9540 clusters
-              id_      duplicate_class   cluster_id
-        0      0A            singleton         5178
-        1      0g  retention candidate          271
-        2      0Q            singleton         6672
-        3      0w            singleton         7529
-        4      1A            singleton         1587
-        ...   ...                  ...          ...
-        9999  JZU            singleton         6346
-        ```
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -66,26 +45,6 @@ class AtlasMapDuplicates:
     def df(self) -> pd.DataFrame:
         """
         Pandas dataframe mapping each data point to its cluster of semantically similar points
-
-        === "Accessing Duplicates Example"
-            ``` py
-            from nomic import AtlasProject
-
-            project = AtlasProject(name='My Project')
-            map = project.maps[0]
-            print(map.duplicates.df)
-            ```
-        === "Output"
-            ```
-                  id_     _duplicate_class  _cluster_id
-            0      0A            singleton         5178
-            1      0g  retention candidate          271
-            2      0Q            singleton         6672
-            3      0w            singleton         7529
-            4      1A            singleton         1587
-            ...   ...                  ...          ...
-            9999  JZU            singleton         6346
-            ```
         """
         return self.tb.to_pandas()
 
@@ -120,23 +79,6 @@ class AtlasMapDuplicates:
 class AtlasMapTopics:
     """
     Atlas Topics State
-
-    === "Accessing Topics Example"
-        ``` py
-        from nomic import AtlasProject
-
-        project = AtlasProject(name='My Project')
-        map = project.maps[0]
-        print(map.topics)
-        ```
-    === "Output"
-        ```
-                        id_      topic_depth_1       topic_depth_2          topic_depth_3
-        0     000262a5-2811  Space exploration      Hurricane Jeanne        Spacecraft Cassini
-        1     000c453d-ee97   English football      Athens 2004 Olympics    bobby rathore
-        ...
-        9999  fffcc65c-38dc  Space exploration      Presidential elections  Blood
-        ```
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -374,52 +316,7 @@ class AtlasMapTopics:
 
 class AtlasMapEmbeddings:
     """
-    Atlas Embeddings State
-
-    Access latent (high-dimensional) and projected (two-dimensional) embeddings of your datapoints.
-
-    ## Two-dimensional projected embeddings
-
-    === "Accessing 2D Embeddings Example"
-        ``` py
-        from nomic import AtlasProject
-
-        project = AtlasProject(name='My Project')
-        map = project.maps[0]
-        print(map.embeddings)
-        ```
-    === "Output"
-        ```
-              id_          x          y
-        0      0A  -6.164423  21.517719
-        1      0g  -6.606402  -5.601104
-        2      0Q  -9.206946   7.448542
-        ...   ...        ...        ...
-        9998  JZQ   2.110881 -12.937058
-        9999  JZU   7.865006  -6.876243
-        ```
-
-    ## High dimensional latent embeddings
-
-
-    === "Accessing Latent Embeddings Example"
-        ``` py
-        from nomic import AtlasProject
-
-        project = AtlasProject(name='My Project')
-        map = project.maps[0]
-        embeddings = map.embeddings.latent
-        print(embeddings.shape)
-        ```
-    === "Output"
-        ```
-        [10000, 384]
-        ```
-
-
-    !!! warning "High dimensional embeddings"
-        High dimensional embeddings are not immediately downloaded when you access the embeddings attribute - you must explicitly call `map.embeddings.latent`. Once downloaded, subsequent calls will reference your downloaded local copy.
-
+    Atlas Embeddings State. Access latent (high-dimensional) and projected (two-dimensional) embeddings of your datapoints.
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -700,31 +597,8 @@ class AtlasMapEmbeddings:
 
 class AtlasMapTags:
     """
-    Atlas Map Tag State
-
-    Tags are shared across all maps in your AtlasProject. You can manipulate tags by filtering over
+    Atlas Map Tag State. Tags are shared across all maps in your AtlasProject. You can manipulate tags by filtering over
     the associated pandas dataframe
-
-    === "Accessing Tags Example"
-        ``` py
-        from nomic import AtlasProject
-
-        project = AtlasProject(name='My Project')
-        map = project.maps[0]
-        print(map.tags)
-        ```
-    === "Output"
-        ```
-              id_  oil  search_engines
-        0      0A    0               0
-        1      0g    0               0
-        2      0Q    0               0
-        3      0w    0               0
-        4      1A    1               0
-        ...   ...  ...             ...
-        9998  JZQ    0               0
-        9999  JZU    0               0
-        ```
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -737,27 +611,6 @@ class AtlasMapTags:
     def df(self) -> pd.DataFrame:
         """
         Pandas dataframe mapping each data point to its tags.
-
-        === "Accessing Tags Example"
-            ``` py
-            from nomic import AtlasProject
-
-            project = AtlasProject(name='My Project')
-            map = project.maps[0]
-            print(map.tags.df)
-            ```
-        === "Output"
-            ```
-                  id_  oil  search_engines
-            0      0A    0               0
-            1      0g    0               0
-            2      0Q    0               0
-            3      0w    0               0
-            4      1A    1               0
-            ...   ...  ...             ...
-            9998  JZQ    0               0
-            9999  JZU    0               0
-            ```
         """
 
         id_frame = self._tb.to_pandas()
@@ -877,26 +730,8 @@ class AtlasMapTags:
 
 class AtlasMapData:
     """
-    Atlas Map Data (Metadata) State.
-    This is how you can access text and other associated metadata columns
+    Atlas Map Data (Metadata) State. This is how you can access text and other associated metadata columns
     you uploaded with your project.
-
-    === "Accessing Data Example"
-        ``` py
-        from nomic import AtlasProject
-
-        project = AtlasProject(name='My Project')
-        map = project.maps[0]
-        print(map.data)
-        ```
-    === "Output"
-        ```
-                        id_                        text                   title
-        0     000262a5-2811   The Hurricane occurred...        Hurricane Jeanne
-        1     000c453d-ee97    In the football games...    Athens 2004 Olympics
-        ...
-        9999  fffcc65c-38dc  In 2012, the candidates...  Presidential elections
-        ```
     """
 
     def __init__(self, projection: "AtlasProjection", fields=None):

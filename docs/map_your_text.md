@@ -1,9 +1,11 @@
 # Map Your Text
+
 Map your text documents with Atlas using the `map_text` function.
 Atlas will ingest your documents, organize them with state-of-the-art AI and then serve you back an interactive map.
 Any interaction you do with your data (e.g. tagging) can be accessed programmatically with the Atlas Python API.
 
 ## Map text with Atlas
+
 When sending text you should specify an `indexed_field` in the `map_text` function. This lets Atlas know what metadata field to use when building your map.
 
 === "Atlas Embed"
@@ -12,17 +14,17 @@ When sending text you should specify an `indexed_field` in the `map_text` functi
     from nomic import atlas
     import numpy as np
     from datasets import load_dataset
-    
+
     #Make a dataset with the shape [{'col1': 'val', 'col2': 'val', ...}, etc]
     #Tip: if you're working with a pandas dataframe
     #     use pandas.DataFrame.to_dict('records')
 
     dataset = load_dataset('ag_news')['train']
-    
+
     max_documents = 10000
     subset_idxs = np.random.choice(len(dataset), size=max_documents, replace=False).tolist()
     documents = [dataset[i] for i in subset_idxs]
-    
+
     project = atlas.map_text(data=documents,
                               indexed_field='text',
                               name='News 10k Example',
@@ -37,14 +39,14 @@ When sending text you should specify an `indexed_field` in the `map_text` functi
     https://atlas.nomic.ai/map/0642e9a1-12d9-4504-a987-9ca50ecd5327/699afdee-cea0-4805-9c84-12eca6dbebf8
     ```
 
-
 ## Map text with your own models
+
 Nomic integrates with embedding providers such as [co:here](https://cohere.ai/) and [huggingface](https://huggingface.co/models) to help you build maps of text.
 
+### Text maps with a 🤗 Hugging Face model
 
-### Text maps with a 🤗 HuggingFace model
-This code snippet is a complete example of how to make a map with a HuggingFace model.
-[Example Huggingface Map](https://atlas.nomic.ai/map/60e57e91-c573-4d1f-85ac-2f00f2a075ae/f5bf58cf-f40b-439d-bd0d-d3a4a8b98496)
+This code snippet is a complete example of how to make a map with a Hugging Face model.
+[Example Hugging face Map](https://atlas.nomic.ai/map/60e57e91-c573-4d1f-85ac-2f00f2a075ae/f5bf58cf-f40b-439d-bd0d-d3a4a8b98496)
 
 !!! note
 
@@ -52,7 +54,8 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
     ```bash
     pip install datasets transformers torch
     ```
-=== "HuggingFace Example"
+
+=== "Hugging Face Example"
 
     ``` py title="map_with_huggingface.py"
     from nomic import atlas
@@ -60,18 +63,18 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
     import numpy as np
     import torch
     from datasets import load_dataset
-    
+
     #make dataset
     max_documents = 10000
     dataset = load_dataset("sentiment140")['train']
     documents = [dataset[i] for i in np.random.choice(len(dataset), size=max_documents, replace=False).tolist()]
-    
-    
+
+
     model = AutoModel.from_pretrained("prajjwal1/bert-mini")
     tokenizer = AutoTokenizer.from_pretrained("prajjwal1/bert-mini")
-    
+
     embeddings = []
-    
+
     with torch.no_grad():
         batch_size = 10 # lower this if needed
         for i in range(0, len(documents), batch_size):
@@ -79,15 +82,15 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
             encoded_input = tokenizer(batch, return_tensors='pt', padding=True)
             cls_embeddings = model(**encoded_input)['last_hidden_state'][:, 0]
             embeddings.append(cls_embeddings)
-    
+
     embeddings = torch.cat(embeddings).numpy()
-    
+
     response = atlas.map_embeddings(embeddings=embeddings,
                                     data=documents,
                                     colorable_fields=['sentiment'],
                                     name="Huggingface Model Example",
                                     description="An example of building a text map with a huggingface model.")
-    
+
     print(response)
     ```
 
@@ -96,7 +99,6 @@ This code snippet is a complete example of how to make a map with a HuggingFace 
     ``` bash
     https://atlas.nomic.ai/map/60e57e91-c573-4d1f-85ac-2f00f2a075ae/f5bf58cf-f40b-439d-bd0d-d3a4a8b98496
     ```
-
 
 ### Text maps with a Cohere model
 
@@ -122,23 +124,23 @@ Add your Cohere API key to the below example to see how their large language mod
     from datasets import load_dataset
 
     cohere_api_key = ''
-    
+
     dataset = load_dataset("sentiment140")['train']
-    
+
     max_documents = 10000
     subset_idxs = np.random.choice(len(dataset), size=max_documents, replace=False).tolist()
     documents = [dataset[i] for i in subset_idxs]
 
     embedder = CohereEmbedder(cohere_api_key=cohere_api_key)
-    
+
     print(f"Embedding {len(documents)} documents with Cohere API")
     embeddings = embedder.embed(texts=[document['user'] for document in documents],
                                 model='small')
-    
+
     if len(embeddings) != len(documents):
         raise Exception("Embedding job failed")
     print("Embedding job complete.")
-    
+
     response = atlas.map_embeddings(embeddings=np.array(embeddings),
                                     data=documents,
                                     colorable_fields=['sentiment'],
