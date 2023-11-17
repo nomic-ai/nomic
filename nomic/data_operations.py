@@ -25,7 +25,7 @@ from .settings import EMBEDDING_PAGINATION_LIMIT
 
 class AtlasMapDuplicates:
     """
-    Atlas Duplicate Clusters State. Atlas can automatically group embeddings that are sufficiently close into semantic clusters.
+    Atlas Duplicate Clusters State. Atlas automatically groups embeddings that are sufficiently close into semantic clusters.
     You can use these clusters for semantic duplicate detection allowing you to quickly deduplicate
     your data.
     """
@@ -42,7 +42,7 @@ class AtlasMapDuplicates:
     @property
     def df(self) -> pd.DataFrame:
         """
-        Pandas DataFrame mapping each data point to its cluster of semantically similar points
+        Pandas DataFrame mapping each data point to its cluster of semantically similar points.
         """
         return self.tb.to_pandas()
 
@@ -247,7 +247,11 @@ class AtlasMapTopics:
             end: A datetime object for the window end
 
         Returns:
+<<<<<<< HEAD
             A list of `{topic, count}` dictionaries, sorted from largest count to smallest count.
+=======
+            List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count.
+>>>>>>> c8ce66b (typos and punctuation in docstrings)
         '''
         data = AtlasMapData(self.projection, fields=[time_field])
         time_data = data._tb.select([self.id_field, time_field])
@@ -283,7 +287,11 @@ class AtlasMapTopics:
             depth: (Default 3) the topic depth at which you want to search
 
         Returns:
+<<<<<<< HEAD
             A dict mapping `{topic: posterior probability}` for each query.
+=======
+            A dict mapping {topic: posterior probability} for each query.
+>>>>>>> c8ce66b (typos and punctuation in docstrings)
         '''
 
         if queries.ndim != 2:
@@ -328,6 +336,7 @@ class AtlasMapEmbeddings:
     def df(self):
         """
 <<<<<<< HEAD
+<<<<<<< HEAD
         Pandas DataFrame containing information about embeddings of your datapoints. 
         
         Includes only the two-dimensional embeddings. 
@@ -336,6 +345,11 @@ class AtlasMapEmbeddings:
 
         Includes only the two-dimensional embeddings
 >>>>>>> 14acbb4 (fix pandas capitalization)
+=======
+        Pandas DataFrame containing information about embeddings of your datapoints. 
+        
+        Includes only the two-dimensional embeddings. 
+>>>>>>> c8ce66b (typos and punctuation in docstrings)
         """
         return self.tb.to_pandas()
 
