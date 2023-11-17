@@ -324,7 +324,7 @@ class AtlasClass(object):
             organization_name: the organization name
 
         Returns:
-            A dictionary containing the project_id, organization_id and organization_name
+            A dictionary containing the project_id, organization_id and organization_name.
 
         '''
 
@@ -588,7 +588,7 @@ class AtlasProjection:
             overwrite: if True then overwrite existing feather files.
 
         Returns:
-            A list containing all quadtiles downloads
+            A list containing all quadtiles downloads.
         '''
 
         self.tile_destination.mkdir(parents=True, exist_ok=True)
@@ -925,7 +925,7 @@ class AtlasProject(AtlasClass):
 
     def get_map(self, name: str = None, atlas_index_id: str = None, projection_id: str = None) -> AtlasProjection:
         '''
-        Retrieves a Map
+        Retrieves a map.
 
         Args:
             name: The name of your map. This defaults to your projects name but can be different if you build multiple maps in your project.
@@ -1170,13 +1170,13 @@ class AtlasProject(AtlasClass):
 
     def get_data(self, ids: List[str]) -> List[Dict]:
         '''
-        Retrieve the contents of the data given ids
+        Retrieve the contents of the data given ids.
 
         Args:
             ids: a list of datum ids
 
         Returns:
-            A list of dictionaries corresponding
+            A list of dictionaries corresponding to the data.
 
         '''
 
@@ -1429,7 +1429,7 @@ class AtlasProject(AtlasClass):
         self, data: List[Dict], embeddings: Optional[np.array] = None, num_workers: int = 10
     ):
         '''
-        Utility method to update a projects maps by adding the given data.
+        Utility method to update a project's maps by adding the given data.
 
         Args:
             data: An [N,] element list of dictionaries containing metadata for each embedding.
@@ -1485,7 +1485,7 @@ class AtlasProject(AtlasClass):
         reflect the additions, deletions or updates you have made to your data until this method is called.
 
         Args:
-            rebuild_topic_models: (Default False) - If true, will create new topic models when updating these indices
+            rebuild_topic_models: (Default False) - If true, will create new topic models when updating these indices.
         '''
 
         response = requests.post(

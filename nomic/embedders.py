@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 
 class CohereEmbedder:
-    '''Embeds text with the Cohere embedding API'''
+    '''Embeds text with the Cohere embedding API.'''
 
     def __init__(self, cohere_api_key: str):
         '''
