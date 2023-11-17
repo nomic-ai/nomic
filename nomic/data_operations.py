@@ -25,9 +25,7 @@ from .settings import EMBEDDING_PAGINATION_LIMIT
 
 class AtlasMapDuplicates:
     """
-    Atlas Duplicate Clusters State
-
-    Atlas automatically groups embeddings that are sufficiently close into semantic clusters.
+    Atlas Duplicate Clusters State. Atlas automatically groups embeddings that are sufficiently close into semantic clusters.
     You can use these clusters for semantic duplicate detection allowing you to quickly deduplicate
     your data.
     """
@@ -44,7 +42,7 @@ class AtlasMapDuplicates:
     @property
     def df(self) -> pd.DataFrame:
         """
-        Pandas DataFrame mapping each data point to its cluster of semantically similar points
+        Pandas DataFrame mapping each data point to its cluster of semantically similar points.
         """
         return self.tb.to_pandas()
 
@@ -249,7 +247,7 @@ class AtlasMapTopics:
             end: A datetime object for the window end
 
         Returns:
-            List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count
+            List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count.
         '''
         data = AtlasMapData(self.projection, fields=[time_field])
         time_data = data._tb.select([self.id_field, time_field])
@@ -285,7 +283,7 @@ class AtlasMapTopics:
             depth: (Default 3) the topic depth at which you want to search
 
         Returns:
-            A dict mapping {topic: posterior probability} for each query
+            A dict mapping {topic: posterior probability} for each query.
         '''
 
         if queries.ndim != 2:
@@ -329,9 +327,9 @@ class AtlasMapEmbeddings:
     @property
     def df(self):
         """
-        Pandas DataFrame containing information about embeddings of your datapoints.
-
-        Includes only the two-dimensional embeddings
+        Pandas DataFrame containing information about embeddings of your datapoints. 
+        
+        Includes only the two-dimensional embeddings. 
         """
         return self.tb.to_pandas()
 
@@ -436,7 +434,7 @@ class AtlasMapEmbeddings:
         Returns:
             A tuple with two elements containing the following information:
                 neighbors: A set of ids corresponding to the nearest neighbors of each query
-                distances: A set of distances between each query and its neighbors
+                distances: A set of distances between each query and its neighbors.
         '''
 
         if queries is None and ids is None:
@@ -631,7 +629,7 @@ class AtlasMapTags:
 
     def get_tags(self) -> Dict[str, List[str]]:
         '''
-        Retrieves back all tags made in the web browser for a specific map
+        Retrieves back all tags made in the web browser for a specific map.
 
         Returns:
             A dictionary mapping data points to tags.
@@ -696,7 +694,7 @@ class AtlasMapTags:
             delete_all: If true, ignores ids parameter and deletes all specified tags from all data points.
 
         Returns:
-            True on success
+            True on success.
 
         '''
         assert isinstance(ids, list), 'datum_ids must be a list of strings'
