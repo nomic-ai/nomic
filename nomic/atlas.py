@@ -28,7 +28,6 @@ def map_embeddings(
     build_topic_model: bool = True,
     topic_label_field: str = None,
     num_workers: None = None,
-    organization_name: str = None,
     reset_project_if_exists: bool = False,
     add_datums_if_exists: bool = False,
     shard_size: None = None,
@@ -42,11 +41,10 @@ def map_embeddings(
         embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
         data: An [N,] element list of dictionaries containing metadata for each embedding.
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
-        name: A name for your map.
+        name: A name for your dataset. Specify in the format `organization/project` to create in a specific organization.
         description: A description for your map.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
         colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-        organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         reset_project_if_exists: If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         add_datums_if_exists: If specifying an existing project and you want to add data to it, set this to true.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.
@@ -94,13 +92,13 @@ def map_embeddings(
     if added_id_field:
         logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
+
     project = AtlasProject(
-        name=project_name,
+        identifier=project_name,
         description=description,
         unique_id_field=id_field,
         modality='embedding',
         is_public=is_public,
-        organization_name=organization_name,
         reset_project_if_exists=reset_project_if_exists,
         add_datums_if_exists=add_datums_if_exists,
     )
@@ -158,7 +156,6 @@ def map_text(
     is_public: bool = True,
     colorable_fields: list = [],
     num_workers: None = None,
-    organization_name: str = None,
     reset_project_if_exists: bool = False,
     add_datums_if_exists: bool = False,
     shard_size: None = None,
@@ -175,12 +172,11 @@ def map_text(
         data: An [N,] element iterable of dictionaries containing metadata for each embedding.
         indexed_field: The name the data field containing the text your want to map.
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
-        name: A name for your map.
+        name: A name for your dataset. Specify in the format `organization/project` to create in a specific organization.
         description: A description for your map.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
         colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-        organization_name: The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user account's default organization.
         reset_project_if_exists: If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
         add_datums_if_exists: If specifying an existing project and you want to add data to it, set this to true.
         projection_n_neighbors: The number of neighbors to build.
@@ -225,7 +221,6 @@ def map_text(
         unique_id_field=id_field,
         modality='text',
         is_public=is_public,
-        organization_name=organization_name,
         reset_project_if_exists=reset_project_if_exists,
         add_datums_if_exists=add_datums_if_exists,
     )

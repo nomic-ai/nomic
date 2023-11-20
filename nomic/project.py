@@ -188,11 +188,11 @@ class AtlasClass(object):
 
         return response.json()['organization_id']
 
-    def _get_project_by_slug(self, identifier: str):
+    def _get_project_by_identifier(self, identifier: str):
         '''
 
         Args:
-            identifer: the organization slug and project slug seperated by a slash
+            identifier: the organization slug and project slug seperated by a slash
 
         Returns:
             Returns the requested project.
@@ -376,7 +376,7 @@ class AtlasClass(object):
                 organization_id = self._get_organization_by_slug(slug=organization_slug)
             except Exception:
                 user = self._get_current_user()
-                users_organizations = [org['nickname'] for org in user['organizations']]
+                users_organizations = [org['slug'] for org in user['organizations']]
                 raise Exception(
                     f"No such organization exists: {organization_slug}. You have access to the following organizations: {users_organizations}"
                 )
@@ -505,7 +505,7 @@ class AtlasProjection:
         if state != 'Completed':
             return f"""Atlas Projection {self.name}. Status {state}. <a target="_blank" href="{self.map_link}">view online</a>"""
         return f"""
-            <h3>Project: {self.name}</h3>
+            <h3>Project: {self.slug}</h3>
             {self._embed_html()}
             """
 
@@ -691,7 +691,7 @@ class AtlasProjection:
 class AtlasProject(AtlasClass):
     def __init__(
         self,
-        name: Optional[str] = None,
+        identifier: Optional[str] = None,
         description: Optional[str] = 'A description for your map.',
         unique_id_field: Optional[str] = None,
         modality: Optional[str] = None,
@@ -707,7 +707,7 @@ class AtlasProject(AtlasClass):
 
         **Parameters:**
 
-        * **name** - The project identifier
+        * **identifier** - The project identifier (format is `organization/project`) or just project and we will auto-infer from the default org.
         * **description** - A description for the project.
         * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
         * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
@@ -718,16 +718,19 @@ class AtlasProject(AtlasClass):
         * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.
 
         """
-        assert name is not None or project_id is not None, "You must pass a project identifier"
+        assert identifier is not None or project_id is not None, "You must pass a project identifier"
 
         super().__init__()
 
-        identifier = name
         if project_id is not None:
             self.meta = self._get_project_by_id(project_id)
             return
 
-        project = self._get_project_by_slug(identifier=identifier)
+        if not self.is_valid_dataset_identifier(identifier=identifier):
+            default_org_slug = self._get_current_users_main_organization()['slug']
+            identifier = default_org_slug+'/'+identifier
+
+        project = self._get_project_by_identifier(identifier=identifier)
 
         if project:  # project already exists
             project_id = project['id']
@@ -754,7 +757,7 @@ class AtlasProject(AtlasClass):
                 raise ValueError("You must specify a modality when creating a new project.")
 
             assert modality in ['text', 'embedding'], "Modality must be either `text` or `embedding`"
-            assert name is not None
+            assert identifier is not None
 
             project_id = self._create_project(
                 identifier=identifier,
@@ -774,7 +777,7 @@ class AtlasProject(AtlasClass):
         organization = self._get_current_users_main_organization()
         organization_slug = organization['slug']
 
-        logger.info(f"Deleting project `{self.name}` from organization `{organization_slug}`")
+        logger.info(f"Deleting project `{self.slug}` from organization `{organization_slug}`")
 
         self._delete_project_by_id(project_id=self.id)
 
@@ -806,7 +809,7 @@ class AtlasProject(AtlasClass):
         '''
 
         organization_id = self._get_organization_by_slug(slug=identifier)
-        project_name = identifier.split('/')[0]
+        project_slug = identifier.split('/')[1]
 
         supported_modalities = ['text', 'embedding']
         if modality not in supported_modalities:
@@ -825,7 +828,7 @@ class AtlasProject(AtlasClass):
             headers=self.header,
             json={
                 'organization_id': organization_id,
-                'project_name': project_name,
+                'project_name': project_slug,
                 'description': description,
                 'unique_id_field': unique_id_field,
                 'modality': modality,
@@ -902,6 +905,11 @@ class AtlasProject(AtlasClass):
         return self.meta['project_name']
 
     @property
+    def slug(self) -> str:
+        '''The slug for this project'''
+        return self.meta['slug']
+
+    @property
     def description(self):
         return self.meta['description']
 
@@ -942,7 +950,7 @@ class AtlasProject(AtlasClass):
                 yield self
                 break
             if not has_logged:
-                logger.info(f"{self.name}: Waiting for Project Lock Release.")
+                logger.info(f"{self.slug}: Waiting for Project Lock Release.")
                 has_logged = True
             time.sleep(5)
 
@@ -1155,7 +1163,7 @@ class AtlasProject(AtlasClass):
             logger.warning(
                 "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
             )
-        logger.info(f"Created map `{projection.name}` in project `{self.name}`: {projection.map_link}")
+        logger.info(f"Created map `{projection.name}` in project `{self.slug}`: {projection.map_link}")
         return projection
 
     def __repr__(self):
@@ -1166,7 +1174,7 @@ class AtlasProject(AtlasClass):
         self._latest_project_state()
         m = self.meta
         html = f"""
-            <strong><a href="https://atlas.nomic.ai/data/project/{m['id']}">{m['project_name']}</strong></a>
+            <strong><a href="https://atlas.nomic.ai/data/project/{m['id']}">{m['slug']}</strong></a>
             <br>
             {m['description']} {m['total_datums_in_project']} datums inserted.
             <br>
@@ -1412,18 +1420,18 @@ class AtlasProject(AtlasClass):
                                 errors_504 += shard_size
                                 start_point = futures[future]
                                 logger.debug(
-                                    f"{self.name}: Connection failed for records {start_point}-{start_point + shard_size}, retrying."
+                                    f"{self.slug}: Connection failed for records {start_point}-{start_point + shard_size}, retrying."
                                 )
                                 failure_fraction = errors_504 / (failed + succeeded + errors_504)
                                 if failure_fraction > 0.5 and errors_504 > shard_size * 3:
                                     raise RuntimeError(
-                                        f"{self.name}: Atlas is under high load and cannot ingest datums at this time. Please try again later."
+                                        f"{self.slug}: Atlas is under high load and cannot ingest datums at this time. Please try again later."
                                     )
                                 new_submission = executor.submit(send_request, start_point)
                                 futures[new_submission] = start_point
                                 response.close()
                             else:
-                                logger.error(f"{self.name}: Shard upload failed: {response}")
+                                logger.error(f"{self.slug}: Shard upload failed: {response}")
                                 failed += shard_size
                                 pbar.update(1)
                                 response.close()
@@ -1517,4 +1525,4 @@ class AtlasProject(AtlasClass):
             json={'project_id': self.id, 'rebuild_topic_models': rebuild_topic_models},
         )
 
-        logger.info(f"Updating maps in project `{self.name}`")
+        logger.info(f"Updating maps in project `{self.slug}`")
