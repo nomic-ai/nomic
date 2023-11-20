@@ -188,7 +188,7 @@ class AtlasClass(object):
 
         return response.json()['organization_id']
 
-    def _get_project_by_identifier(self, identifier: str):
+    def _get_project_by_slug_identifier(self, identifier: str):
         '''
 
         Args:
@@ -730,7 +730,11 @@ class AtlasProject(AtlasClass):
             default_org_slug = self._get_current_users_main_organization()['slug']
             identifier = default_org_slug+'/'+identifier
 
-        project = self._get_project_by_identifier(identifier=identifier)
+        project = self._get_project_by_slug_identifier(identifier=identifier)
+        print(project)
+
+        # if project is None and project_id is None:
+        #     raise ValueError(f"Could not find project: `{identifier}`")
 
         if project:  # project already exists
             project_id = project['id']
@@ -907,7 +911,7 @@ class AtlasProject(AtlasClass):
     @property
     def slug(self) -> str:
         '''The slug for this project'''
-        return self.meta['slug']
+        return self.meta['organization_slug']+'/'+self.meta['slug']
 
     @property
     def description(self):

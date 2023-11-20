@@ -137,7 +137,6 @@ def map_embeddings(
             projection_spread=projection_spread,
             topic_label_field=topic_label_field,
         )
-        logger.info(str(projection))
     else:
         # otherwise refresh the maps
         project.rebuild_maps()
