@@ -247,7 +247,7 @@ class AtlasMapTopics:
             end: A datetime object for the window end
 
         Returns:
-            List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count.
+            A list of `{topic, count}` dictionaries, sorted from largest count to smallest count.
         '''
         data = AtlasMapData(self.projection, fields=[time_field])
         time_data = data._tb.select([self.id_field, time_field])
@@ -283,7 +283,7 @@ class AtlasMapTopics:
             depth: (Default 3) the topic depth at which you want to search
 
         Returns:
-            A dict mapping {topic: posterior probability} for each query.
+            A dict mapping `{topic: posterior probability}` for each query.
         '''
 
         if queries.ndim != 2:
