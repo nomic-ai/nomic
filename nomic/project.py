@@ -127,6 +127,11 @@ class AtlasClass(object):
         '''
 
         user = self._get_current_user()
+        if user['default_organization']:
+            for organization in user['organizations']:
+                if organization['id'] == user['default_organization']:
+                    return organization
+
         for organization in user['organizations']:
             if organization['user_id'] == user['sub'] and organization['access_role'] == 'OWNER':
                 return organization
@@ -159,6 +164,71 @@ class AtlasClass(object):
             raise Exception(f"Could not access project with id {project_id}: {response.text}")
 
         return response.json()
+
+    def _get_organization_by_slug(self, slug: str):
+        '''
+
+        Args:
+            project_id: The project id
+
+        Returns:
+            Returns the requested project.
+        '''
+
+        if '/' in slug:
+            slug = slug.split('/')[0]
+
+        response = requests.get(
+            self.atlas_api_path + f"/v1/organization/search/{slug}",
+            headers=self.header,
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"Organization not found: {slug}")
+
+        return response.json()['organization_id']
+
+    def _get_project_by_slug(self, identifier: str):
+        '''
+
+        Args:
+            identifer: the organization slug and project slug seperated by a slash
+
+        Returns:
+            Returns the requested project.
+        '''
+
+        if not self.is_valid_dataset_identifier(identifier=identifier):
+            raise Exception("Invalid dataset identifier")
+
+        organization_slug = identifier.split('/')[0]
+        project_slug = identifier.split('/')[1]
+
+        response = requests.get(
+            self.atlas_api_path + f"/v1/project/{organization_slug}/project/{project_slug}",
+            headers=self.header,
+        )
+
+        if response.status_code != 200:
+            return None
+
+        return response.json()
+
+
+    def is_valid_dataset_identifier(self, identifier: str):
+        '''
+        Checks if a string is a valid identifier for a dataset
+
+        Args:
+            identifer: the organization slug and project slug seperated by a slash
+
+        Returns:
+            Returns the requested project.
+        '''
+        slugs = identifier.split('/')
+        if '/' not in identifier or len(slugs) != 2:
+            return False
+        return True
 
     def _get_index_job(self, job_id: str):
         '''
@@ -280,76 +350,38 @@ class AtlasClass(object):
             )
         return data
 
-    def _get_organization(self, organization_name=None, organization_id=None) -> Tuple[str, str]:
+    def _get_organization(self, organization_slug=None, organization_id=None) -> Tuple[str, str]:
         '''
         Gets an organization by either its name or id.
 
         Args:
-            organization_name: the name of the organization
+            organization_slug: the slug of the organization
             organization_id: the id of the organization
 
         Returns:
-            The organization_name and organization_id if one was found.
+            The organization_slug and organization_id if one was found.
 
         '''
 
-        if organization_name is None:
+        if organization_slug is None:
             if organization_id is None:  # default to current users organization (the one with their name)
                 organization = self._get_current_users_main_organization()
-                organization_name = organization['nickname']
+                organization_slug = organization['slug']
                 organization_id = organization['organization_id']
             else:
                 raise NotImplementedError("Getting organization by a specific ID is not yet implemented.")
 
         else:
-            organization_id_request = requests.get(
-                self.atlas_api_path + f"/v1/organization/search/{organization_name}", headers=self.header
-            )
-            if organization_id_request.status_code != 200:
+            try:
+                organization_id = self._get_organization_by_slug(slug=organization_slug)
+            except Exception:
                 user = self._get_current_user()
                 users_organizations = [org['nickname'] for org in user['organizations']]
                 raise Exception(
-                    f"No such organization exists: {organization_name}. You have access to the following organizations: {users_organizations}"
+                    f"No such organization exists: {organization_slug}. You have access to the following organizations: {users_organizations}"
                 )
-            organization_id = organization_id_request.json()['organization_id']
 
-        return organization_name, organization_id
-
-    def _get_existing_project_by_name(self, project_name, organization_name) -> Dict:
-        '''
-        Utility method for instantiating an AtlasProject.
-        Retrieves an existing project by name in a given organization. Fail
-        Args:
-            project_name: the project name
-            organization_name: the organization name
-
-        Returns:
-            A dictionary containing the project_id, organization_id and organization_name.
-
-        '''
-
-        # check if this project already exists.
-        response = requests.post(
-            self.atlas_api_path + "/v1/project/search/name",
-            headers=self.header,
-            json={'organization_name': organization_name, 'project_name': project_name},
-        )
-
-        if response.status_code != 200:
-            raise Exception(f"Failed to find project: {response.text}")
-        search_results = response.json()['results']
-
-        if search_results:
-            existing_project = search_results[0]
-            existing_project_id = existing_project['id']
-            return {
-                'project_id': existing_project_id,
-                'organization_name': existing_project['owner'],
-            }
-
-        organization_name, organization_id = self._get_organization(organization_name=organization_name)
-        return {'organization_id': organization_id, 'organization_name': organization_name}
-
+        return organization_slug, organization_id
 
 class AtlasIndex:
     """
@@ -656,7 +688,6 @@ class AtlasProjection:
         else:
             raise Exception(response.text)
 
-
 class AtlasProject(AtlasClass):
     def __init__(
         self,
@@ -664,7 +695,6 @@ class AtlasProject(AtlasClass):
         description: Optional[str] = 'A description for your map.',
         unique_id_field: Optional[str] = None,
         modality: Optional[str] = None,
-        organization_name: Optional[str] = None,
         is_public: bool = True,
         project_id=None,
         reset_project_if_exists=False,
@@ -677,11 +707,10 @@ class AtlasProject(AtlasClass):
 
         **Parameters:**
 
-        * **project_name** - The name of the project.
+        * **name** - The project identifier
         * **description** - A description for the project.
         * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
         * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
-        * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user account's default organization.
         * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
         * **reset_project_if_exists** - If the requested project exists in your organization, will delete it and re-create it.
         * **project_id** - An alternative way to retrieve a project is by passing the project_id directly. This only works if a project exists.
@@ -689,39 +718,35 @@ class AtlasProject(AtlasClass):
         * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.
 
         """
-        assert name is not None or project_id is not None, "You must pass a name or project_id"
+        assert name is not None or project_id is not None, "You must pass a project identifier"
 
         super().__init__()
 
+        identifier = name
         if project_id is not None:
             self.meta = self._get_project_by_id(project_id)
             return
 
-        if organization_name is None:
-            organization_name = self._get_current_users_main_organization()['nickname']
+        project = self._get_project_by_slug(identifier=identifier)
 
-        results = self._get_existing_project_by_name(project_name=name, organization_name=organization_name)
-
-        if 'project_id' in results:  # project already exists
-            organization_name = results['organization_name']
-            project_id = results['project_id']
+        if project:  # project already exists
+            project_id = project['id']
             if reset_project_if_exists:  # reset the project
                 logger.info(
-                    f"Found existing project `{name}` in organization `{organization_name}`. Clearing it of data by request."
+                    f"Found existing project {identifier}. Clearing it of data by request."
                 )
                 self._delete_project_by_id(project_id=project_id)
                 project_id = None
             elif not add_datums_if_exists:  # prevent adding datums to existing project explicitly
                 raise ValueError(
-                    f"Project already exists with the name `{name}` in organization `{organization_name}`. "
+                    f"Project already exists: {identifier}`. "
                     f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exists=True` on a new upload."
                 )
             else:
-                logger.info(f"Loading existing project `{name}` from organization `{organization_name}`.")
+                logger.info(f"Loading existing project `{identifier}``.")
 
         if project_id is None:  # if there is no existing project, make a new one.
             if unique_id_field is None:
-                unique_id_field = ATLAS_DEFAULT_ID_FIELD
 
                 raise ValueError("You must specify a unique_id_field when creating a new project.")
 
@@ -732,11 +757,10 @@ class AtlasProject(AtlasClass):
             assert name is not None
 
             project_id = self._create_project(
-                project_name=name,
+                identifier=identifier,
                 description=description,
                 unique_id_field=unique_id_field,
                 modality=modality,
-                organization_name=organization_name,
                 is_public=is_public,
             )
 
@@ -748,9 +772,9 @@ class AtlasProject(AtlasClass):
         Deletes an atlas project with all associated metadata.
         '''
         organization = self._get_current_users_main_organization()
-        organization_name = organization['nickname']
+        organization_slug = organization['slug']
 
-        logger.info(f"Deleting project `{self.name}` from organization `{organization_name}`")
+        logger.info(f"Deleting project `{self.name}` from organization `{organization_slug}`")
 
         self._delete_project_by_id(project_id=self.id)
 
@@ -758,11 +782,10 @@ class AtlasProject(AtlasClass):
 
     def _create_project(
         self,
-        project_name: str,
+        identifier: str,
         description: Optional[str],
         unique_id_field: str,
         modality: str,
-        organization_name: Optional[str] = None,
         is_public: bool = True,
     ):
         '''
@@ -772,18 +795,18 @@ class AtlasProject(AtlasClass):
 
         **Parameters:**
 
-        * **project_name** - The name of the project.
+        * **identifier** - The identifier for the project.
         * **description** - A description for the project.
         * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
         * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
-        * **organization_name** - The name of the organization to create this project under. You must be a member of the organization with appropriate permissions. If not specified, defaults to your user accounts default organization.
         * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
 
         **Returns:** project_id on success.
 
         '''
 
-        organization_name, organization_id = self._get_organization(organization_name=organization_name)
+        organization_id = self._get_organization_by_slug(slug=identifier)
+        project_name = identifier.split('/')[0]
 
         supported_modalities = ['text', 'embedding']
         if modality not in supported_modalities:
@@ -794,7 +817,7 @@ class AtlasProject(AtlasClass):
 
         if unique_id_field is None:
             raise ValueError("You must specify a unique id field")
-        logger.info(f"Creating project `{project_name}` in organization `{organization_name}`")
+        logger.info(f"Creating project `{identifier}`")
         if description is None:
             description = ""
         response = requests.post(
