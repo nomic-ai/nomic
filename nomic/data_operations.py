@@ -278,7 +278,7 @@ class AtlasMapTopics:
         - Does by datapoint belong to the "Dog" topic or the "Cat" topic.
 
         Args:
-            queries: a 2d numpy array where each row corresponds to a query vector
+            queries: a 2d NumPy array where each row corresponds to a query vector
             k: (Default 32) the number of neighbors to use when estimating the posterior
             depth: (Default 3) the topic depth at which you want to search
 
@@ -362,7 +362,7 @@ class AtlasMapEmbeddings:
         High dimensional embeddings.
 
         Returns:
-            A memmapped numpy array where each row contains the latent embedding of the corresponding datapoint in the same order as `map.embeddings.projected`.
+            A memmapped NumPy array where each row contains the latent embedding of the corresponding datapoint in the same order as `map.embeddings.projected`.
         """
         if self._latent is not None:
             return self._latent
@@ -428,7 +428,7 @@ class AtlasMapEmbeddings:
         You should not specify both queries and ids.
 
         Args:
-            queries: a 2d numpy array where each row corresponds to a query vector
+            queries: a 2d NumPy array where each row corresponds to a query vector
             ids: a list of ids
             k: the number of closest data points (neighbors) to return for each input query/data id
         Returns:
@@ -438,7 +438,7 @@ class AtlasMapEmbeddings:
         '''
 
         if queries is None and ids is None:
-            raise ValueError('You must specify either a list of datum `ids` or numpy array of `queries` but not both.')
+            raise ValueError('You must specify either a list of datum `ids` or NumPy array of `queries` but not both.')
 
         max_k = 128
         max_queries = 256
