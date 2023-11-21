@@ -1249,7 +1249,7 @@ class AtlasProject(AtlasClass):
 
         Args:
             data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the project schema.
-            embeddings: A numpy array of embeddings: each row corresponds to a row in the table.
+            embeddings: A NumPy array of embeddings: each row corresponds to a row in the table.
             pbar: (Optional). A tqdm progress bar to update.
         """
 
@@ -1261,8 +1261,8 @@ class AtlasProject(AtlasClass):
             raise DeprecationWarning("shard_size is deprecated and no longer has any effect")
         if num_workers is not None:
             raise DeprecationWarning("num_workers is deprecated and no longer has any effect")
-        assert type(embeddings) == np.ndarray, "Embeddings must be a numpy array."
-        assert len(embeddings.shape) == 2, "Embeddings must be a 2D numpy array."
+        assert type(embeddings) == np.ndarray, "Embeddings must be a NumPy array."
+        assert len(embeddings.shape) == 2, "Embeddings must be a 2D NumPy array."
         assert len(data) == embeddings.shape[0], "Data and embeddings must have the same number of rows."
         assert len(data) > 0, "Data must have at least one row."
 
