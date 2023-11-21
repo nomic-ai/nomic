@@ -50,6 +50,9 @@ class AtlasClass(object):
         elif self.credentials['tenant'] == 'production':
             api_hostname = 'api-atlas.nomic.ai'
             web_hostname = 'atlas.nomic.ai'
+        elif self.credentials['tenant'] == 'enterprise':
+            api_hostname = self.credentials['api_domain']
+            web_hostname = self.credentials['frontend_domain']
         else:
             raise ValueError("Invalid tenant.")
 

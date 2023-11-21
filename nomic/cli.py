@@ -62,9 +62,10 @@ def login(token, tenant='production'):
 
     bearer_token = response.json()['access_token']
     with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
-        json.dump(
-            {'refresh_token': token, 'token': bearer_token, 'tenant': tenant, 'expires': time.time() + 80000}, file
-        )
+        saved_credentials = {'refresh_token': token, 'token': bearer_token, 'tenant': tenant, 'expires': time.time() + 80000}
+        if tenant == 'enterprise':
+            saved_credentials |= environment
+        json.dump(saved_credentials, file)
 
 
 def refresh_bearer_token():
@@ -108,9 +109,12 @@ def switch(tenant):
 
 
 @click.command()
+@click.option('--domain', default=None, help='Domain to use for Atlas enterprise login')
 @click.argument('command', nargs=1, default='')
 @click.argument('params', nargs=-1)
-def cli(command, params):
+def cli(command, params, domain=None):
+    if domain is not None:
+        tenants['enterprise'] = { 'frontend_domain': domain, 'api_domain': f'api.{domain}' }
     if command == 'login':
         if len(params) == 0:
             login(token=None, tenant='production')
@@ -118,6 +122,14 @@ def cli(command, params):
             login(token=None, tenant='staging')
         if len(params) == 2 and params[0] == 'staging':
             login(token=params[1], tenant='staging')
+        if len(params) == 1 and params[0] == 'enterprise':
+            if domain is None:
+                raise ValueError('Must pass --domain to log into an enterprise environment')
+            login(token=None, tenant='enterprise')
+        if len(params) == 2 and params[0] == 'enterprise':
+            if domain is None:
+                raise ValueError('Must pass --domain to log into an enterprise environment')
+            login(token=params[1], tenant='enterprise')
         if len(params) == 1:
             login(token=params[0], tenant='production')
     elif command == 'switch':
