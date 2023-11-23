@@ -963,6 +963,7 @@ class AtlasMapData:
                 field
                 for field in self.project.project_fields
                 if field not in self._basic_data.column_names and field != "_embeddings"
+                and field != self.project.meta['unique_id_field']
             ]
         else:
             for field in sidecars:
