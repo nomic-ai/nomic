@@ -596,7 +596,7 @@ class AtlasMapEmbeddings:
 class AtlasMapTags:
     """
     Atlas Map Tag State. You can manipulate tags by filtering over
-    the associated pandas DataFrame
+    the associated pandas DataFrame.
     """
 
     def __init__(self, projection: "AtlasProjection"):
