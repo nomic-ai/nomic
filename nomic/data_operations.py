@@ -25,7 +25,7 @@ from .settings import EMBEDDING_PAGINATION_LIMIT
 
 class AtlasMapDuplicates:
     """
-    Atlas Duplicate Clusters State. Atlas automatically groups embeddings that are sufficiently close into semantic clusters.
+    Atlas Duplicate Clusters State. Atlas can automatically group embeddings that are sufficiently close into semantic clusters.
     You can use these clusters for semantic duplicate detection allowing you to quickly deduplicate
     your data.
     """
