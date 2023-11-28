@@ -595,7 +595,7 @@ class AtlasMapEmbeddings:
 
 class AtlasMapTags:
     """
-    Atlas Map Tag State. Tags are shared across all maps in your AtlasProject. You can manipulate tags by filtering over
+    Atlas Map Tag State. You can manipulate tags by filtering over
     the associated pandas DataFrame
     """
 
