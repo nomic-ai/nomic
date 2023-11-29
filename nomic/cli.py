@@ -71,7 +71,10 @@ def login(token, tenant='production'):
 def refresh_bearer_token():
     credentials = get_api_credentials()
     if time.time() >= credentials['expires']:
-        environment = tenants[credentials['tenant']]
+        try:
+            environment = tenants[credentials['tenant']]
+        except KeyError:
+            environment = credentials
         response = requests.get(
             'https://' + environment['api_domain'] + f"/v1/user/token/refresh/{credentials['refresh_token']}"
         )
