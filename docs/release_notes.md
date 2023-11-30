@@ -1,5 +1,9 @@
 # Release Notes
 
+## v2.0.16
+
+Bugfix affecting automatic renewal of enterprise login credentials.
+
 ## v2.0.14
 
 Improvements for stability and scale.
