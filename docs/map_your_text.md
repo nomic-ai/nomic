@@ -46,7 +46,7 @@ Nomic integrates with embedding providers such as [co:here](https://cohere.ai/) 
 ### Text maps with a 🤗 Hugging Face model
 
 This code snippet is a complete example of how to make a map with a Hugging Face model.
-[Example Hugging Face Map](https://atlas.nomic.ai/map/60e57e91-c573-4d1f-85ac-2f00f2a075ae/f5bf58cf-f40b-439d-bd0d-d3a4a8b98496)
+[Example Hugging face Map](https://atlas.nomic.ai/map/60e57e91-c573-4d1f-85ac-2f00f2a075ae/f5bf58cf-f40b-439d-bd0d-d3a4a8b98496)
 
 !!! note
 
