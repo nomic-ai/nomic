@@ -247,11 +247,7 @@ class AtlasMapTopics:
             end: A datetime object for the window end
 
         Returns:
-<<<<<<< HEAD
             A list of `{topic, count}` dictionaries, sorted from largest count to smallest count.
-=======
-            List[{topic: str, count: int}] - A list of {topic, count} dictionaries, sorted from largest count to smallest count.
->>>>>>> c8ce66b (typos and punctuation in docstrings)
         '''
         data = AtlasMapData(self.projection, fields=[time_field])
         time_data = data._tb.select([self.id_field, time_field])
@@ -288,10 +284,14 @@ class AtlasMapTopics:
 
         Returns:
 <<<<<<< HEAD
+<<<<<<< HEAD
             A dict mapping `{topic: posterior probability}` for each query.
 =======
             A dict mapping {topic: posterior probability} for each query.
 >>>>>>> c8ce66b (typos and punctuation in docstrings)
+=======
+            A dict mapping `{topic: posterior probability}` for each query.
+>>>>>>> 79d876a (Fixes to bracket escaping)
         '''
 
         if queries.ndim != 2:
