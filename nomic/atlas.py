@@ -12,7 +12,7 @@ from pandas import DataFrame
 from loguru import logger
 from tqdm import tqdm
 
-from .project import AtlasProject
+from .project import AtlasDataset
 from .settings import *
 from .utils import b64int, get_random_name, arrow_iterator
 
@@ -34,7 +34,7 @@ def map_embeddings(
     projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
-) -> AtlasProject:
+) -> AtlasDataset:
     '''
 
     Args:
@@ -44,9 +44,9 @@ def map_embeddings(
         name: A name for your dataset. Specify in the format `organization/project` to create in a specific organization.
         description: A description for your map.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
-        colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-        reset_project_if_exists: If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
-        add_datums_if_exists: If specifying an existing project and you want to add data to it, set this to true.
+        colorable_fields: The dataset fields you want to be able to color by on the map. Must be a subset of the projects fields.
+        reset_project_if_exists: If the specified dataset exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
+        add_datums_if_exists: If specifying an existing dataset and you want to add data to it, set this to true.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.
         topic_label_field: The metadata field to estimate topic labels from. Usually the field you embedded.
         projection_n_neighbors: The number of neighbors to build.
@@ -54,7 +54,7 @@ def map_embeddings(
         projection_spread: The spread of the map.
 
     Returns:
-        An AtlasProject that now contains your map.
+        An AtlasDataset that now contains your map.
 
     '''
 
@@ -93,7 +93,7 @@ def map_embeddings(
         logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
 
-    project = AtlasProject(
+    project = AtlasDataset(
         identifier=project_name,
         description=description,
         unique_id_field=id_field,
@@ -120,13 +120,13 @@ def map_embeddings(
         )
     except BaseException as e:
         if number_of_datums_before_upload == 0:
-            logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
+            logger.info(f"{project.name}: Deleting dataset due to failure in initial upload.")
             project.delete()
         raise e
 
     logger.info("Embedding upload succeeded.")
 
-    # make a new index if there were no datums in the project before
+    # make a new index if there were no datums in the dataset before
     if number_of_datums_before_upload == 0:
         projection = project.create_index(
             name=index_name,
@@ -163,7 +163,7 @@ def map_text(
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
     duplicate_detection: bool = False,
     duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD
-) -> AtlasProject:
+) -> AtlasDataset:
     '''
     Generates or updates a map of the given text.
 
@@ -175,15 +175,15 @@ def map_text(
         description: A description for your map.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
-        colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
-        reset_project_if_exists: If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
-        add_datums_if_exists: If specifying an existing project and you want to add data to it, set this to true.
+        colorable_fields: The dataset fields you want to be able to color by on the map. Must be a subset of the projects fields.
+        reset_project_if_exists: If the specified dataset exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
+        add_datums_if_exists: If specifying an existing dataset and you want to add data to it, set this to true.
         projection_n_neighbors: The number of neighbors to build.
         projection_epochs: The number of epochs to build the map with.
         projection_spread: The spread of the map.
 
     Returns:
-        The AtlasProject containing your map.
+        The AtlasDataset containing your map.
 
     '''
     if id_field is None:
@@ -211,10 +211,10 @@ def map_text(
     first_sample = next(data_iterator, None)
 
     if first_sample is None:
-        logger.warning("Passed data has no samples. No project will be created")
+        logger.warning("Passed data has no samples. No dataset will be created")
         return
 
-    project = AtlasProject(
+    project = AtlasDataset(
         name=project_name,
         description=description,
         unique_id_field=id_field,
@@ -268,13 +268,13 @@ def map_text(
         
     except BaseException as e:
         if number_of_datums_before_upload == 0:
-            logger.info(f"{project.name}: Deleting project due to failure in initial upload.")
+            logger.info(f"{project.name}: Deleting dataset due to failure in initial upload.")
             project.delete()
         raise e
 
     logger.info("Text upload succeeded.")
 
-    # make a new index if there were no datums in the project before
+    # make a new index if there were no datums in the dataset before
     if number_of_datums_before_upload == 0:
         projection = project.create_index(
             name=index_name,
