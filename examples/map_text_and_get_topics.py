@@ -1,6 +1,6 @@
 from nomic import atlas
 import numpy as np
-from nomic import AtlasProject
+from nomic import AtlasDataset
 from pprint import pprint
 from datasets import load_dataset
 
@@ -21,7 +21,7 @@ project = atlas.map_text(data=documents,
 
 project.wait_for_project_lock()
 
-# project = AtlasProject(name='News 10k For Topic Extraction')
+# project = AtlasDataset(name='News 10k For Topic Extraction')
 
 from pprint import pprint
 pprint(project.maps[0].topics.group_by_topic(topic_depth=1)[0])

@@ -283,15 +283,7 @@ class AtlasMapTopics:
             depth: (Default 3) the topic depth at which you want to search
 
         Returns:
-<<<<<<< HEAD
-<<<<<<< HEAD
-            A dict mapping `{topic: posterior probability}` for each query.
-=======
-            A dict mapping {topic: posterior probability} for each query.
->>>>>>> c8ce66b (typos and punctuation in docstrings)
-=======
-            A dict mapping `{topic: posterior probability}` for each query.
->>>>>>> 79d876a (Fixes to bracket escaping)
+            A dict mapping {topic: posterior probability} for each query.)
         '''
 
         if queries.ndim != 2:
@@ -322,7 +314,52 @@ class AtlasMapTopics:
 
 class AtlasMapEmbeddings:
     """
-    Atlas Embeddings State. Access latent (high-dimensional) and projected (two-dimensional) embeddings of your datapoints.
+    Atlas Embeddings State
+
+    Access latent (high-dimensional) and projected (two-dimensional) embeddings of your datapoints.
+
+    ## Two-dimensional projected embeddings
+
+    === "Accessing 2D Embeddings Example"
+        ``` py
+        from nomic import AtlasDataset
+
+        project = AtlasDataset(name='My Project')
+        map = project.maps[0]
+        print(map.embeddings)
+        ```
+    === "Output"
+        ```
+              id_          x          y
+        0      0A  -6.164423  21.517719
+        1      0g  -6.606402  -5.601104
+        2      0Q  -9.206946   7.448542
+        ...   ...        ...        ...
+        9998  JZQ   2.110881 -12.937058
+        9999  JZU   7.865006  -6.876243
+        ```
+
+    ## High dimensional latent embeddings
+
+
+    === "Accessing Latent Embeddings Example"
+        ``` py
+        from nomic import AtlasDataset
+
+        project = AtlasDataset('My Project')
+        map = project.maps[0]
+        embeddings = map.embeddings.latent
+        print(embeddings.shape)
+        ```
+    === "Output"
+        ```
+        [10000, 384]
+        ```
+
+
+    !!! warning "High dimensional embeddings"
+        High dimensional embeddings are not immediately downloaded when you access the embeddings attribute - you must explicitly call `map.embeddings.latent`. Once downloaded, subsequent calls will reference your downloaded local copy.
+
     """
 
     def __init__(self, projection: "AtlasProjection"):
@@ -335,21 +372,9 @@ class AtlasMapEmbeddings:
     @property
     def df(self):
         """
-<<<<<<< HEAD
-<<<<<<< HEAD
         Pandas DataFrame containing information about embeddings of your datapoints. 
         
-        Includes only the two-dimensional embeddings. 
-=======
-        Pandas DataFrame containing information about embeddings of your datapoints.
-
-        Includes only the two-dimensional embeddings
->>>>>>> 14acbb4 (fix pandas capitalization)
-=======
-        Pandas DataFrame containing information about embeddings of your datapoints. 
-        
-        Includes only the two-dimensional embeddings. 
->>>>>>> c8ce66b (typos and punctuation in docstrings)
+        Includes only the two-dimensional embeddings.
         """
         return self.tb.to_pandas()
 

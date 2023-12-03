@@ -409,7 +409,7 @@ class AtlasProjection:
     Instead instantiate an AtlasDataset and use the project.maps attribute to retrieve an AtlasProjection.
     '''
 
-    def __init__(self, project: "AtlasProject", atlas_index_id: str, projection_id: str, name):
+    def __init__(self, project: "AtlasDataset", atlas_index_id: str, projection_id: str, name):
         """
         Creates an AtlasProjection.
         """

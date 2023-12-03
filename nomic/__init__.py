@@ -1,2 +1,2 @@
 from .cli import login
-from .project import AtlasProject, AtlasUser
+from .project import AtlasDataset, AtlasUser
