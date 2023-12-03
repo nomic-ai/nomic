@@ -16,6 +16,35 @@ from .project import AtlasProject
 from .settings import *
 from .utils import b64int, get_random_name, arrow_iterator
 
+from .project import AtlasClass
+import requests
+
+def list_projects(organization_id=None):
+    """
+    Lists all projects in an Atlas organization.
+
+    If called without an organization id, it will list all projects in the
+    current user's main organization.
+    """
+    c = AtlasClass()
+    if organization_id is None:
+        organization = c._get_current_users_main_organization()
+        if organization is None:
+            raise ValueError(
+                "No organization id provided and no main organization found."
+            )
+        organization_id = organization['organization_id']
+    response = requests.get(
+        c.atlas_api_path + f"/v1/organization/{organization_id}",
+        headers=c.header
+    )
+    proj_info = response.json()['projects']
+    return [
+        {'name': p['project_name'],
+            'id': p['id'],
+            'created_timestamp': p['created_timestamp']}
+        for p in proj_info
+    ]
 
 def map_embeddings(
     embeddings: np.array,

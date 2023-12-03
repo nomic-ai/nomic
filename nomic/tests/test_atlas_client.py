@@ -468,3 +468,14 @@ def test_map_text_iterator():
     map = project.get_map(name='UNITTEST_pandas_text')
     assert project.total_datums == 50
     project.delete()
+
+
+def test_list_projects():
+    # Create a project if none exists
+    proj = AtlasProject(name='existence', modality='text', unique_id_field='id', reset_project_if_exists=False)
+    projects = atlas.list_projects()
+    assert len(projects) > 0
+    assert isinstance(projects[0], dict)
+    assert 'name' in projects[0]
+    assert 'existence' in set([p['name'] for p in projects])
+    proj.delete()
