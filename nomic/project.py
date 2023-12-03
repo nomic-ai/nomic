@@ -129,7 +129,7 @@ class AtlasClass(object):
         user = self._get_current_user()
         if user['default_organization']:
             for organization in user['organizations']:
-                if organization['id'] == user['default_organization']:
+                if organization['organization_id'] == user['default_organization']:
                     return organization
 
         for organization in user['organizations']:
@@ -203,7 +203,6 @@ class AtlasClass(object):
 
         organization_slug = identifier.split('/')[0]
         project_slug = identifier.split('/')[1]
-
         response = requests.get(
             self.atlas_api_path + f"/v1/project/{organization_slug}/project/{project_slug}",
             headers=self.header,
