@@ -249,7 +249,7 @@ class AtlasClass(object):
 
         return response.json()
 
-    def _validate_and_correct_arrow_upload(self, data: pa.Table, project: "AtlasProject") -> pa.Table:
+    def _validate_and_correct_arrow_upload(self, data: pa.Table, project: "AtlasDataset") -> pa.Table:
         '''
         Private method. validates upload data against the project arrow schema, and associated other checks.
 
@@ -257,7 +257,7 @@ class AtlasClass(object):
 
         Args:
             data: an arrow table.
-            project: the atlas project you are validating the data for.
+            project: the atlas dataset you are validating the data for.
 
         Returns:
 
@@ -384,7 +384,7 @@ class AtlasClass(object):
 
 class AtlasIndex:
     """
-    An AtlasIndex represents a single view of an Atlas Project at a point in time.
+    An AtlasIndex represents a single view of an AtlasDataset at a point in time.
 
     An AtlasIndex typically contains one or more *projections* which are 2D representations of
     the points in the index that you can browse online.
@@ -406,7 +406,7 @@ class AtlasProjection:
     Interact and access state of an Atlas Map including text/vector search.
     This class should not be instantiated directly.
 
-    Instead instantiate an AtlasProject and use the project.maps attribute to retrieve an AtlasProjection.
+    Instead instantiate an AtlasDataset and use the project.maps attribute to retrieve an AtlasProjection.
     '''
 
     def __init__(self, project: "AtlasProject", atlas_index_id: str, projection_id: str, name):
@@ -512,7 +512,7 @@ class AtlasProjection:
     def duplicates(self):
         """Duplicate detection state"""
         if self.project.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to access duplicates.')
+            raise Exception('Dataset is locked! Please wait until the dataset is unlocked to access duplicates.')
         if self._duplicates is None:
             self._duplicates = AtlasMapDuplicates(self)
         return self._duplicates
@@ -521,7 +521,7 @@ class AtlasProjection:
     def topics(self):
         """Topic state"""
         if self.project.is_locked:
-            raise Exception('Project is locked for state access! Please wait until the project is unlocked to access topics.')
+            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access topics.')
         if self._topics is None:
             self._topics = AtlasMapTopics(self)
         return self._topics
@@ -539,7 +539,7 @@ class AtlasProjection:
     def tags(self):
         """Tag state"""
         if self.project.is_locked:
-            raise Exception('Project is locked for state access! Please wait until the project is unlocked to access tags.')
+            raise Exception('Dataset is locked for state access! Please wait until the project is unlocked to access tags.')
         if self._tags is None:
             self._tags = AtlasMapTags(self)
         return self._tags
@@ -548,7 +548,7 @@ class AtlasProjection:
     def data(self):
         """Metadata state"""
         if self.project.is_locked:
-            raise Exception('Project is locked for state access! Please wait until the project is unlocked to access data.')
+            raise Exception('Dataset is locked for state access! Please wait until the project is unlocked to access data.')
         if self._data is None:
             self._data = AtlasMapData(self)
         return self._data
@@ -687,7 +687,7 @@ class AtlasProjection:
         else:
             raise Exception(response.text)
 
-class AtlasProject(AtlasClass):
+class AtlasDataset(AtlasClass):
     def __init__(
         self,
         identifier: Optional[str] = None,
@@ -700,24 +700,24 @@ class AtlasProject(AtlasClass):
         add_datums_if_exists=True,
     ):
         """
-        Creates or loads an Atlas project.
-        Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
-        If the organization already contains a project with this name, it will be returned instead.
+        Creates or loads an AtlasDataset.
+        AtlasDataset's store data (text, embeddings, etc) that you can organize by building indices.
+        If the organization already contains a dataset with this name, it will be returned instead.
 
         **Parameters:**
 
-        * **identifier** - The project identifier (format is `organization/project`) or just project and we will auto-infer from the default org.
+        * **identifier** - The dataset identifier (format is `organization/project`) or just dataset and we will auto-infer from the default org.
         * **description** - A description for the project.
         * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
         * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
-        * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
-        * **reset_project_if_exists** - If the requested project exists in your organization, will delete it and re-create it.
-        * **project_id** - An alternative way to retrieve a project is by passing the project_id directly. This only works if a project exists.
-        * **reset_project_if_exists** - If the specified project exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
-        * **add_datums_if_exists** - If specifying an existing project and you want to add data to it, set this to true.
+        * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
+        * **reset_project_if_exists** - If the requested dataset exists in your organization, will delete it and re-create it.
+        * **project_id** - An alternative way to retrieve a dataset is by passing the project_id directly. This only works if a dataset exists.
+        * **reset_project_if_exists** - If the specified dataset exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
+        * **add_datums_if_exists** - If specifying an existing dataset and you want to add data to it, set this to true.
 
         """
-        assert identifier is not None or project_id is not None, "You must pass a project identifier"
+        assert identifier is not None or project_id is not None, "You must pass a dataset identifier"
 
         super().__init__()
 
@@ -735,21 +735,21 @@ class AtlasProject(AtlasClass):
         # if project is None and project_id is None:
         #     raise ValueError(f"Could not find project: `{identifier}`")
 
-        if project:  # project already exists
+        if project:  # dataset already exists
             project_id = project['id']
             if reset_project_if_exists:  # reset the project
                 logger.info(
-                    f"Found existing project {identifier}. Clearing it of data by request."
+                    f"Found existing dataset {identifier}. Clearing it of data by request."
                 )
                 self._delete_project_by_id(project_id=project_id)
                 project_id = None
-            elif not add_datums_if_exists:  # prevent adding datums to existing project explicitly
+            elif not add_datums_if_exists:  # prevent adding datums to existing dataset explicitly
                 raise ValueError(
                     f"Project already exists: {identifier}`. "
                     f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exists=True` on a new upload."
                 )
             else:
-                logger.info(f"Loading existing project `{identifier}``.")
+                logger.info(f"Loading existing dataset `{identifier}``.")
 
         if project_id is None:  # if there is no existing project, make a new one.
             if unique_id_field is None:
@@ -775,12 +775,12 @@ class AtlasProject(AtlasClass):
 
     def delete(self):
         '''
-        Deletes an atlas project with all associated metadata.
+        Deletes an atlas dataset with all associated metadata.
         '''
         organization = self._get_current_users_main_organization()
         organization_slug = organization['slug']
 
-        logger.info(f"Deleting project `{self.slug}` from organization `{organization_slug}`")
+        logger.info(f"Deleting dataset `{self.slug}` from organization `{organization_slug}`")
 
         self._delete_project_by_id(project_id=self.id)
 
@@ -795,9 +795,9 @@ class AtlasProject(AtlasClass):
         is_public: bool = True,
     ):
         '''
-        Creates an Atlas project.
-        Atlas projects store data (text, embeddings, etc) that you can organize by building indices.
-        If the organization already contains a project with this name, it will be returned instead.
+        Creates an Atlas Dataset.
+        Atlas Datasets store data (text, embeddings, etc) that you can organize by building indices.
+        If the organization already contains a dataset with this name, it will be returned instead.
 
         **Parameters:**
 
@@ -805,7 +805,7 @@ class AtlasProject(AtlasClass):
         * **description** - A description for the project.
         * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
         * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
-        * **is_public** - Should this project be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
+        * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
 
         **Returns:** project_id on success.
 
@@ -816,14 +816,14 @@ class AtlasProject(AtlasClass):
 
         supported_modalities = ['text', 'embedding']
         if modality not in supported_modalities:
-            msg = 'Tried to create project with modality: {}, but Atlas only supports: {}'.format(
+            msg = 'Tried to create dataset with modality: {}, but Atlas only supports: {}'.format(
                 modality, supported_modalities
             )
             raise ValueError(msg)
 
         if unique_id_field is None:
             raise ValueError("You must specify a unique id field")
-        logger.info(f"Creating project `{identifier}`")
+        logger.info(f"Creating dataset `{identifier}`")
         if description is None:
             description = ""
         response = requests.post(
@@ -937,23 +937,23 @@ class AtlasProject(AtlasClass):
     @property
     def is_accepting_data(self) -> bool:
         '''
-        Checks if the project can accept data. Projects cannot accept data when they are being indexed.
+        Checks if the dataset can accept data. Projects cannot accept data when they are being indexed.
 
         Returns:
-            True if project is unlocked for data additions, false otherwise.
+            True if dataset is unlocked for data additions, false otherwise.
         '''
         return not self.is_locked
 
     @contextmanager
     def wait_for_project_lock(self):
-        '''Blocks thread execution until project is in a state where it can ingest data.'''
+        '''Blocks thread execution until dataset is in a state where it can ingest data.'''
         has_logged = False
         while True:
             if self.is_accepting_data:
                 yield self
                 break
             if not has_logged:
-                logger.info(f"{self.slug}: Waiting for Project Lock Release.")
+                logger.info(f"{self.slug}: Waiting for dataset Lock Release.")
                 has_logged = True
             time.sleep(5)
 
@@ -1024,7 +1024,7 @@ class AtlasProject(AtlasClass):
         Args:
             name: The name of the index and the map.
             indexed_field: For text projects, name the data field corresponding to the text to be mapped.
-            colorable_fields: The project fields you want to be able to color by on the map. Must be a subset of the projects fields.
+            colorable_fields: The dataset fields you want to be able to color by on the map. Must be a subset of the projects fields.
             build_topic_model: Should a topic model be built?
             projection_n_neighbors: A projection hyperparameter
             projection_epochs: A projection hyperparameter
@@ -1139,7 +1139,7 @@ class AtlasProject(AtlasClass):
             json=build_template,
         )
         if response.status_code != 200:
-            logger.info('Create project failed with code: {}'.format(response.status_code))
+            logger.info('Create dataset failed with code: {}'.format(response.status_code))
             logger.info('Additional info: {}'.format(response.text))
             raise Exception(response.json()['detail'])
 
@@ -1166,12 +1166,12 @@ class AtlasProject(AtlasClass):
             logger.warning(
                 "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
             )
-        logger.info(f"Created map `{projection.name}` in project `{self.slug}`: {projection.map_link}")
+        logger.info(f"Created map `{projection.name}` in dataset `{self.slug}`: {projection.map_link}")
         return projection
 
     def __repr__(self):
         m = self.meta
-        return f"AtlasProject: <{m}>"
+        return f"AtlasDataset: <{m}>"
 
     def _repr_html_(self):
         self._latest_project_state()
@@ -1257,7 +1257,7 @@ class AtlasProject(AtlasClass):
     def add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None, shard_size=None, num_workers=None):
         """
         Add text data to the project.
-        data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the project schema.
+        data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the dataset schema.
         pbar: (Optional). A tqdm progress bar to display progress.
         """
         if shard_size is not None or num_workers is not None:
@@ -1282,8 +1282,8 @@ class AtlasProject(AtlasClass):
         Add data, with associated embeddings, to the project.
 
         Args:
-            data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the project schema.
-            embeddings: A NumPy array of embeddings: each row corresponds to a row in the table.
+            data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the dataset schema.
+            embeddings: A numpy array of embeddings: each row corresponds to a row in the table.
             pbar: (Optional). A tqdm progress bar to update.
         """
 
@@ -1338,7 +1338,7 @@ class AtlasProject(AtlasClass):
         Low level interface to upload an Arrow Table. Users should generally call 'add_text' or 'add_embeddings.'
 
         Args:
-            data: A pyarrow Table that will be cast to the project schema.
+            data: A pyarrow Table that will be cast to the dataset schema.
             pbar: A tqdm progress bar to update.
         Returns:
             None
@@ -1515,7 +1515,7 @@ class AtlasProject(AtlasClass):
 
     def rebuild_maps(self, rebuild_topic_models: bool = False):
         '''
-        Rebuilds all maps in a project with the latest state project data state. Maps will not be rebuilt to
+        Rebuilds all maps in a dataset with the latest state dataset data state. Maps will not be rebuilt to
         reflect the additions, deletions or updates you have made to your data until this method is called.
 
         Args:
@@ -1528,4 +1528,4 @@ class AtlasProject(AtlasClass):
             json={'project_id': self.id, 'rebuild_topic_models': rebuild_topic_models},
         )
 
-        logger.info(f"Updating maps in project `{self.slug}`")
+        logger.info(f"Updating maps in dataset `{self.slug}`")
