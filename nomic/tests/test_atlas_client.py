@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 import requests
-from nomic import AtlasProject, atlas
+from nomic import AtlasDataset, atlas
 import pyarrow as pa
 import pandas as pd
 
@@ -25,7 +25,7 @@ def test_map_idless_embeddings():
 
     response = atlas.map_embeddings(name="test1", embeddings=embeddings, reset_project_if_exists=True)
 
-    AtlasProject(name="test1").delete()
+    AtlasDataset(identifier="test1").delete()
 
 
 def test_map_embeddings_with_errors():
@@ -70,7 +70,7 @@ def test_map_text_errors():
             description='test map description',
             reset_project_if_exists=True,
         )
-    AtlasProject(name='test_map_text_errors').delete()
+    AtlasDataset('test_map_text_errors').delete()
 
 
 def test_date_metadata():
@@ -120,7 +120,7 @@ def test_map_embedding_progressive():
     embeddings = np.random.rand(num_embeddings, 10) + np.ones(shape=(num_embeddings, 10))
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0} for i in range(len(embeddings))]
 
-    current_project = AtlasProject(name=project.name)
+    current_project = AtlasDataset(project.name)
 
     with current_project.wait_for_project_lock():
         project = atlas.map_embeddings(
@@ -141,7 +141,7 @@ def test_map_embedding_progressive():
                 for i in range(len(embeddings))
             ]
 
-            current_project = AtlasProject(name=project.name)
+            current_project = AtlasDataset(project.name)
 
             with current_project.wait_for_project_lock():
                 project = atlas.map_embeddings(
@@ -271,7 +271,7 @@ words = [
 
 
 def test_interactive_workflow():
-    p = AtlasProject(name='UNITTEST1', modality='text', unique_id_field='id', reset_project_if_exists=True)
+    p = AtlasDataset('UNITTEST1', modality='text', unique_id_field='id', reset_project_if_exists=True)
 
     p.add_text(data=[{'text': random.choice(words), 'id': i} for i in range(100)])
 
@@ -293,7 +293,7 @@ def test_flawed_ids():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasProject(name='test_flawed_ids', modality='text', unique_id_field='id', reset_project_if_exists=True)
+    p = AtlasDataset('test_flawed_ids', modality='text', unique_id_field='id', reset_project_if_exists=True)
 
     elements = []
     for i in range(10):
@@ -315,7 +315,7 @@ def test_weird_inputs():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasProject(name='test_weird_inputs', modality='text', unique_id_field='id', reset_project_if_exists=True)
+    p = AtlasDataset('test_weird_inputs', modality='text', unique_id_field='id', reset_project_if_exists=True)
 
     elements = []
     for i in range(20):
@@ -366,7 +366,7 @@ def test_map_embeddings():
     assert project.total_datums == num_embeddings
     assert retrieved_embeddings.shape[0] == num_embeddings
 
-    project = AtlasProject(name='UNITTEST1')
+    project = AtlasDataset('UNITTEST1')
     map = project.get_map(name='UNITTEST1')
 
     assert len(map.topics.df) == 20
