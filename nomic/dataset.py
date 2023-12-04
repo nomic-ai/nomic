@@ -954,7 +954,7 @@ class AtlasDataset(AtlasClass):
                 yield self
                 break
             if not has_logged:
-                logger.info(f"{self.identifier}: Waiting for dataset Lock Release.")
+                logger.info(f"{self.identifier}: Waiting for dataset lock Release.")
                 has_logged = True
             time.sleep(5)
 
