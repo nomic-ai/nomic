@@ -6,7 +6,7 @@ from io import BytesIO
 
 from typing import List, Union
 import PIL
-from .project import AtlasClass
+from .dataset import AtlasClass
 
 
 atlas_class = AtlasClass()
