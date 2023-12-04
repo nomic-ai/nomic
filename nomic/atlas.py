@@ -12,7 +12,7 @@ from pandas import DataFrame
 from loguru import logger
 from tqdm import tqdm
 
-from .project import AtlasDataset
+from .dataset import AtlasDataset
 from .settings import *
 from .utils import b64int, get_random_name, arrow_iterator
 
