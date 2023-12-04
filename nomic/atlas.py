@@ -120,7 +120,7 @@ def map_embeddings(
         )
     except BaseException as e:
         if number_of_datums_before_upload == 0:
-            logger.info(f"{project.name}: Deleting dataset due to failure in initial upload.")
+            logger.info(f"{project.identifier}: Deleting dataset due to failure in initial upload.")
             project.delete()
         raise e
 
@@ -161,7 +161,7 @@ def map_text(
     projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
-    duplicate_detection: bool = False,
+    duplicate_detection: bool = True,
     duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD
 ) -> AtlasDataset:
     '''
