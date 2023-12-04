@@ -161,7 +161,7 @@ class AtlasClass(object):
         )
 
         if response.status_code != 200:
-            raise Exception(f"Could not access project with id {project_id}: {response.text}")
+            raise Exception(f"Could not access dataset with id {project_id}: {response.text}")
 
         return response.json()
 
@@ -169,7 +169,7 @@ class AtlasClass(object):
         '''
 
         Args:
-            project_id: The project id
+            slug: The organization slug
 
         Returns:
             Returns the requested project.
@@ -192,7 +192,7 @@ class AtlasClass(object):
         '''
 
         Args:
-            identifier: the organization slug and project slug seperated by a slash
+            identifier: the organization slug and dataset slug seperated by a slash
 
         Returns:
             Returns the requested project.
@@ -219,7 +219,7 @@ class AtlasClass(object):
         Checks if a string is a valid identifier for a dataset
 
         Args:
-            identifer: the organization slug and project slug seperated by a slash
+            identifer: the organization slug and dataset slug seperated by a slash
 
         Returns:
             Returns the requested project.
@@ -271,7 +271,7 @@ class AtlasClass(object):
                 raise ValueError(msg)
         if project.meta['modality'] == 'embedding':
             if "_embeddings" not in data.column_names:
-                msg = "Must include embeddings in embedding project upload."
+                msg = "Must include embeddings in embedding dataset upload."
                 raise ValueError(msg)
 
         if project.id_field not in data.column_names:
@@ -499,7 +499,7 @@ class AtlasProjection:
         """
 
     def _repr_html_(self):
-        # Don't make an iframe if the project is locked.
+        # Don't make an iframe if the dataset is locked.
         state = self._status['index_build_stage']
         if state != 'Completed':
             return f"""Atlas Projection {self.name}. Status {state}. <a target="_blank" href="{self.map_link}">view online</a>"""
@@ -530,7 +530,7 @@ class AtlasProjection:
     def embeddings(self):
         """Embedding state"""
         if self.project.is_locked:
-            raise Exception('Project is locked for state access! Please wait until the project is unlocked to access embeddings.')
+            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access embeddings.')
         if self._embeddings is None:
             self._embeddings = AtlasMapEmbeddings(self)
         return self._embeddings
@@ -539,7 +539,7 @@ class AtlasProjection:
     def tags(self):
         """Tag state"""
         if self.project.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the project is unlocked to access tags.')
+            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access tags.')
         if self._tags is None:
             self._tags = AtlasMapTags(self)
         return self._tags
@@ -548,7 +548,7 @@ class AtlasProjection:
     def data(self):
         """Metadata state"""
         if self.project.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the project is unlocked to access data.')
+            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access data.')
         if self._data is None:
             self._data = AtlasMapData(self)
         return self._data
@@ -730,10 +730,6 @@ class AtlasDataset(AtlasClass):
             identifier = default_org_slug+'/'+identifier
 
         project = self._get_project_by_slug_identifier(identifier=identifier)
-        print(project)
-
-        # if project is None and project_id is None:
-        #     raise ValueError(f"Could not find project: `{identifier}`")
 
         if project:  # dataset already exists
             project_id = project['id']
@@ -752,9 +748,9 @@ class AtlasDataset(AtlasClass):
                 logger.info(f"Loading existing dataset `{identifier}``.")
 
         if project_id is None:  # if there is no existing project, make a new one.
-            if unique_id_field is None:
 
-                raise ValueError("You must specify a unique_id_field when creating a new project.")
+            if unique_id_field is None: #if not all parameters are specified, we weren't trying to make a project
+                raise ValueError(f"Dataset `{identifier}` does not exist.")
 
             if modality is None:
                 raise ValueError("You must specify a modality when creating a new project.")
@@ -910,6 +906,11 @@ class AtlasDataset(AtlasClass):
     @property
     def slug(self) -> str:
         '''The slug for this project'''
+        return self.meta['slug']
+
+    @property
+    def identifier(self) -> str:
+        '''The slug for this project'''
         return self.meta['organization_slug']+'/'+self.meta['slug']
 
     @property
@@ -953,7 +954,7 @@ class AtlasDataset(AtlasClass):
                 yield self
                 break
             if not has_logged:
-                logger.info(f"{self.slug}: Waiting for dataset Lock Release.")
+                logger.info(f"{self.identifier}: Waiting for dataset Lock Release.")
                 has_logged = True
             time.sleep(5)
 
@@ -1166,7 +1167,7 @@ class AtlasDataset(AtlasClass):
             logger.warning(
                 "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
             )
-        logger.info(f"Created map `{projection.name}` in dataset `{self.slug}`: {projection.map_link}")
+        logger.info(f"Created map `{projection.name}` in dataset `{self.identifier}`: {projection.map_link}")
         return projection
 
     def __repr__(self):
@@ -1423,18 +1424,18 @@ class AtlasDataset(AtlasClass):
                                 errors_504 += shard_size
                                 start_point = futures[future]
                                 logger.debug(
-                                    f"{self.slug}: Connection failed for records {start_point}-{start_point + shard_size}, retrying."
+                                    f"{self.identifier}: Connection failed for records {start_point}-{start_point + shard_size}, retrying."
                                 )
                                 failure_fraction = errors_504 / (failed + succeeded + errors_504)
                                 if failure_fraction > 0.5 and errors_504 > shard_size * 3:
                                     raise RuntimeError(
-                                        f"{self.slug}: Atlas is under high load and cannot ingest datums at this time. Please try again later."
+                                        f"{self.identifier}: Atlas is under high load and cannot ingest datums at this time. Please try again later."
                                     )
                                 new_submission = executor.submit(send_request, start_point)
                                 futures[new_submission] = start_point
                                 response.close()
                             else:
-                                logger.error(f"{self.slug}: Shard upload failed: {response}")
+                                logger.error(f"{self.identifier}: Shard upload failed: {response}")
                                 failed += shard_size
                                 pbar.update(1)
                                 response.close()
@@ -1488,6 +1489,7 @@ class AtlasDataset(AtlasClass):
             )
             raise ValueError(msg)
 
+        shard_size = 2000 #TODO someone removed shard size from params and didn't update
         # Add new data
         logger.info("Uploading data to Nomic's neural database Atlas.")
         with tqdm(total=len(data) // shard_size) as pbar:
@@ -1528,4 +1530,4 @@ class AtlasDataset(AtlasClass):
             json={'project_id': self.id, 'rebuild_topic_models': rebuild_topic_models},
         )
 
-        logger.info(f"Updating maps in dataset `{self.slug}`")
+        logger.info(f"Updating maps in dataset `{self.identifier}`")
