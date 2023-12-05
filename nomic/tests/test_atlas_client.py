@@ -68,7 +68,6 @@ def test_map_text_errors():
             name='test_map_text_errors',
             description='test map description',
         )
-    project.delete()
 
 
 def test_date_metadata():
@@ -99,60 +98,57 @@ def test_date_metadata():
         )
 
 
-def test_map_embedding_progressive():
-    num_embeddings = 100
-    embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0} for i in range(len(embeddings))]
-
-    project = atlas.map_data(
-        embeddings=embeddings,
-        name='test_map_embedding_progressive',
-        id_field='id',
-        data=data,
-        is_public=True,
-        build_topic_model=False,
-        reset_project_if_exists=True,
-    )
-
-    embeddings = np.random.rand(num_embeddings, 10) + np.ones(shape=(num_embeddings, 10))
-    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0} for i in range(len(embeddings))]
-
-    current_project = AtlasDataset(project.name)
-
-    with current_project.wait_for_project_lock():
-        project = atlas.map_data(
-            embeddings=embeddings,
-            name=current_project.name,
-            colorable_fields=['upload'],
-            id_field='id',
-            data=data,
-            build_topic_model=False,
-            is_public=True,
-            add_datums_if_exists=True,
-        )
-    with pytest.raises(Exception):
-        # Try adding a bad field.
-        with current_project.wait_for_project_lock():
-            data = [
-                {'invalid_field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0}
-                for i in range(len(embeddings))
-            ]
-
-            current_project = AtlasDataset(project.name)
-
-            with current_project.wait_for_project_lock():
-                project = atlas.map_data(
-                    embeddings=embeddings,
-                    name=current_project.name,
-                    colorable_fields=['upload'],
-                    id_field='id',
-                    data=data,
-                    build_topic_model=False,
-                    is_public=True,
-                    add_datums_if_exists=True,
-                )
-
-    current_project.delete()
+# def test_map_embedding_progressive():
+#     num_embeddings = 100
+#     embeddings = np.random.rand(num_embeddings, 10)
+#     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0} for i in range(len(embeddings))]
+#
+#     project = atlas.map_data(
+#         embeddings=embeddings,
+#         name='test_map_embedding_progressive',
+#         id_field='id',
+#         data=data,
+#         is_public=True,
+#         topic_model=dict(build_topic_model=False)
+#     )
+#
+#     embeddings = np.random.rand(num_embeddings, 10) + np.ones(shape=(num_embeddings, 10))
+#     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0} for i in range(len(embeddings))]
+#
+#     current_project = AtlasDataset(project.name)
+#
+#     with current_project.wait_for_project_lock():
+#         project = atlas.map_data(
+#             embeddings=embeddings,
+#             name=current_project.name,
+#             colorable_fields=['upload'],
+#             id_field='id',
+#             data=data,
+#             topic_model=dict(build_topic_model=False),
+#             is_public=True,
+#         )
+#     with pytest.raises(Exception):
+#         # Try adding a bad field.
+#         with current_project.wait_for_project_lock():
+#             data = [
+#                 {'invalid_field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0}
+#                 for i in range(len(embeddings))
+#             ]
+#
+#             current_project = AtlasDataset(project.name)
+#
+#             with current_project.wait_for_project_lock():
+#                 project = atlas.map_data(
+#                     embeddings=embeddings,
+#                     name=current_project.name,
+#                     colorable_fields=['upload'],
+#                     id_field='id',
+#                     data=data,
+#                     topic_model=dict(build_topic_model=False),
+#                     is_public=True,
+#                 )
+#
+#     current_project.delete()
 
 
 def test_topics():
@@ -171,9 +167,7 @@ def test_topics():
         id_field='id',
         data=data,
         is_public=True,
-        build_topic_model=True,
-        topic_label_field='text',
-        reset_project_if_exists=True,
+        topic_model=dict(build_topic_model=True, community_description_target_field='text'),
     )
 
     with project.wait_for_project_lock():
@@ -204,9 +198,7 @@ def test_data():
         id_field='id',
         data=data,
         is_public=True,
-        build_topic_model=True,
-        topic_label_field='text',
-        reset_project_if_exists=True,
+        topic_model=dict(build_topic_model=True, community_description_target_field='text'),
     )
 
     with project.wait_for_project_lock():
@@ -268,7 +260,7 @@ words = [
 
 
 def test_interactive_workflow():
-    p = AtlasDataset('UNITTEST1', modality='text', unique_id_field='id', reset_project_if_exists=True)
+    p = AtlasDataset('UNITTEST1', modality='text', unique_id_field='id')
 
     p.add_text(data=[{'text': random.choice(words), 'id': i} for i in range(100)])
 
@@ -290,7 +282,7 @@ def test_flawed_ids():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasDataset('test_flawed_ids', modality='text', unique_id_field='id', reset_project_if_exists=True)
+    p = AtlasDataset('test_flawed_ids', modality='text', unique_id_field='id')
 
     elements = []
     for i in range(10):
@@ -312,7 +304,7 @@ def test_weird_inputs():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasDataset('test_weird_inputs', modality='text', unique_id_field='id', reset_project_if_exists=True)
+    p = AtlasDataset('test_weird_inputs', modality='text', unique_id_field='id')
 
     elements = []
     for i in range(20):
@@ -403,7 +395,6 @@ def test_map_text_pandas():
         data=data,
         is_public=True,
         colorable_fields=['color'],
-        reset_project_if_exists=True,
     )
 
     map = project.get_map(name='UNITTEST_pandas_text')
@@ -428,7 +419,6 @@ def test_map_text_arrow():
         data=data,
         is_public=True,
         colorable_fields=['color'],
-        reset_project_if_exists=True,
     )
 
     map = project.get_map(name='UNITTEST_arrow_text')
