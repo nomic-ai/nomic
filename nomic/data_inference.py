@@ -1,6 +1,8 @@
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
+from .settings import DEFAULT_PROJECTION_N_NEIGHBORS, DEFAULT_PROJECTION_EPOCHS, DEFAULT_PROJECTION_SPREAD
 
 import pyarrow as pa
+from pydantic import BaseModel
 
 
 def from_list(values: Dict[str, Any], schema=None) -> pa.Table:
@@ -52,3 +54,19 @@ def convert_pyarrow_schema_for_atlas(schema: pa.Schema) -> pa.Schema:
     usertypes = {k: permitted_types[v] for k, v in types.items()}
 
     return pa.schema({**usertypes, **whitelist})
+
+
+class NomicProjectHyperparameters(BaseModel):
+    n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS
+    n_epochs: int = DEFAULT_PROJECTION_EPOCHS
+    spread: float = DEFAULT_PROJECTION_SPREAD
+
+class NomicTopicHyperparameters(BaseModel):
+    build_topic_model: bool = True
+    community_description_target_field: Optional[str] = None
+    cluster_method: str = 'fast'
+    enforce_topic_hierarchy: bool = False
+
+class NomicDuplicatesHyperparameters(BaseModel):
+    tag_duplicates: bool = True
+    duplicate_cutoff: float = 0.1

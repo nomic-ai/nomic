@@ -16,6 +16,140 @@ from .dataset import AtlasDataset
 from .settings import *
 from .utils import b64int, get_random_name, arrow_iterator
 
+from .data_inference import NomicProjectHyperparameters, NomicTopicHyperparameters, NomicDuplicatesHyperparameters
+
+
+def map_data(
+    data: List[Dict] = None,
+    embeddings: np.array = None,
+    name: str = None,
+    description: str = "",
+    id_field: str = None,
+    is_public: bool = True,
+    indexed_field: str = None,
+    projection: Optional[Dict] = None,
+    topic_model: Optional[Dict] = None,
+    duplicate_detection: Optional[Dict] = None
+
+) -> AtlasDataset:
+    """
+
+    Args:
+        data: An [N,] element list of dictionaries containing metadata for each datapoint.
+        embeddings: An [N,d] numpy array containing the N embeddings to add.
+        name: The name of your dataset
+        description: The description of your dataset
+        id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
+        is_public: Should the dataset be accessible outside your Nomic Atlas organization.
+        projection: Hyperparameters to adjust Nomic Project - the dimensionality algorithm organizing your dataset.
+        topic_model: Hyperparameters to adjust Nomic Topic - the topic model organizing your dataset.
+        duplicate_detection: Hyperparameters to adjust Nomic Duplicates - the duplicate detection algorithm.
+    :return:
+    """
+    if embeddings is not None:
+        modality = 'embedding'
+        assert isinstance(embeddings, np.ndarray), 'You must pass in a numpy array'
+        if embeddings.size == 0:
+            raise Exception("Your embeddings cannot be empty")
+
+    if indexed_field is not None:
+        modality = 'text'
+
+    if id_field is None:
+        id_field = ATLAS_DEFAULT_ID_FIELD
+
+    project_name = get_random_name()
+    if description is None:
+        description = 'A description for your map.'
+    index_name = project_name
+
+    if name:
+        project_name = name
+        index_name = name
+    if description:
+        description = description
+
+    # no metadata was specified
+    added_id_field = False
+    if data is None:
+        data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
+        added_id_field = True
+
+
+    if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
+        added_id_field = True
+        for i in range(len(data)):
+            # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
+            data[i] = data[i].copy()
+            data[i][id_field] = b64int(i)
+
+    if added_id_field:
+        logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
+
+
+    dataset = AtlasDataset(
+        identifier=project_name,
+        description=description,
+        unique_id_field=id_field,
+        modality=modality,
+        is_public=is_public
+    )
+
+    number_of_datums_before_upload = dataset.total_datums
+
+    if number_of_datums_before_upload > 0:
+        raise Exception('Cannot use map_data to update an existing dataset.')
+
+    # Add data by modality
+    logger.info("Uploading data to Atlas.")
+    try:
+        if modality == 'text':
+            dataset.add_text(
+                data=data
+            )
+        elif modality == 'embedding':
+            dataset.add_embeddings(
+                embeddings=embeddings,
+                data=data,
+            )
+    except BaseException as e:
+        if number_of_datums_before_upload == 0:
+            logger.info(f"{dataset.identifier}: Deleting dataset due to failure in initial upload.")
+            dataset.delete()
+        raise e
+
+    logger.info(f"`{dataset.identifier}`: Data upload succeeded to dataset`")
+
+    if projection is None:
+        projection = {}
+    projection = NomicProjectHyperparameters(**projection)
+
+    if topic_model is None:
+        topic_model = {}
+    topic_model = NomicTopicHyperparameters(**topic_model)
+
+    if duplicate_detection is None:
+        duplicate_detection = {}
+        if modality == 'embedding':
+            duplicate_detection['tag_duplicates'] = False
+
+    duplicate_detection = NomicDuplicatesHyperparameters(**duplicate_detection)
+
+    projection = dataset.create_index(
+        name=index_name,
+        indexed_field=indexed_field,
+        build_topic_model=topic_model.build_topic_model,
+        projection_n_neighbors=projection.n_neighbors,
+        projection_epochs=projection.n_epochs,
+        projection_spread=projection.spread,
+        duplicate_detection=duplicate_detection.tag_duplicates,
+        duplicate_threshold=duplicate_detection.duplicate_cutoff,
+    )
+
+    project = dataset._latest_project_state()
+    return project
+
+
 
 def map_embeddings(
     embeddings: np.array,
@@ -34,6 +168,7 @@ def map_embeddings(
     projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
+    organization_name = None
 ) -> AtlasDataset:
     '''
 
@@ -60,6 +195,12 @@ def map_embeddings(
 
     assert isinstance(embeddings, np.ndarray), 'You must pass in a numpy array'
 
+    if organization_name is not None:
+        logger.warning(
+            "Passing organization name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads).")
+
+    logger.warning(
+        "map_embeddings is deprecated and will soon be removed, you should use map_data instead.")
     if embeddings.size == 0:
         raise Exception("Your embeddings cannot be empty")
 
@@ -162,7 +303,8 @@ def map_text(
     projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
     duplicate_detection: bool = True,
-    duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD
+    duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
+    organization_name = None
 ) -> AtlasDataset:
     '''
     Generates or updates a map of the given text.
@@ -186,6 +328,13 @@ def map_text(
         The AtlasDataset containing your map.
 
     '''
+    if organization_name is not None:
+        logger.warning(
+            "Passing organization name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads).")
+
+    logger.warning(
+        "map_embeddings is deprecated and will soon be removed, you should use map_data instead.")
+
     if id_field is None:
         id_field = ATLAS_DEFAULT_ID_FIELD
 
@@ -215,7 +364,7 @@ def map_text(
         return
 
     project = AtlasDataset(
-        name=project_name,
+        identifier=project_name,
         description=description,
         unique_id_field=id_field,
         modality='text',

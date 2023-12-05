@@ -698,6 +698,7 @@ class AtlasDataset(AtlasClass):
         project_id=None,
         reset_project_if_exists=False,
         add_datums_if_exists=True,
+        organization_name=None
     ):
         """
         Creates or loads an AtlasDataset.
@@ -720,6 +721,9 @@ class AtlasDataset(AtlasClass):
         assert identifier is not None or project_id is not None, "You must pass a dataset identifier"
 
         super().__init__()
+
+        if organization_name is not None:
+            raise DeprecationWarning(f"Passing organization name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads).")
 
         if project_id is not None:
             self.meta = self._get_project_by_id(project_id)
@@ -819,7 +823,6 @@ class AtlasDataset(AtlasClass):
 
         if unique_id_field is None:
             raise ValueError("You must specify a unique id field")
-        logger.info(f"Creating dataset `{identifier}`")
         if description is None:
             description = ""
         response = requests.post(
@@ -834,8 +837,13 @@ class AtlasDataset(AtlasClass):
                 'is_public': is_public,
             },
         )
+
+
         if response.status_code != 201:
-            raise Exception(f"Failed to create project: {response.json()}")
+            raise Exception(f"Failed to create dataset: {response.json()}")
+
+        logger.info(f"Creating dataset `{response.json()['slug']}`")
+
 
         return response.json()['project_id']
 
@@ -1005,7 +1013,7 @@ class AtlasDataset(AtlasClass):
 
     def create_index(
         self,
-        name: str,
+        name: str = None,
         indexed_field: str = None,
         colorable_fields: list = [],
         build_topic_model: bool = False,
