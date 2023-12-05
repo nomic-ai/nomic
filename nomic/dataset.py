@@ -219,7 +219,7 @@ class AtlasClass(object):
         Checks if a string is a valid identifier for a dataset
 
         Args:
-            identifer: the organization slug and dataset slug seperated by a slash
+            identifer: the organization slug and dataset slug separated by a slash
 
         Returns:
             Returns the requested project.
