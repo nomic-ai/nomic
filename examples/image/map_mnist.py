@@ -27,11 +27,11 @@ embeddings = np.array(output['embeddings'])
 
 print(embeddings.shape)
 
-atlas.map_embeddings(embeddings=embeddings,
+atlas.map_data(embeddings=embeddings,
                      data=datums,
                      id_field='id',
                      colorable_fields=['label'],
-                     build_topic_model=False
+                     topic_model=False
                      )
 
 

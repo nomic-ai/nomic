@@ -934,7 +934,7 @@ class AtlasDataset(AtlasClass):
         return not self.is_locked
 
     @contextmanager
-    def wait_for_project_lock(self):
+    def wait_for_dataset_lock(self):
         '''Blocks thread execution until dataset is in a state where it can ingest data.'''
         has_logged = False
         while True:
@@ -1513,7 +1513,7 @@ class AtlasDataset(AtlasClass):
         # finally, update all the indices
         return self.rebuild_maps()
 
-    def rebuild_maps(self, rebuild_topic_models: bool = False):
+    def update_indices(self, rebuild_topic_models: bool = False):
         '''
         Rebuilds all maps in a dataset with the latest state dataset data state. Maps will not be rebuilt to
         reflect the additions, deletions or updates you have made to your data until this method is called.

@@ -41,5 +41,5 @@ def generate_embeddings(documents):
 document_embeddings = generate_embeddings(documents)
 
 print(document_embeddings.shape)
-response = atlas.map_embeddings(embeddings=document_embeddings, data=documents, topic_label_field='text', build_topic_model=True)
+response = atlas.map_data(embeddings=document_embeddings, data=documents, topic_model=dict(topic_label_field='text'))
 print(response)
