@@ -10,10 +10,9 @@ max_documents = 10000
 subset_idxs = np.random.choice(len(dataset), size=max_documents, replace=False).tolist()
 documents = [dataset[i] for i in subset_idxs]
 
-project = atlas.map_text(data=documents,
+project = atlas.map_data(data=documents,
                           indexed_field='text',
                           name='News 10k For Topic Extraction',
-                          colorable_fields=['label'],
                           description='News 10k For Topic Extraction'
                           )
 

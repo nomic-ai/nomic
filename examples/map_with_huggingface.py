@@ -27,9 +27,8 @@ with torch.no_grad():
 embeddings = torch.cat(embeddings).numpy()
 print(embeddings.shape)
 
-response = atlas.map_embeddings(embeddings=embeddings,
+response = atlas.map_data(embeddings=embeddings,
                                 data=documents,
-                                colorable_fields=['sentiment'],
                                 name="Huggingface Model Example",
                                 description="An example of building a text map with a huggingface model.")
 

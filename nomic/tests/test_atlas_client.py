@@ -117,7 +117,7 @@ def test_date_metadata():
 #
 #     current_project = AtlasDataset(project.name)
 #
-#     with current_project.wait_for_project_lock():
+#     with current_project.wait_for_dataset_lock():
 #         project = atlas.map_data(
 #             embeddings=embeddings,
 #             name=current_project.name,
@@ -129,7 +129,7 @@ def test_date_metadata():
 #         )
 #     with pytest.raises(Exception):
 #         # Try adding a bad field.
-#         with current_project.wait_for_project_lock():
+#         with current_project.wait_for_dataset_lock():
 #             data = [
 #                 {'invalid_field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0}
 #                 for i in range(len(embeddings))
@@ -137,7 +137,7 @@ def test_date_metadata():
 #
 #             current_project = AtlasDataset(project.name)
 #
-#             with current_project.wait_for_project_lock():
+#             with current_project.wait_for_dataset_lock():
 #                 project = atlas.map_data(
 #                     embeddings=embeddings,
 #                     name=current_project.name,
@@ -170,7 +170,7 @@ def test_topics():
         topic_model=dict(build_topic_model=True, community_description_target_field='text'),
     )
 
-    with project.wait_for_project_lock():
+    with project.wait_for_dataset_lock():
         assert len(project.maps[0].topics.metadata) > 0
 
         q = np.random.random((3, 10))
@@ -201,7 +201,7 @@ def test_data():
         topic_model=dict(build_topic_model=True, community_description_target_field='text'),
     )
 
-    with project.wait_for_project_lock():
+    with project.wait_for_dataset_lock():
         df = project.maps[0].data.df
         assert len(df) > 0
         assert "text" in df.columns
@@ -269,12 +269,12 @@ def test_interactive_workflow():
     assert p.total_datums == 100
 
     # Test ability to add more data to a project and have the ids coerced.
-    with p.wait_for_project_lock():
+    with p.wait_for_dataset_lock():
         p.add_text(data=[{'text': random.choice(words), 'id': i} for i in range(100, 200)])
         p.create_index(name='UNITTEST1', indexed_field='text', build_topic_model=True)
         assert p.total_datums == 200
 
-    with p.wait_for_project_lock():
+    with p.wait_for_dataset_lock():
         p.delete()
 
 
@@ -322,7 +322,7 @@ def test_weird_inputs():
             elements.append({'text': 'foo', 'id': str(i)})
     p.add_text(data=elements)
     p.create_index(name='test_weird_inputs', indexed_field='text', build_topic_model=True)
-    with p.wait_for_project_lock():
+    with p.wait_for_dataset_lock():
         assert True
     p.delete()
 
@@ -362,7 +362,7 @@ def test_map_embeddings():
     assert isinstance(map.topics.hierarchy, dict)
 
     project.create_index(name='My new index')
-    with project.wait_for_project_lock():
+    with project.wait_for_dataset_lock():
         neighbors, _ = map.embeddings.vector_search(queries=np.random.rand(1, 10), k=2)
         assert len(neighbors[0]) == 2
 

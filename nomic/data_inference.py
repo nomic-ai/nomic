@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Union, Optional
 from .settings import DEFAULT_PROJECTION_N_NEIGHBORS, DEFAULT_PROJECTION_EPOCHS, DEFAULT_PROJECTION_SPREAD, DEFAULT_DUPLICATE_THRESHOLD
 
 import pyarrow as pa
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 def from_list(values: Dict[str, Any], schema=None) -> pa.Table:
@@ -63,7 +63,7 @@ class NomicProjectOptions(BaseModel):
 
 class NomicTopicOptions(BaseModel):
     build_topic_model: bool = True
-    community_description_target_field: Optional[str] = None
+    community_description_target_field: Optional[str] = Field(None, alias='topic_label_field')
     cluster_method: str = 'fast'
     enforce_topic_hierarchy: bool = False
 
