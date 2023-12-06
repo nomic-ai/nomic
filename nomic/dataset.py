@@ -730,6 +730,7 @@ class AtlasDataset(AtlasClass):
 
         if project:  # dataset already exists
                 logger.info(f"Loading existing dataset `{identifier}``.")
+                project_id = project['id']
 
         if project_id is None:  # if there is no existing project, make a new one.
 

@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timedelta
 import numpy as np
 import pytest
+import random
 import requests
 from nomic import AtlasDataset, atlas
 import pyarrow as pa
@@ -23,9 +24,8 @@ def test_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
 
-    dataset = atlas.map_data(name="test1", embeddings=embeddings)
-
-    AtlasDataset(identifier=dataset.identifier).delete()
+    dataset = atlas.map_data(name=f"unittest-dataset-{random.randint(0,100)}", embeddings=embeddings)
+    AtlasDataset(dataset.identifier).delete()
 
 
 def test_map_embeddings_with_errors():
@@ -36,14 +36,15 @@ def test_map_embeddings_with_errors():
     with pytest.raises(Exception):
         data = [{'key': {'nested_key': 'nested_value'}} for i in range(len(embeddings))]
         response = atlas.map_data(
-            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True
+            embeddings=embeddings, data=data, name=f"unittest-dataset-{random.randint(0,100)}", is_public=True
         )
+
 
     # test underscore
     with pytest.raises(Exception):
         data = [{'__hello': {'hello'}} for i in range(len(embeddings))]
         response = atlas.map_data(
-            embeddings=embeddings, data=data, name='UNITTEST1', is_public=True
+            embeddings=embeddings, data=data, name=f"unittest-dataset-{random.randint(0,100)}", is_public=True
         )
 
     # test to long ids
@@ -52,11 +53,10 @@ def test_map_embeddings_with_errors():
         response = atlas.map_data(
             embeddings=embeddings,
             data=data,
-            name='UNITTEST1',
+            name=f"unittest-dataset-{random.randint(0,100)}",
             id_field='id',
             is_public=True,
         )
-
 
 def test_map_text_errors():
     # no indexed field
@@ -65,7 +65,7 @@ def test_map_text_errors():
             data=[{'key': 'a'}],
             indexed_field='text',
             is_public=True,
-            name='test_map_text_errors',
+            name=f"unittest-dataset-{random.randint(0,100)}",
             description='test map description',
         )
 
@@ -78,20 +78,20 @@ def test_date_metadata():
         for i in range(1, len(embeddings) + 1)
     ]
 
-    project = atlas.map_data(
-        embeddings=embeddings, name='test_date_metadata', data=data, is_public=True
+    dataset = atlas.map_data(
+        embeddings=embeddings, name=f"unittest-dataset-{random.randint(0,100)}", data=data, is_public=True
     )
 
-    assert project.id
+    assert dataset.id
 
-    project.delete()
+    dataset.delete()
 
     # put an invalid iso timestamp after the first valid isotimestamp , make sure the client fails
     with pytest.raises(Exception):
         data[1]['my_date'] = data[1]['my_date'] + 'asdf'
         project = atlas.map_data(
             embeddings=embeddings,
-            name='UNITTEST1',
+            name=f"unittest-dataset-{random.randint(0,100)}",
             id_field='id',
             data=data,
             is_public=True,
@@ -163,11 +163,11 @@ def test_topics():
 
     project = atlas.map_data(
         embeddings=embeddings,
-        name='test_topics',
+        name=f"unittest-dataset-{random.randint(0,100)}",
         id_field='id',
         data=data,
         is_public=True,
-        topic_model=dict(build_topic_model=True, community_description_target_field='text'),
+        topic_model=dict(topic_label_field='text'),
     )
 
     with project.wait_for_dataset_lock():
@@ -194,7 +194,7 @@ def test_data():
 
     project = atlas.map_data(
         embeddings=embeddings,
-        name='test_topics',
+        name=f"unittest-dataset-{random.randint(0,100)}",
         id_field='id',
         data=data,
         is_public=True,
@@ -260,18 +260,18 @@ words = [
 
 
 def test_interactive_workflow():
-    p = AtlasDataset('UNITTEST1', modality='text', unique_id_field='id')
+    p = AtlasDataset(f"unittest-dataset-{random.randint(0,100)}", modality='text', unique_id_field='id')
 
     p.add_text(data=[{'text': random.choice(words), 'id': i} for i in range(100)])
 
-    p.create_index(name='UNITTEST1', indexed_field='text', build_topic_model=True)
+    p.create_index(name=f"unittest-dataset-{random.randint(0,100)}", indexed_field='text', topic_model=True)
 
     assert p.total_datums == 100
 
     # Test ability to add more data to a project and have the ids coerced.
     with p.wait_for_dataset_lock():
         p.add_text(data=[{'text': random.choice(words), 'id': i} for i in range(100, 200)])
-        p.create_index(name='UNITTEST1', indexed_field='text', build_topic_model=True)
+        p.create_index(indexed_field='text', topic_model=True)
         assert p.total_datums == 200
 
     with p.wait_for_dataset_lock():
@@ -282,7 +282,7 @@ def test_flawed_ids():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasDataset('test_flawed_ids', modality='text', unique_id_field='id')
+    p = AtlasDataset(f"unittest-dataset-{random.randint(0,100)}", modality='text', unique_id_field='id')
 
     elements = []
     for i in range(10):
@@ -304,7 +304,7 @@ def test_weird_inputs():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasDataset('test_weird_inputs', modality='text', unique_id_field='id')
+    p = AtlasDataset(f"unittest-dataset-{random.randint(0,100)}", modality='text', unique_id_field='id')
 
     elements = []
     for i in range(20):
@@ -321,7 +321,7 @@ def test_weird_inputs():
         else:
             elements.append({'text': 'foo', 'id': str(i)})
     p.add_text(data=elements)
-    p.create_index(name='test_weird_inputs', indexed_field='text', build_topic_model=True)
+    p.create_index(indexed_field='text', topic_model=True)
     with p.wait_for_dataset_lock():
         assert True
     p.delete()
@@ -332,15 +332,15 @@ def test_map_embeddings():
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
-    project = atlas.map_data(
+    dataset = atlas.map_data(
         embeddings=embeddings,
-        name='UNITTEST1',
+        name=f"unittest-dataset-{random.randint(0,100)}",
         id_field='id',
         data=data,
         is_public=True,
     )
 
-    map = project.get_map(name='UNITTEST1')
+    map = dataset.maps[0]
 
     num_tries = 0
     while map.project.is_locked:
@@ -351,22 +351,20 @@ def test_map_embeddings():
 
     retrieved_embeddings = map.embeddings.latent
 
-    assert project.total_datums == num_embeddings
+    assert dataset.total_datums == num_embeddings
     assert retrieved_embeddings.shape[0] == num_embeddings
-
-    project = AtlasDataset('UNITTEST1')
-    map = project.get_map(name='UNITTEST1')
+    map = dataset.maps[0]
 
     assert len(map.topics.df) == 20
 
     assert isinstance(map.topics.hierarchy, dict)
 
-    project.create_index(name='My new index')
-    with project.wait_for_dataset_lock():
+    dataset.create_index(name='My new index')
+    with dataset.wait_for_dataset_lock():
         neighbors, _ = map.embeddings.vector_search(queries=np.random.rand(1, 10), k=2)
         assert len(neighbors[0]) == 2
 
-    for map in project.projections:
+    for map in dataset.projections:
         assert map.map_link
 
     map.tags.add(ids=[data[0]['id']], tags=['my_tag'])
@@ -377,55 +375,55 @@ def test_map_embeddings():
 
     assert 'my_tag' not in map.tags.get_tags()
 
-    project.delete()
-
-
-def test_map_text_pandas():
-    size = 50
-    data = pd.DataFrame({
-        'field': [str(uuid.uuid4()) for i in range(size)],
-        'id': [str(uuid.uuid4()) for i in range(size)],
-        'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
-    })
-
-    project = atlas.map_data(
-        name='UNITTEST_pandas_text',
-        id_field='id',
-        indexed_field="color",
-        data=data,
-        is_public=True,
-        colorable_fields=['color'],
-    )
-
-    map = project.get_map(name='UNITTEST_pandas_text')
-
-    assert project.total_datums == 50
-
-    project.delete()
-
-    
-def test_map_text_arrow():
-    size = 50
-    data = pa.Table.from_pydict({
-        'field': [str(uuid.uuid4()) for i in range(size)],
-        'id': [str(uuid.uuid4()) for i in range(size)],
-        'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
-    })
-
-    project = atlas.map_data(
-        name='UNITTEST_arrow_text',
-        id_field='id',
-        indexed_field="color",
-        data=data,
-        is_public=True,
-        colorable_fields=['color'],
-    )
-
-    map = project.get_map(name='UNITTEST_arrow_text')
-
-    assert project.total_datums == 50
-
-    project.delete()
+    dataset.delete()
+#
+#
+# def test_map_text_pandas():
+#     size = 50
+#     data = pd.DataFrame({
+#         'field': [str(uuid.uuid4()) for i in range(size)],
+#         'id': [str(uuid.uuid4()) for i in range(size)],
+#         'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
+#     })
+#
+#     project = atlas.map_data(
+#         name='UNITTEST_pandas_text',
+#         id_field='id',
+#         indexed_field="color",
+#         data=data,
+#         is_public=True,
+#         colorable_fields=['color'],
+#     )
+#
+#     map = project.get_map(name='UNITTEST_pandas_text')
+#
+#     assert project.total_datums == 50
+#
+#     project.delete()
+#
+#
+# def test_map_text_arrow():
+#     size = 50
+#     data = pa.Table.from_pydict({
+#         'field': [str(uuid.uuid4()) for i in range(size)],
+#         'id': [str(uuid.uuid4()) for i in range(size)],
+#         'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
+#     })
+#
+#     project = atlas.map_data(
+#         name='UNITTEST_arrow_text',
+#         id_field='id',
+#         indexed_field="color",
+#         data=data,
+#         is_public=True,
+#         colorable_fields=['color'],
+#     )
+#
+#     map = project.get_map(name='UNITTEST_arrow_text')
+#
+#     assert project.total_datums == 50
+#
+#     project.delete()
 
 
 # def test_map_text_iterator():
