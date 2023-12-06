@@ -27,7 +27,7 @@ from tqdm import tqdm
 import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
-from .data_inference import convert_pyarrow_schema_for_atlas
+from .data_inference import convert_pyarrow_schema_for_atlas, NomicProjectOptions, NomicDuplicatesOptions, NomicTopicOptions
 from .data_operations import  AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics 
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
@@ -172,21 +172,20 @@ class AtlasClass(object):
             slug: The organization slug
 
         Returns:
-            Returns the requested project.
+            An organization id
         '''
 
         if '/' in slug:
             slug = slug.split('/')[0]
 
         response = requests.get(
-            self.atlas_api_path + f"/v1/organization/search/{slug}",
+            self.atlas_api_path + f"/v1/organization/{slug}",
             headers=self.header,
         )
-
         if response.status_code != 200:
             raise Exception(f"Organization not found: {slug}")
 
-        return response.json()['organization_id']
+        return response.json()['id']
 
     def _get_project_by_slug_identifier(self, identifier: str):
         '''
@@ -204,7 +203,7 @@ class AtlasClass(object):
         organization_slug = identifier.split('/')[0]
         project_slug = identifier.split('/')[1]
         response = requests.get(
-            self.atlas_api_path + f"/v1/project/{organization_slug}/project/{project_slug}",
+            self.atlas_api_path + f"/v1/project/{organization_slug}/{project_slug}",
             headers=self.header,
         )
 
@@ -251,7 +250,7 @@ class AtlasClass(object):
 
     def _validate_and_correct_arrow_upload(self, data: pa.Table, project: "AtlasDataset") -> pa.Table:
         '''
-        Private method. validates upload data against the project arrow schema, and associated other checks.
+        Private method. validates upload data against the dataset arrow schema, and associated other checks.
 
         1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.
 
@@ -696,8 +695,6 @@ class AtlasDataset(AtlasClass):
         modality: Optional[str] = None,
         is_public: bool = True,
         project_id=None,
-        reset_project_if_exists=False,
-        add_datums_if_exists=True,
         organization_name=None
     ):
         """
@@ -707,23 +704,19 @@ class AtlasDataset(AtlasClass):
 
         **Parameters:**
 
-        * **identifier** - The dataset identifier (format is `organization/project`) or just dataset and we will auto-infer from the default org.
+        * **identifier** - The dataset identifier in the form `dataset` or `organization/dataset`. If no organization is passed, your default organization will be used.
         * **description** - A description for the project.
-        * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
-        * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
+        * **unique_id_field** - The field that uniquely identifies each data point.
+        * **modality** - The data modality of this dataset. Currently, Atlas supports either `text` or `embedding` modality datasets.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
-        * **reset_project_if_exists** - If the requested dataset exists in your organization, will delete it and re-create it.
         * **project_id** - An alternative way to retrieve a dataset is by passing the project_id directly. This only works if a dataset exists.
-        * **reset_project_if_exists** - If the specified dataset exists in your organization, reset it by deleting all of its data. This means your uploaded data will not be contextualized with existing data.
-        * **add_datums_if_exists** - If specifying an existing dataset and you want to add data to it, set this to true.
-
         """
         assert identifier is not None or project_id is not None, "You must pass a dataset identifier"
 
         super().__init__()
 
         if organization_name is not None:
-            raise DeprecationWarning(f"Passing organization name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads).")
+            raise DeprecationWarning(f"Passing organization_name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads).")
 
         if project_id is not None:
             self.meta = self._get_project_by_id(project_id)
@@ -736,19 +729,6 @@ class AtlasDataset(AtlasClass):
         project = self._get_project_by_slug_identifier(identifier=identifier)
 
         if project:  # dataset already exists
-            project_id = project['id']
-            if reset_project_if_exists:  # reset the project
-                logger.info(
-                    f"Found existing dataset {identifier}. Clearing it of data by request."
-                )
-                self._delete_project_by_id(project_id=project_id)
-                project_id = None
-            elif not add_datums_if_exists:  # prevent adding datums to existing dataset explicitly
-                raise ValueError(
-                    f"Project already exists: {identifier}`. "
-                    f"You can add datums to it by settings `add_datums_if_exists = True` or reset it by specifying `reset_project_if_exists=True` on a new upload."
-                )
-            else:
                 logger.info(f"Loading existing dataset `{identifier}``.")
 
         if project_id is None:  # if there is no existing project, make a new one.
@@ -1015,17 +995,10 @@ class AtlasDataset(AtlasClass):
         self,
         name: str = None,
         indexed_field: str = None,
-        colorable_fields: list = [],
-        build_topic_model: bool = False,
-        projection_n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS,
-        projection_epochs: int = DEFAULT_PROJECTION_EPOCHS,
-        projection_spread: float = DEFAULT_PROJECTION_SPREAD,
-        topic_label_field: str = None,
+        projection: Union[bool, Dict, NomicProjectOptions] = True,
+        topic_model: Union[bool, Dict, NomicTopicOptions] = True,
+        duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         reuse_embeddings_from_index: str = None,
-        duplicate_detection: bool = False,
-        duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
-        topic_algorithm: Optional[str] = 'fast',
-        enforce_topic_hierarchy: Optional[bool] = False
     ) -> AtlasProjection:
         '''
         Creates an index in the specified project.
@@ -1033,17 +1006,7 @@ class AtlasDataset(AtlasClass):
         Args:
             name: The name of the index and the map.
             indexed_field: For text projects, name the data field corresponding to the text to be mapped.
-            colorable_fields: The dataset fields you want to be able to color by on the map. Must be a subset of the projects fields.
-            build_topic_model: Should a topic model be built?
-            projection_n_neighbors: A projection hyperparameter
-            projection_epochs: A projection hyperparameter
-            projection_spread: A projection hyperparameter
-            topic_label_field: A text field in your metadata to estimate topic labels from. Defaults to the indexed_field for text projects if not specified.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
-            duplicate_detection: A boolean whether to run duplicate detection
-            duplicate_threshold: At which threshold to consider points to be duplicates
-            topic_algorithm: The method to use for topic modeling. Options are 'fast' and None (standard method). Defaults to 'fast'. 
-            enforce_topic_hierarchy: Whether to enforce a strict agglomerative topic hierarchy. Defaults to False.
 
         Returns:
             The projection this index has built.
@@ -1052,17 +1015,44 @@ class AtlasDataset(AtlasClass):
 
         self._latest_project_state()
 
+        if isinstance(projection, Dict):
+            projection = NomicProjectOptions(**projection)
+        else:
+            projection = NomicProjectOptions()
+
+        if isinstance(topic_model, Dict):
+            topic_model = NomicTopicOptions(**topic_model)
+        elif isinstance(topic_model, NomicTopicOptions):
+            pass
+        elif topic_model:
+            topic_model = NomicTopicOptions()
+        else:
+            topic_model = NomicTopicOptions(build_topic_model=False)
+
+        if isinstance(duplicate_detection, Dict):
+            duplicate_detection = NomicDuplicatesOptions(**duplicate_detection)
+        elif isinstance(duplicate_detection, NomicDuplicatesOptions):
+            pass
+        elif duplicate_detection:
+            duplicate_detection = NomicDuplicatesOptions()
+        else:
+            duplicate_detection = NomicDuplicatesOptions(tag_duplicates=False)
+
+        print(self.modality)
+        if self.modality == 'embedding':
+            duplicate_detection.tag_duplicates = False
+
         # for large projects, alter the default projection configurations.
         if self.total_datums >= 1_000_000:
             if (
-                projection_epochs == DEFAULT_PROJECTION_EPOCHS
-                and projection_n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS
+                projection.n_epochs == DEFAULT_PROJECTION_EPOCHS
+                and projection.n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS
             ):
-                projection_n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
-                projection_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
+                projection.n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
+                projection.n_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
 
         if self.modality == 'embedding':
-            if duplicate_detection:
+            if duplicate_detection.tag_duplicates:
                 raise ValueError("Cannot tag duplicates in an embedding project.")
 
             build_template = {
@@ -1071,19 +1061,19 @@ class AtlasDataset(AtlasClass):
                 'indexed_field': None,
                 'atomizer_strategies': None,
                 'model': None,
-                'colorable_fields': colorable_fields,
+                'colorable_fields': [],
                 'model_hyperparameters': None,
                 'nearest_neighbor_index': 'HNSWIndex',
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
                 'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
-                    {'n_neighbors': projection_n_neighbors, 'n_epochs': projection_epochs, 'spread': projection_spread}
+                    {'n_neighbors': projection.n_neighbors, 'n_epochs': projection.n_epochs, 'spread': projection.spread}
                 ),
                 'topic_model_hyperparameters': json.dumps(
-                    {'build_topic_model': build_topic_model, 
-                     'community_description_target_field': topic_label_field,
-                     'cluster_method': topic_algorithm,
-                     'enforce_topic_hierarchy': enforce_topic_hierarchy}
+                    {'build_topic_model': topic_model.build_topic_model,
+                     'community_description_target_field': topic_model.community_description_target_field,
+                     'cluster_method': topic_model.cluster_method,
+                     'enforce_topic_hierarchy': topic_model.enforce_topic_hierarchy}
                 ),
             }
 
@@ -1115,7 +1105,7 @@ class AtlasDataset(AtlasClass):
                 'indexed_field': indexed_field,
                 'atomizer_strategies': ['document', 'charchunk'],
                 'model': model,
-                'colorable_fields': colorable_fields,
+                'colorable_fields': [],
                 'reuse_atoms_and_embeddings_from': reuse_embedding_from_index_id,
                 'model_hyperparameters': json.dumps(
                     {
@@ -1129,16 +1119,16 @@ class AtlasDataset(AtlasClass):
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
                 'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
-                    {'n_neighbors': projection_n_neighbors, 'n_epochs': projection_epochs, 'spread': projection_spread}
+                    {'n_neighbors': projection.n_neighbors, 'n_epochs': projection.n_epochs, 'spread': projection.spread}
                 ),
                 'topic_model_hyperparameters': json.dumps(
-                    {'build_topic_model': build_topic_model, 
+                    {'build_topic_model': topic_model.build_topic_model,
                      'community_description_target_field': indexed_field,
-                     'cluster_method': topic_algorithm,
-                     'enforce_topic_hierarchy': enforce_topic_hierarchy}
+                     'cluster_method': topic_model.build_topic_model,
+                     'enforce_topic_hierarchy': topic_model.enforce_topic_hierarchy}
                 ),
                 'duplicate_detection_hyperparameters': json.dumps(
-                    {'tag_duplicates': duplicate_detection, 'duplicate_cutoff': duplicate_threshold}
+                    {'tag_duplicates': duplicate_detection.tag_duplicates, 'duplicate_cutoff': duplicate_detection.duplicate_cutoff}
                 ),
             }
 

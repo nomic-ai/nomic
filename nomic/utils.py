@@ -1,10 +1,33 @@
 import base64
 import gc
 import sys
+import random
 import pyarrow as pa
 from uuid import UUID
 
-from wonderwords import RandomWord
+nouns = [
+    'newton', 'einstein', 'galilei', 'pythagoras', 'archimedes', 'euclid', 'gauss', 'pascal', 'laplace',
+    'euler', 'kepler', 'wiles', 'neumann', 'noether', 'bohr', 'heisenberg', 'planck', 'maxwell', 'hawking',
+    'feynman', 'curie', 'poincare', 'turing', 'nash', 'hilbert', 'godel', 'galois', 'ramanujan', 'lovelace',
+    'hypatia', 'leibniz', 'copernicus', 'hubble', 'darwin', 'hooke', 'faraday', 'pasteur', 'mendel', 'galvani',
+    'bell', 'edison', 'tesla', 'boltzmann', 'dirac', 'fermi', 'oppenheimer', 'schrodinger', 'fibonacci',
+    'fermat', 'cantor', 'jordan', 'riemann', 'babbage', 'dijkstra', 'shannon', 'erdos', 'boole',
+    'lagrange', 'lebesgue', 'legendre', 'gauss', 'cauchy', 'ramanujan', 'weierstrass', 'fourier',
+    'cavendish', 'lavoisier', 'becquerel', 'avogadro', 'dalton', 'rutherford', 'thomson', 'bose', 'fisher',
+    'jaynes', 'bernoulli', 'alembert', 'gibbs', 'pareto', 'levy', 'sierpinski', 'cohen', 'hardy', 'wigner',
+    'mercator', 'ortelius', 'ptolemy', 'speed', 'schedel', 'waldseemuller', 'homann', 'rennell', 'ogilby', 'hondius',
+    'moll', 'blaeu', 'sanson', 'borgonio', 'fer', 'isle', 'munster', 'hollar', 'kitchin',
+    'lecun', 'bengio', 'hinton', 'ng', 'schmidhuber', 'fei-fei', 'koller', 'russell', 'norvig', 'vapnik',
+    'bishop', 'goodfellow', 'kingma', 'arora', 'sutton', 'breiman'
+]
+
+adjectives = [
+    'curious', 'innovative', 'analytical', 'creative', 'logical', 'adventurous', 'inquisitive', 'imaginative',
+    'dynamic', 'quirky', 'resourceful', 'persistent', 'observant', 'insightful', 'intuitive', 'experimental',
+    'inspiring', 'inventive', 'tenacious', 'stubborn', 'lazy', 'disorganized', 'inattentive', 'careless',
+    'unpredictable', 'irrational', 'impulsive', 'chaotic', 'indecisive', 'cynical', 'neglectful', 'overbearing',
+    'oblivious', 'inflexible'
+]
 
 
 def arrow_iterator(table: pa.Table):
@@ -24,8 +47,7 @@ def b64int(i: int):
 
 
 def get_random_name():
-    random_words = RandomWord()
-    return f"{random_words.word(include_parts_of_speech=['adjectives'])}-{random_words.word(include_parts_of_speech=['nouns'])}"
+    return f"{random.choice(adjectives)}-{random.choice(nouns)}"
 
 
 def assert_valid_project_id(project_id):

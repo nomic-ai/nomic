@@ -16,7 +16,7 @@ from .dataset import AtlasDataset
 from .settings import *
 from .utils import b64int, get_random_name, arrow_iterator
 
-from .data_inference import NomicProjectHyperparameters, NomicTopicHyperparameters, NomicDuplicatesHyperparameters
+from .data_inference import NomicProjectOptions, NomicTopicOptions, NomicDuplicatesOptions
 
 
 def map_data(
@@ -27,9 +27,9 @@ def map_data(
     id_field: str = None,
     is_public: bool = True,
     indexed_field: str = None,
-    projection: Optional[Dict] = None,
-    topic_model: Optional[Dict] = None,
-    duplicate_detection: Optional[Dict] = None
+    projection: Union[bool, Dict, NomicProjectOptions] = True,
+    topic_model: Union[bool, Dict, NomicTopicOptions] = True,
+    duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True
 
 ) -> AtlasDataset:
     """
@@ -59,8 +59,7 @@ def map_data(
         id_field = ATLAS_DEFAULT_ID_FIELD
 
     project_name = get_random_name()
-    if description is None:
-        description = 'A description for your map.'
+
     index_name = project_name
 
     if name:
@@ -120,31 +119,14 @@ def map_data(
 
     logger.info(f"`{dataset.identifier}`: Data upload succeeded to dataset`")
 
-    if projection is None:
-        projection = {}
-    projection = NomicProjectHyperparameters(**projection)
-
-    if topic_model is None:
-        topic_model = {}
-    topic_model = NomicTopicHyperparameters(**topic_model)
-
-    if duplicate_detection is None:
-        duplicate_detection = {}
-        if modality == 'embedding':
-            duplicate_detection['tag_duplicates'] = False
-
-    duplicate_detection = NomicDuplicatesHyperparameters(**duplicate_detection)
-
     projection = dataset.create_index(
         name=index_name,
         indexed_field=indexed_field,
-        build_topic_model=topic_model.build_topic_model,
-        projection_n_neighbors=projection.n_neighbors,
-        projection_epochs=projection.n_epochs,
-        projection_spread=projection.spread,
-        duplicate_detection=duplicate_detection.tag_duplicates,
-        duplicate_threshold=duplicate_detection.duplicate_cutoff,
+        projection=projection,
+        topic_model=topic_model,
+        duplicate_detection=duplicate_detection
     )
+
 
     project = dataset._latest_project_state()
     return project

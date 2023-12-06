@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Union, Optional
-from .settings import DEFAULT_PROJECTION_N_NEIGHBORS, DEFAULT_PROJECTION_EPOCHS, DEFAULT_PROJECTION_SPREAD
+from .settings import DEFAULT_PROJECTION_N_NEIGHBORS, DEFAULT_PROJECTION_EPOCHS, DEFAULT_PROJECTION_SPREAD, DEFAULT_DUPLICATE_THRESHOLD
 
 import pyarrow as pa
 from pydantic import BaseModel
@@ -56,17 +56,17 @@ def convert_pyarrow_schema_for_atlas(schema: pa.Schema) -> pa.Schema:
     return pa.schema({**usertypes, **whitelist})
 
 
-class NomicProjectHyperparameters(BaseModel):
+class NomicProjectOptions(BaseModel):
     n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS
     n_epochs: int = DEFAULT_PROJECTION_EPOCHS
     spread: float = DEFAULT_PROJECTION_SPREAD
 
-class NomicTopicHyperparameters(BaseModel):
+class NomicTopicOptions(BaseModel):
     build_topic_model: bool = True
     community_description_target_field: Optional[str] = None
     cluster_method: str = 'fast'
     enforce_topic_hierarchy: bool = False
 
-class NomicDuplicatesHyperparameters(BaseModel):
+class NomicDuplicatesOptions(BaseModel):
     tag_duplicates: bool = True
-    duplicate_cutoff: float = 0.1
+    duplicate_cutoff: float = DEFAULT_DUPLICATE_THRESHOLD

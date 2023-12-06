@@ -26,11 +26,9 @@ setup(
         'numpy',
         'pandas',
         'pydantic',
-        'wonderwords',
         'tqdm',
-        'cohere',
         'pyarrow',
-	'pillow',
+        'pillow',
     ],
     extras_require={
         'dev': [
