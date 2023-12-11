@@ -20,7 +20,7 @@ from .data_inference import NomicProjectOptions, NomicTopicOptions, NomicDuplica
 
 
 def map_data(
-    data: List[Dict] = None,
+    data: Union[DataFrame, List[Dict], pa.Table, None] = None,
     embeddings: np.array = None,
     name: str = None,
     description: str = "",
@@ -35,7 +35,7 @@ def map_data(
     """
 
     Args:
-        data: An [N,] element list of dictionaries containing metadata for each datapoint.
+        data: An ordered collection of the datapoints you are structuring. Can be a list of dictionaries, Pandas Dataframe or PyArrow Table.
         embeddings: An [N,d] numpy array containing the N embeddings to add.
         name: The name of your dataset
         description: The description of your dataset
