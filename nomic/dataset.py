@@ -1055,7 +1055,8 @@ class AtlasDataset(AtlasClass):
         if self.modality == 'embedding':
             if duplicate_detection.tag_duplicates:
                 raise ValueError("Cannot tag duplicates in an embedding project.")
-
+            if topic_model.community_description_target_field is None:
+                logger.warning("You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics.")
             build_template = {
                 'project_id': self.id,
                 'index_name': name,
@@ -1164,7 +1165,7 @@ class AtlasDataset(AtlasClass):
 
         if projection is None:
             logger.warning(
-                "Could not find a map being built for this project. See atlas.nomic.ai/dashboard for map status."
+                "Could not find a map being built for this project."
             )
         logger.info(f"Created map `{projection.name}` in dataset `{self.identifier}`: {projection.map_link}")
         return projection
