@@ -22,6 +22,7 @@ from .data_inference import NomicProjectOptions, NomicTopicOptions, NomicDuplica
 def map_data(
     data: Union[DataFrame, List[Dict], pa.Table, None] = None,
     embeddings: np.array = None,
+    adjacency_list: List[List[int]] = None,
     name: str = None,
     description: str = "",
     id_field: str = None,
@@ -111,6 +112,8 @@ def map_data(
                 embeddings=embeddings,
                 data=data,
             )
+        elif modality == 'graph':
+            dataset.add_graph(adjacency_list=adjacency_list, data=data)
     except BaseException as e:
         if number_of_datums_before_upload == 0:
             logger.info(f"{dataset.identifier}: Deleting dataset due to failure in initial upload.")

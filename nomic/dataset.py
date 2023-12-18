@@ -1330,6 +1330,16 @@ class AtlasDataset(AtlasClass):
 
         self._add_data(data_with_embeddings, pbar=pbar)
 
+    def add_graph(
+        self,
+        data: Union[DataFrame, List[Dict], pa.Table, None],
+        adjacency_list: List[List[int]],
+        pbar=None,
+        shard_size=None,
+        num_workers=None,      
+    ):
+        pass
+
     def _add_data(
         self,
         data: pa.Table,
