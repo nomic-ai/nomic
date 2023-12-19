@@ -24,6 +24,9 @@ from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
 
+import networkx as nx
+from node2vec import Node2Vec
+
 import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
@@ -1333,11 +1336,34 @@ class AtlasDataset(AtlasClass):
     def add_graph(
         self,
         data: Union[DataFrame, List[Dict], pa.Table, None],
-        adjacency_list: List[List[int]],
+        graph: Union[Dict[any, List], nx.Graph],
         pbar=None,
         shard_size=None,
-        num_workers=None,      
+        num_workers=4,  
+        dimensions=64,
+        walk_length=30,
+        num_walks=200,
     ):
+        # For now, pass entire graph here.
+        # TODO: graph will be sharded and passed to atlas_cloud and reconstructed there.
+        # TODO: what format should we accept graph in - for now edge list or networkx graph
+        _graph = None
+        if not isinstance(graph, nx.Graph):
+            _graph = nx.from_edgelist(graph)
+        else:
+            _graph = graph
+
+        node2vec = Node2Vec(graph, 
+                         dimensions=dimensions, 
+                         walk_length=walk_length, 
+                         num_walks=num_walks, 
+                         workers=num_workers)
+        model = node2vec.fit(window=10, min_count=1, batch_words=4)
+        embeddings = model.wv
+
+        self.add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
+
+
         pass
 
     def _add_data(

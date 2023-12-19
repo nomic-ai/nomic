@@ -29,6 +29,8 @@ setup(
         'tqdm',
         'pyarrow',
         'pillow',
+        'networkx',
+        'node2vec',
     ],
     extras_require={
         'dev': [
