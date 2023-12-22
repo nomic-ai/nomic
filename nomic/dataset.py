@@ -692,7 +692,6 @@ class AtlasDataset(AtlasClass):
         identifier: Optional[str] = None,
         description: Optional[str] = 'A description for your map.',
         unique_id_field: Optional[str] = None,
-        modality: Optional[str] = None,
         is_public: bool = True,
         project_id=None,
         organization_name=None
@@ -707,7 +706,6 @@ class AtlasDataset(AtlasClass):
         * **identifier** - The dataset identifier in the form `dataset` or `organization/dataset`. If no organization is passed, your default organization will be used.
         * **description** - A description for the project.
         * **unique_id_field** - The field that uniquely identifies each data point.
-        * **modality** - The data modality of this dataset. Currently, Atlas supports either `text` or `embedding` modality datasets.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
         * **project_id** - An alternative way to retrieve a dataset is by passing the project_id directly. This only works if a dataset exists.
         """
@@ -996,6 +994,7 @@ class AtlasDataset(AtlasClass):
         self,
         name: str = None,
         indexed_field: str = None,
+        modality: str = None,
         projection: Union[bool, Dict, NomicProjectOptions] = True,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
@@ -1008,6 +1007,10 @@ class AtlasDataset(AtlasClass):
             name: The name of the index and the map.
             indexed_field: For text projects, name the data field corresponding to the text to be mapped.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
+            modality: The data modality of this index. Currently, Atlas supports either `text` or `embedding` indices.
+            projection: Options for configuring the 2D projection algorithm
+            topic_model: Options for configuring the topic model
+            duplicate_detection: Options for configuring semantic duplicate detection
 
         Returns:
             The projection this index has built.
@@ -1255,14 +1258,12 @@ class AtlasDataset(AtlasClass):
         else:
             raise Exception(response.text)
 
-    def add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None, shard_size=None, num_workers=None):
+    def add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
         """
         Add text data to the project.
         data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the dataset schema.
         pbar: (Optional). A tqdm progress bar to display progress.
         """
-        if shard_size is not None or num_workers is not None:
-            raise DeprecationWarning("shard_size and num_workers are deprecated.")
         if DataFrame is not None and isinstance(data, DataFrame):
             data = pa.Table.from_pandas(data)
         elif isinstance(data, list):
@@ -1275,9 +1276,7 @@ class AtlasDataset(AtlasClass):
         self,
         data: Union[DataFrame, List[Dict], pa.Table, None],
         embeddings: np.array,
-        pbar=None,
-        shard_size=None,
-        num_workers=None,
+        pbar=None
     ):
         """
         Add data, with associated embeddings, to the project.
@@ -1292,10 +1291,6 @@ class AtlasDataset(AtlasClass):
         # TODO: validate embedding size.
         assert embeddings.shape[1] == self.embedding_size, "Embedding size must match the embedding size of the project."
         """
-        if shard_size is not None:
-            raise DeprecationWarning("shard_size is deprecated and no longer has any effect")
-        if num_workers is not None:
-            raise DeprecationWarning("num_workers is deprecated and no longer has any effect")
         assert type(embeddings) == np.ndarray, "Embeddings must be a NumPy array."
         assert len(embeddings.shape) == 2, "Embeddings must be a 2D NumPy array."
         assert len(data) == embeddings.shape[0], "Data and embeddings must have the same number of rows."
