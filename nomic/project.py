@@ -1299,7 +1299,8 @@ class AtlasProject(AtlasClass):
         self,
         data: pa.Table,
         pbar=None,
-        is_edgelist: bool = False
+        is_edgelist: bool = False,
+        is_directed: bool = True
     ):
         '''
         Low level interface to upload an Arrow Table. Users should generally call 'add_text' or 'add_embeddings.'
@@ -1329,6 +1330,14 @@ class AtlasProject(AtlasClass):
         if is_edgelist:
             shard_size = 100_000
             upload_endpoint = "/v1/project/data/add/edges"
+            if not is_directed:
+                source = data.column("source")
+                dest = data.column("dest")
+                flipped = pa.Table.from_arrays([dest, source], names=["source", "dest"])
+                data = pa.concat_tables([data, flipped])
+            sort_indices = pc.sort_indices(data, sort_keys=[('source', 'ascending')])
+            data = data.take(sort_indices)
+
         else:
             n_chunks = int(np.ceil(nrow / shard_size))
             # Chunk into 16MB pieces. These will probably compress down a bit.
