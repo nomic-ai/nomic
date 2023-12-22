@@ -855,8 +855,9 @@ class AtlasMapData:
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / Path(filename)
 
-                # WARNING: Potentially large data request here
-                self._download_file(root + filename, path)
+                if not os.path.exists(path):
+                    # WARNING: Potentially large data request here
+                    self._download_file(root + filename, path)
         
         return sidecars
     
