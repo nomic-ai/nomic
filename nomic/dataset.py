@@ -429,7 +429,7 @@ class AtlasProjection:
         '''
         Retrieves a map link.
         '''
-        return f"{self.project.web_path}/map/{self.project.id}/{self.id}"
+        return f"{self.project.web_path}/data/{self.project.meta['organization_slug']}/{self.project.meta['slug']}/map"
 
     @property
     def _status(self):
@@ -1505,7 +1505,7 @@ class AtlasDataset(AtlasClass):
 
         # Update maps
         # finally, update all the indices
-        return self.rebuild_maps()
+        return self.update_indices()
 
     def update_indices(self, rebuild_topic_models: bool = False):
         '''
