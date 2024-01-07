@@ -24,7 +24,7 @@ def test_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
 
-    dataset = atlas.map_data(name=f"unittest-dataset-{random.randint(0,100)}", embeddings=embeddings)
+    dataset = atlas.map_data(name=f"unittest-dataset-{random.randint(0,1000)}", embeddings=embeddings)
     AtlasDataset(dataset.identifier).delete()
 
 
@@ -32,42 +32,65 @@ def test_map_embeddings_with_errors():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
 
+    name = f'unittest-dataset-{random.randint(0,1000)}'
     # test nested dictionaries
     with pytest.raises(Exception):
         data = [{'key': {'nested_key': 'nested_value'}} for i in range(len(embeddings))]
-        response = atlas.map_data(
-            embeddings=embeddings, data=data, name=f"unittest-dataset-{random.randint(0,100)}", is_public=True
+        dataset = atlas.map_data(
+            embeddings=embeddings, data=data, name=name, is_public=True
         )
 
+    try:
+        AtlasDataset(name).delete()
+    except BaseException:
+        pass
 
+    name = f'unittest-dataset-{random.randint(0, 100)}'
     # test underscore
     with pytest.raises(Exception):
         data = [{'__hello': {'hello'}} for i in range(len(embeddings))]
-        response = atlas.map_data(
-            embeddings=embeddings, data=data, name=f"unittest-dataset-{random.randint(0,100)}", is_public=True
+        dataset = atlas.map_data(
+            embeddings=embeddings, data=data, name=name, is_public=True
         )
 
+    try:
+        AtlasDataset(name).delete()
+    except BaseException:
+        pass
+
+    name = f'unittest-dataset-{random.randint(0, 100)}'
     # test to long ids
     with pytest.raises(Exception):
         data = [{'id': str(uuid.uuid4()) + 'a'} for i in range(len(embeddings))]
-        response = atlas.map_data(
+        dataset = atlas.map_data(
             embeddings=embeddings,
             data=data,
-            name=f"unittest-dataset-{random.randint(0,100)}",
+            name=name,
             id_field='id',
             is_public=True,
         )
 
+    try:
+        AtlasDataset(name).delete()
+    except BaseException:
+        pass
+
 def test_map_text_errors():
     # no indexed field
+    name = f'unittest-dataset-{random.randint(0, 100)}'
     with pytest.raises(Exception):
-        project = atlas.map_data(
+        dataset = atlas.map_data(
             data=[{'key': 'a'}],
             indexed_field='text',
             is_public=True,
-            name=f"unittest-dataset-{random.randint(0,100)}",
+            name=name,
             description='test map description',
         )
+
+    try:
+        AtlasDataset(name).delete()
+    except BaseException:
+        pass
 
 
 def test_date_metadata():
@@ -79,7 +102,7 @@ def test_date_metadata():
     ]
 
     dataset = atlas.map_data(
-        embeddings=embeddings, name=f"unittest-dataset-{random.randint(0,100)}", data=data, is_public=True
+        embeddings=embeddings, name=f"unittest-dataset-{random.randint(0,1000)}", data=data, is_public=True
     )
 
     assert dataset.id
@@ -91,7 +114,7 @@ def test_date_metadata():
         data[1]['my_date'] = data[1]['my_date'] + 'asdf'
         project = atlas.map_data(
             embeddings=embeddings,
-            name=f"unittest-dataset-{random.randint(0,100)}",
+            name=f"unittest-dataset-{random.randint(0,1000)}",
             id_field='id',
             data=data,
             is_public=True,
@@ -137,7 +160,7 @@ def test_topics():
 
     project = atlas.map_data(
         embeddings=embeddings,
-        name=f"unittest-dataset-{random.randint(0,100)}",
+        name=f"unittest-dataset-{random.randint(0,1000)}",
         id_field='id',
         data=data,
         is_public=True,
@@ -168,7 +191,7 @@ def test_data():
 
     project = atlas.map_data(
         embeddings=embeddings,
-        name=f"unittest-dataset-{random.randint(0,100)}",
+        name=f"unittest-dataset-{random.randint(0,1000)}",
         id_field='id',
         data=data,
         is_public=True,
@@ -236,7 +259,7 @@ def test_flawed_ids():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasDataset(f"unittest-dataset-{random.randint(0,100)}", unique_id_field='id')
+    p = AtlasDataset(f"unittest-dataset-{random.randint(0,1000)}", unique_id_field='id')
 
     elements = []
     for i in range(10):
@@ -258,7 +281,7 @@ def test_weird_inputs():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasDataset(f"unittest-dataset-{random.randint(0,100)}", unique_id_field='id')
+    p = AtlasDataset(f"unittest-dataset-{random.randint(0,1000)}", unique_id_field='id')
 
     elements = []
     for i in range(20):
@@ -288,7 +311,7 @@ def test_map_embeddings():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        name=f"unittest-dataset-{random.randint(0,100)}",
+        name=f"unittest-dataset-{random.randint(0,1000)}",
         id_field='id',
         data=data,
         is_public=True,
