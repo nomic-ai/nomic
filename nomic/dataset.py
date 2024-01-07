@@ -735,17 +735,16 @@ class AtlasDataset(AtlasClass):
             if unique_id_field is None: #if not all parameters are specified, we weren't trying to make a project
                 raise ValueError(f"Dataset `{identifier}` does not exist.")
 
-            if modality is None:
-                raise ValueError("You must specify a modality when creating a new project.")
-
-            assert modality in ['text', 'embedding'], "Modality must be either `text` or `embedding`"
+            # if modality is None:
+            #     raise ValueError("You must specify a modality when creating a new project.")
+            #
+            # assert modality in ['text', 'embedding'], "Modality must be either `text` or `embedding`"
             assert identifier is not None
 
             project_id = self._create_project(
                 identifier=identifier,
                 description=description,
                 unique_id_field=unique_id_field,
-                modality=modality,
                 is_public=is_public,
             )
 
@@ -770,7 +769,6 @@ class AtlasDataset(AtlasClass):
         identifier: str,
         description: Optional[str],
         unique_id_field: str,
-        modality: str,
         is_public: bool = True,
     ):
         '''
@@ -783,7 +781,6 @@ class AtlasDataset(AtlasClass):
         * **identifier** - The identifier for the project.
         * **description** - A description for the project.
         * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
-        * **modality** - The data modality of this project. Currently, Atlas supports either `text` or `embedding` modality projects.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
 
         **Returns:** project_id on success.
@@ -793,12 +790,12 @@ class AtlasDataset(AtlasClass):
         organization_id = self._get_organization_by_slug(slug=identifier)
         project_slug = identifier.split('/')[1]
 
-        supported_modalities = ['text', 'embedding']
-        if modality not in supported_modalities:
-            msg = 'Tried to create dataset with modality: {}, but Atlas only supports: {}'.format(
-                modality, supported_modalities
-            )
-            raise ValueError(msg)
+        # supported_modalities = ['text', 'embedding']
+        # if modality not in supported_modalities:
+        #     msg = 'Tried to create dataset with modality: {}, but Atlas only supports: {}'.format(
+        #         modality, supported_modalities
+        #     )
+        #     raise ValueError(msg)
 
         if unique_id_field is None:
             raise ValueError("You must specify a unique id field")
@@ -812,7 +809,7 @@ class AtlasDataset(AtlasClass):
                 'project_name': project_slug,
                 'description': description,
                 'unique_id_field': unique_id_field,
-                'modality': modality,
+                # 'modality': modality,
                 'is_public': is_public,
             },
         )
