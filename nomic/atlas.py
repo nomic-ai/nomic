@@ -90,7 +90,6 @@ def map_data(
         identifier=project_name,
         description=description,
         unique_id_field=id_field,
-        modality=modality,
         is_public=is_public
     )
 
@@ -122,6 +121,7 @@ def map_data(
     projection = dataset.create_index(
         name=index_name,
         indexed_field=indexed_field,
+        modality=modality,
         projection=projection,
         topic_model=topic_model,
         duplicate_detection=duplicate_detection
@@ -222,7 +222,6 @@ def map_embeddings(
         identifier=project_name,
         description=description,
         unique_id_field=id_field,
-        modality='embedding',
         is_public=is_public,
         reset_project_if_exists=reset_project_if_exists,
         add_datums_if_exists=add_datums_if_exists,
@@ -353,7 +352,6 @@ def map_text(
         identifier=project_name,
         description=description,
         unique_id_field=id_field,
-        modality='text',
         is_public=is_public,
         reset_project_if_exists=reset_project_if_exists,
         add_datums_if_exists=add_datums_if_exists,
