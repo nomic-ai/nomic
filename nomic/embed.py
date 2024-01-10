@@ -1,16 +1,15 @@
+import base64
+import os
+from io import BytesIO
+from typing import List, Union
+
+import PIL
 import PIL.Image
 import requests
-import os
-import base64
-from io import BytesIO
 
-from typing import List, Union
-import PIL
 from .dataset import AtlasClass
 
-
 atlas_class = AtlasClass()
-
 
 
 def text(texts: List[str], model: str = 'nomic-embed-text-v1'):
@@ -36,6 +35,7 @@ def text(texts: List[str], model: str = 'nomic-embed-text-v1'):
     else:
         raise Exception(str(response.json()))
 
+
 def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
@@ -55,7 +55,7 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
             atlas_class.atlas_api_path + "/v1/embedding/image",
             headers=atlas_class.header,
             data={"model": "nomic-embed-vision-v1"},
-            files=batch
+            files=batch,
         )
 
         if response.status_code == 200:
@@ -64,17 +64,16 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
             print(response.text)
             raise Exception(response.status_code)
 
-
-    #naive batching, we should parallelize this across threads like we do with uploads.
-    #TODO this should all be re-written prior to public release
+    # naive batching, we should parallelize this across threads like we do with uploads.
+    # TODO this should all be re-written prior to public release
     responses = []
     for i in range(0, len(images), batch_size):
         image_batch = []
 
         # process images into base64 encoded strings (for now)
-        for image in images[i:i + batch_size]:
-            #TODO implement check for bytes.
-            #TODO implement check for a valid image.
+        for image in images[i : i + batch_size]:
+            # TODO implement check for bytes.
+            # TODO implement check for a valid image.
             if isinstance(image, str) and os.path.exists(image):
                 image_batch.append(('images', open(image, "rb")))
 
@@ -96,12 +95,3 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
     final_response['usage']['total_tokens'] = final_response['usage']['prompt_tokens']
 
     return final_response
-
-
-
-
-
-
-
-
-

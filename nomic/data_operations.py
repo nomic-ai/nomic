@@ -4,20 +4,20 @@ import concurrent.futures
 import io
 import json
 import os
-from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, Iterable, List, Tuple
 from io import BytesIO
+from pathlib import Path
+from typing import Dict, Iterable, List, Tuple
+
 import numpy as np
 import pandas
 import pandas as pd
 import pyarrow as pa
-from pyarrow import feather
 import requests
 from loguru import logger
 from pyarrow import compute as pc
-from pyarrow import ipc
+from pyarrow import feather, ipc
 from tqdm import tqdm
 
 from .settings import EMBEDDING_PAGINATION_LIMIT
@@ -66,9 +66,7 @@ class AtlasMapDuplicates:
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})    git push --set-upstream origin docs-clean\n"
-        duplicate_count = len(
-            self.tb[self.id_field].filter(pc.equal(self.tb['duplicate_class'], 'deletion candidate'))
-        )
+        duplicate_count = len(self.tb[self.id_field].filter(pc.equal(self.tb['duplicate_class'], 'deletion candidate')))
         cluster_count = len(self.tb['cluster_id'].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
         return repr + self.df.__repr__()
@@ -90,7 +88,7 @@ class AtlasMapTopics:
             self._tb: pa.Table = projection._fetch_tiles()
             topic_fields = [column for column in self._tb.column_names if column.startswith("_topic_depth_")]
             self.depth = len(topic_fields)
-            
+
             # If using topic ids, fetch topic labels
             if 'int' in topic_fields[0]:
                 new_topic_fields = []
@@ -99,16 +97,18 @@ class AtlasMapTopics:
                 for d in range(1, self.depth + 1):
                     column = f"_topic_depth_{d}_int"
                     topic_ids_to_label = self._tb[column].to_pandas().rename('topic_id')
-                    topic_ids_to_label = label_df[label_df["depth"] == d].merge(topic_ids_to_label, on='topic_id', how='right')
+                    topic_ids_to_label = label_df[label_df["depth"] == d].merge(
+                        topic_ids_to_label, on='topic_id', how='right'
+                    )
                     new_column = f"_topic_depth_{d}"
-                    self._tb = self._tb.append_column(new_column, pa.Array.from_pandas(topic_ids_to_label["topic_short_description"]))
+                    self._tb = self._tb.append_column(
+                        new_column, pa.Array.from_pandas(topic_ids_to_label["topic_short_description"])
+                    )
                     new_topic_fields.append(new_column)
                 topic_fields = new_topic_fields
 
             renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
-            self._tb = self._tb.select(
-                [self.id_field] + topic_fields
-            ).rename_columns([self.id_field] + renamed_fields)
+            self._tb = self._tb.select([self.id_field] + topic_fields).rename_columns([self.id_field] + renamed_fields)
 
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Topic modeling has not yet been run on this map.")
@@ -161,7 +161,7 @@ class AtlasMapTopics:
     @property
     def hierarchy(self) -> Dict:
         """
-        A dictionary that allows iteration of the topic hierarchy. Each key is of (topic label, topic depth) 
+        A dictionary that allows iteration of the topic hierarchy. Each key is of (topic label, topic depth)
         to its direct sub-topics.
         If topic is not a key in the hierarchy, it is leaf in the topic hierarchy.
         """
@@ -243,7 +243,7 @@ class AtlasMapTopics:
 
         Args:
             time_field: Your metadata field containing isoformat timestamps
-            start: A datetime object for the window start 
+            start: A datetime object for the window start
             end: A datetime object for the window end
 
         Returns:
@@ -253,7 +253,7 @@ class AtlasMapTopics:
         time_data = data._tb.select([self.id_field, time_field])
         merged_tb = self._tb.join(time_data, self.id_field, join_type="inner").combine_chunks()
 
-        del time_data # free up memory
+        del time_data  # free up memory
 
         expr = (pc.field(time_field) >= start) & (pc.field(time_field) <= end)
         merged_tb = merged_tb.filter(expr)
@@ -283,7 +283,7 @@ class AtlasMapTopics:
             depth: (Default 3) the topic depth at which you want to search
 
         Returns:
-            A dict mapping {topic: posterior probability} for each query.)
+            A dict mapping `{topic: posterior probability}` for each query.
         '''
 
         if queries.ndim != 2:
@@ -311,6 +311,7 @@ class AtlasMapTopics:
 
     def __repr__(self) -> str:
         return str(self.df)
+
 
 class AtlasMapEmbeddings:
     """
@@ -372,8 +373,8 @@ class AtlasMapEmbeddings:
     @property
     def df(self):
         """
-        Pandas DataFrame containing information about embeddings of your datapoints. 
-        
+        Pandas DataFrame containing information about embeddings of your datapoints.
+
         Includes only the two-dimensional embeddings.
         """
         return self.tb.to_pandas()
@@ -418,15 +419,16 @@ class AtlasMapEmbeddings:
             self._download_latent()
         all_embeddings = []
 
-
         for path in self.projection._tiles_in_order():
             # double with-suffix to remove '.embeddings.feather'
             files = path.parent.glob(path.with_suffix("").stem + "-*.embeddings.feather")
             # Should there be more than 10, we need to sort by int values, not string values
             sortable = sorted(files, key=lambda x: int(x.with_suffix("").stem.split("-")[-1]))
             if len(sortable) == 0:
-                raise FileNotFoundError("Could not find any embeddings for tile {}".format(path) + 
-                " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'.")
+                raise FileNotFoundError(
+                    "Could not find any embeddings for tile {}".format(path)
+                    + " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'."
+                )
             for file in sortable:
                 tb = feather.read_table(file, memory_map=True)
                 dims = tb['_embeddings'].type.list_size
@@ -442,13 +444,9 @@ class AtlasMapEmbeddings:
         route = self.projection.project.atlas_api_path + '/v1/project/data/get/embedding/paged'
         last = None
 
-        with tqdm(total=self.project.total_datums//limit) as pbar:
+        with tqdm(total=self.project.total_datums // limit) as pbar:
             while True:
-                params = {
-                    'projection_id': self.projection.id,
-                    "last_file": last,
-                    "page_size": limit
-                }
+                params = {'projection_id': self.projection.id, "last_file": last, "page_size": limit}
                 r = requests.post(route, headers=self.projection.project.header, json=params)
                 if r.status_code == 204:
                     # Download complete!
@@ -462,7 +460,6 @@ class AtlasMapEmbeddings:
                 feather.write_feather(tb, dest)
                 last = tilename
                 pbar.update(1)
-
 
     def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
@@ -796,9 +793,7 @@ class AtlasMapData:
         tbs = []
         root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))
         try:
-            small_sidecars = set(
-                [v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()]
-            )
+            small_sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
         except KeyError:
             small_sidecars = set([])
         for path in self.projection._tiles_in_order():
@@ -807,19 +802,12 @@ class AtlasMapData:
                 if col[0] == "_":
                     tb = tb.drop([col])
             for sidecar_file in small_sidecars:
-                carfile = pa.feather.read_table(
-                    path.parent / f"{path.stem}.{sidecar_file}.feather",
-                    memory_map = True
-                )
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             for big_sidecar in additional_sidecars:
-                fname = base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode(
-                    "utf-8"
-                )
-                carfile = pa.feather.read_table(
-                    path.parent / f"{path.stem}.{fname}.feather", memory_map=True
-                )
+                fname = base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode("utf-8")
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -849,18 +837,16 @@ class AtlasMapData:
         for quad in tqdm(all_quads):
             for sidecar in sidecars:
                 quad_str = "/".join([str(q) for q in quad])
-                encoded_colname = base64.urlsafe_b64encode(
-                    sidecar.encode("utf-8")
-                ).decode("utf-8")
+                encoded_colname = base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8")
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / Path(filename)
 
                 if not os.path.exists(path):
                     # WARNING: Potentially large data request here
                     self._download_file(root + filename, path)
-        
+
         return sidecars
-    
+
     def _download_file(self, url: str, path: str):
         path.parent.mkdir(parents=True, exist_ok=True)
         with requests.get(url, stream=True) as response:

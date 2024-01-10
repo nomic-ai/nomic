@@ -19,5 +19,5 @@ dataset = atlas.map_data(data=first_upload,
 print(dataset.maps)
 
 with dataset.wait_for_dataset_lock():
-    dataset.add_text(data=second_upload)
+    dataset.add_data(data=second_upload)
     dataset.rebuild_maps()

@@ -17,5 +17,5 @@ embeddings += np.ones(shape=(num_embeddings, 10))
 data = [{'upload': '2'} for i in range(len(embeddings))]
 
 with dataset.wait_for_dataset_lock() as project:
-    dataset.add_embeddings(embeddings=embeddings, data=data)
+    dataset.add_data(embeddings=embeddings, data=data)
     dataset.rebuild_maps()
