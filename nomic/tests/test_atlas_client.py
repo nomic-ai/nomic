@@ -111,7 +111,7 @@ def test_date_metadata():
     # put an invalid iso timestamp after the first valid isotimestamp , make sure the client fails
     with pytest.raises(Exception):
         data[1]['my_date'] = data[1]['my_date'] + 'asdf'
-        project = atlas.map_data(
+        dataset = atlas.map_data(
             embeddings=embeddings,
             name=f"unittest-dataset-{random.randint(0,1000)}",
             id_field='id',
@@ -157,7 +157,7 @@ def test_topics():
         for i in range(len(embeddings))
     ]
 
-    project = atlas.map_data(
+    dataset = atlas.map_data(
         embeddings=embeddings,
         name=f"unittest-dataset-{random.randint(0,1000)}",
         id_field='id',
@@ -166,18 +166,18 @@ def test_topics():
         topic_model=dict(topic_label_field='text'),
     )
 
-    with project.wait_for_dataset_lock():
-        assert len(project.maps[0].topics.metadata) > 0
+    with dataset.wait_for_dataset_lock():
+        assert len(dataset.maps[0].topics.metadata) > 0
 
         q = np.random.random((3, 10))
-        assert len(project.maps[0].topics.vector_search_topics(q, depth=1, k=3)['topics']) == 3
-        assert isinstance(project.maps[0].topics.group_by_topic(topic_depth=1), list)
+        assert len(dataset.maps[0].topics.vector_search_topics(q, depth=1, k=3)['topics']) == 3
+        assert isinstance(dataset.maps[0].topics.group_by_topic(topic_depth=1), list)
 
         start = datetime(2019, 1, 1)
         end = datetime(2025, 1, 1)
-        assert isinstance(project.maps[0].topics.get_topic_density("date", start, end), dict)
+        assert isinstance(dataset.maps[0].topics.get_topic_density("date", start, end), dict)
 
-        project.delete()
+        dataset.delete()
 
 
 def test_data():
@@ -189,7 +189,7 @@ def test_data():
         for i in range(len(embeddings))
     ]
 
-    project = atlas.map_data(
+    dataset = atlas.map_data(
         embeddings=embeddings,
         name=f"unittest-dataset-{random.randint(0,1000)}",
         id_field='id',
@@ -198,11 +198,11 @@ def test_data():
         topic_model=dict(build_topic_model=True, community_description_target_field='text'),
     )
 
-    with project.wait_for_dataset_lock():
-        df = project.maps[0].data.df
+    with dataset.wait_for_dataset_lock():
+        df = dataset.maps[0].data.df
         assert len(df) > 0
         assert "text" in df.columns
-        project.delete()
+        dataset.delete()
 
 
 words = [
@@ -283,7 +283,7 @@ def test_weird_inputs():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasDataset(f"unittest-dataset-{random.randint(0,1000)}", unique_id_field='id')
+    dataset = AtlasDataset(f"unittest-dataset-{random.randint(0,1000)}", unique_id_field='id')
 
     elements = []
     for i in range(20):
@@ -299,11 +299,11 @@ def test_weird_inputs():
             elements.append({'text': '', 'id': str(i)})
         else:
             elements.append({'text': 'foo', 'id': str(i)})
-    p.add_data(data=elements)
-    p.create_index(indexed_field='text', topic_model=True)
-    with p.wait_for_dataset_lock():
+    dataset.add_data(data=elements)
+    dataset.create_index(indexed_field='text', topic_model=True)
+    with dataset.wait_for_dataset_lock():
         assert True
-    p.delete()
+    dataset.delete()
 
 
 def test_map_embeddings():
