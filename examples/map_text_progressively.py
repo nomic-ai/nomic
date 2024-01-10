@@ -11,13 +11,13 @@ documents = [dataset[i] for i in subset_idxs]
 first_upload = documents[:500]
 second_upload = documents[500:]
 
-project = atlas.map_text(data=first_upload,
+dataset = atlas.map_data(data=first_upload,
                           indexed_field='text',
                           name='News 1k Example Progressive',
                         )
 
-print(project.maps)
+print(dataset.maps)
 
-with project.wait_for_project_lock():
-    project.add_text(data=second_upload)
-    project.rebuild_maps()
+with dataset.wait_for_dataset_lock():
+    dataset.add_text(data=second_upload)
+    dataset.rebuild_maps()
