@@ -152,15 +152,13 @@ class AtlasEmbeddingExplorer(Callback):
                 colorable_fields.append(key)
 
         try:
-            project = atlas.map_embeddings(
+            project = atlas.map_data(
                 embeddings=embeddings,
                 data=metadata,
                 id_field='id',
-                colorable_fields=colorable_fields,
                 is_public=self.is_public,
                 name=self.name,
                 description=self.description,
-                reset_project_if_exists=self.overwrite,
                 build_topic_model=False,
             )
         except BaseException as e:

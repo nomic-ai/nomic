@@ -27,8 +27,13 @@ from tqdm import tqdm
 import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
-from .data_inference import convert_pyarrow_schema_for_atlas, NomicProjectOptions, NomicDuplicatesOptions, NomicTopicOptions
-from .data_operations import  AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics 
+from .data_inference import (
+    NomicDuplicatesOptions,
+    NomicProjectOptions,
+    NomicTopicOptions,
+    convert_pyarrow_schema_for_atlas,
+)
+from .data_operations import AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
 
@@ -212,7 +217,6 @@ class AtlasClass(object):
 
         return response.json()
 
-
     def is_valid_dataset_identifier(self, identifier: str):
         '''
         Checks if a string is a valid identifier for a dataset
@@ -279,10 +283,11 @@ class AtlasClass(object):
         seen = set()
         for col in data.column_names:
             if col.lower() in seen:
-                raise ValueError(f'Two different fields have the same lowercased name, `{col}`'
-                ': you must use unique column names.')
+                raise ValueError(
+                    f'Two different fields have the same lowercased name, `{col}`' ': you must use unique column names.'
+                )
             seen.add(col.lower())
-            
+
         if project.schema is None:
             project._schema = convert_pyarrow_schema_for_atlas(data.schema)
         # Reformat to match the schema of the project.
@@ -380,6 +385,7 @@ class AtlasClass(object):
                 )
 
         return organization_slug, organization_id
+
 
 class AtlasIndex:
     """
@@ -520,7 +526,9 @@ class AtlasProjection:
     def topics(self):
         """Topic state"""
         if self.project.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access topics.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access topics.'
+            )
         if self._topics is None:
             self._topics = AtlasMapTopics(self)
         return self._topics
@@ -529,7 +537,9 @@ class AtlasProjection:
     def embeddings(self):
         """Embedding state"""
         if self.project.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access embeddings.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access embeddings.'
+            )
         if self._embeddings is None:
             self._embeddings = AtlasMapEmbeddings(self)
         return self._embeddings
@@ -538,16 +548,20 @@ class AtlasProjection:
     def tags(self):
         """Tag state"""
         if self.project.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access tags.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access tags.'
+            )
         if self._tags is None:
             self._tags = AtlasMapTags(self)
         return self._tags
-    
+
     @property
     def data(self):
         """Metadata state"""
         if self.project.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access data.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access data.'
+            )
         if self._data is None:
             self._data = AtlasMapData(self)
         return self._data
@@ -572,9 +586,9 @@ class AtlasProjection:
         except KeyError:
             sidecars = set([])
         for path in self._tiles_in_order():
-            tb = pa.feather.read_table(path, memory_map = True)
+            tb = pa.feather.read_table(path, memory_map=True)
             for sidecar_file in sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map = True)
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -585,15 +599,19 @@ class AtlasProjection:
     def _tiles_in_order(self, coords_only=False):
         """
         Returns:
-            A list of all tiles in the projection in a fixed order so that all 
+            A list of all tiles in the projection in a fixed order so that all
             datasets are guaranteed to be aligned.
         """
+
         def children(z, x, y):
             # This is the definition of a quadtree.
-            return [(z + 1, x * 2, y * 2),
-                    (z + 1, x * 2 + 1, y * 2),
-                    (z + 1, x * 2, y * 2 + 1),
-                    (z + 1, x * 2 + 1, y * 2 + 1)]
+            return [
+                (z + 1, x * 2, y * 2),
+                (z + 1, x * 2 + 1, y * 2),
+                (z + 1, x * 2, y * 2 + 1),
+                (z + 1, x * 2 + 1, y * 2 + 1),
+            ]
+
         # start with the root
         paths = [(0, 0, 0)]
         # Pop off the front, extend the back (breadth first traversal)
@@ -605,8 +623,8 @@ class AtlasProjection:
                     yield (z, x, y)
                 else:
                     yield path
-                paths.extend(children(z,x,y))
-    
+                paths.extend(children(z, x, y))
+
     @property
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
@@ -686,6 +704,7 @@ class AtlasProjection:
         else:
             raise Exception(response.text)
 
+
 class AtlasDataset(AtlasClass):
     def __init__(
         self,
@@ -694,7 +713,7 @@ class AtlasDataset(AtlasClass):
         unique_id_field: Optional[str] = None,
         is_public: bool = True,
         project_id=None,
-        organization_name=None
+        organization_name=None,
     ):
         """
         Creates or loads an AtlasDataset.
@@ -714,7 +733,9 @@ class AtlasDataset(AtlasClass):
         super().__init__()
 
         if organization_name is not None:
-            raise DeprecationWarning(f"Passing organization_name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads).")
+            raise DeprecationWarning(
+                f"Passing organization_name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads)."
+            )
 
         if project_id is not None:
             self.meta = self._get_project_by_id(project_id)
@@ -722,17 +743,16 @@ class AtlasDataset(AtlasClass):
 
         if not self.is_valid_dataset_identifier(identifier=identifier):
             default_org_slug = self._get_current_users_main_organization()['slug']
-            identifier = default_org_slug+'/'+identifier
+            identifier = default_org_slug + '/' + identifier
 
         project = self._get_project_by_slug_identifier(identifier=identifier)
 
         if project:  # dataset already exists
-                logger.info(f"Loading existing dataset `{identifier}``.")
-                project_id = project['id']
+            logger.info(f"Loading existing dataset `{identifier}``.")
+            project_id = project['id']
 
         if project_id is None:  # if there is no existing project, make a new one.
-
-            if unique_id_field is None: #if not all parameters are specified, we weren't trying to make a project
+            if unique_id_field is None:  # if not all parameters are specified, we weren't trying to make a project
                 raise ValueError(f"Dataset `{identifier}` does not exist.")
 
             # if modality is None:
@@ -814,12 +834,10 @@ class AtlasDataset(AtlasClass):
             },
         )
 
-
         if response.status_code != 201:
             raise Exception(f"Failed to create dataset: {response.json()}")
 
         logger.info(f"Creating dataset `{response.json()['slug']}`")
-
 
         return response.json()['project_id']
 
@@ -895,7 +913,7 @@ class AtlasDataset(AtlasClass):
     @property
     def identifier(self) -> str:
         '''The slug for this project'''
-        return self.meta['organization_slug']+'/'+self.meta['slug']
+        return self.meta['organization_slug'] + '/' + self.meta['slug']
 
     @property
     def description(self):
@@ -1055,7 +1073,9 @@ class AtlasDataset(AtlasClass):
             if duplicate_detection.tag_duplicates:
                 raise ValueError("Cannot tag duplicates in an embedding project.")
             if topic_model.community_description_target_field is None:
-                logger.warning("You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics.")
+                logger.warning(
+                    "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
+                )
             build_template = {
                 'project_id': self.id,
                 'index_name': name,
@@ -1068,13 +1088,19 @@ class AtlasDataset(AtlasClass):
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
                 'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
-                    {'n_neighbors': projection.n_neighbors, 'n_epochs': projection.n_epochs, 'spread': projection.spread}
+                    {
+                        'n_neighbors': projection.n_neighbors,
+                        'n_epochs': projection.n_epochs,
+                        'spread': projection.spread,
+                    }
                 ),
                 'topic_model_hyperparameters': json.dumps(
-                    {'build_topic_model': topic_model.build_topic_model,
-                     'community_description_target_field': topic_model.community_description_target_field,
-                     'cluster_method': topic_model.cluster_method,
-                     'enforce_topic_hierarchy': topic_model.enforce_topic_hierarchy}
+                    {
+                        'build_topic_model': topic_model.build_topic_model,
+                        'community_description_target_field': topic_model.community_description_target_field,
+                        'cluster_method': topic_model.cluster_method,
+                        'enforce_topic_hierarchy': topic_model.enforce_topic_hierarchy,
+                    }
                 ),
             }
 
@@ -1120,16 +1146,25 @@ class AtlasDataset(AtlasClass):
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
                 'projection': 'NomicProject',
                 'projection_hyperparameters': json.dumps(
-                    {'n_neighbors': projection.n_neighbors, 'n_epochs': projection.n_epochs, 'spread': projection.spread}
+                    {
+                        'n_neighbors': projection.n_neighbors,
+                        'n_epochs': projection.n_epochs,
+                        'spread': projection.spread,
+                    }
                 ),
                 'topic_model_hyperparameters': json.dumps(
-                    {'build_topic_model': topic_model.build_topic_model,
-                     'community_description_target_field': indexed_field,
-                     'cluster_method': topic_model.build_topic_model,
-                     'enforce_topic_hierarchy': topic_model.enforce_topic_hierarchy}
+                    {
+                        'build_topic_model': topic_model.build_topic_model,
+                        'community_description_target_field': indexed_field,
+                        'cluster_method': topic_model.build_topic_model,
+                        'enforce_topic_hierarchy': topic_model.enforce_topic_hierarchy,
+                    }
                 ),
                 'duplicate_detection_hyperparameters': json.dumps(
-                    {'tag_duplicates': duplicate_detection.tag_duplicates, 'duplicate_cutoff': duplicate_detection.duplicate_cutoff}
+                    {
+                        'tag_duplicates': duplicate_detection.tag_duplicates,
+                        'duplicate_cutoff': duplicate_detection.duplicate_cutoff,
+                    }
                 ),
             }
 
@@ -1163,9 +1198,7 @@ class AtlasDataset(AtlasClass):
                 projection = None
 
         if projection is None:
-            logger.warning(
-                "Could not find a map being built for this project."
-            )
+            logger.warning("Could not find a map being built for this project.")
         logger.info(f"Created map `{projection.name}` in dataset `{self.identifier}`: {projection.map_link}")
         return projection
 
@@ -1254,7 +1287,20 @@ class AtlasDataset(AtlasClass):
         else:
             raise Exception(response.text)
 
-    def add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
+    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: np.array = None, pbar=None):
+        """
+        Adds data of varying modality to an Atlas dataset.
+        Args:
+            data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the dataset schema.
+            embeddings: A numpy array of embeddings: each row corresponds to a row in the table. Use if you already have embeddings for your datapoints.
+            pbar: (Optional). A tqdm progress bar to update.
+        """
+        if embeddings is not None:
+            self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
+        else:
+            self._add_text(data=data, pbar=pbar)
+
+    def _add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
         """
         Add text data to the project.
         data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the dataset schema.
@@ -1268,12 +1314,7 @@ class AtlasDataset(AtlasClass):
             raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
         self._add_data(data, pbar=pbar)
 
-    def add_embeddings(
-        self,
-        data: Union[DataFrame, List[Dict], pa.Table, None],
-        embeddings: np.array,
-        pbar=None
-    ):
+    def _add_embeddings(self, data: Union[DataFrame, List[Dict], pa.Table, None], embeddings: np.array, pbar=None):
         """
         Add data, with associated embeddings, to the project.
 
@@ -1451,9 +1492,7 @@ class AtlasDataset(AtlasClass):
             else:
                 logger.info("Upload succeeded.")
 
-    def update_maps(
-        self, data: List[Dict], embeddings: Optional[np.array] = None, num_workers: int = 10
-    ):
+    def update_maps(self, data: List[Dict], embeddings: Optional[np.array] = None, num_workers: int = 10):
         '''
         Utility method to update a project's maps by adding the given data.
 
@@ -1480,7 +1519,7 @@ class AtlasDataset(AtlasClass):
             )
             raise ValueError(msg)
 
-        shard_size = 2000 #TODO someone removed shard size from params and didn't update
+        shard_size = 2000  # TODO someone removed shard size from params and didn't update
         # Add new data
         logger.info("Uploading data to Nomic's neural database Atlas.")
         with tqdm(total=len(data) // shard_size) as pbar:

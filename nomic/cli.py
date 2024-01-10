@@ -62,7 +62,12 @@ def login(token, tenant='production'):
 
     bearer_token = response.json()['access_token']
     with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
-        saved_credentials = {'refresh_token': token, 'token': bearer_token, 'tenant': tenant, 'expires': time.time() + 80000}
+        saved_credentials = {
+            'refresh_token': token,
+            'token': bearer_token,
+            'tenant': tenant,
+            'expires': time.time() + 80000,
+        }
         if tenant == 'enterprise':
             saved_credentials |= environment
         json.dump(saved_credentials, file)
@@ -117,7 +122,7 @@ def switch(tenant):
 @click.argument('params', nargs=-1)
 def cli(command, params, domain=None):
     if domain is not None:
-        tenants['enterprise'] = { 'frontend_domain': domain, 'api_domain': f'api.{domain}' }
+        tenants['enterprise'] = {'frontend_domain': domain, 'api_domain': f'api.{domain}'}
     if command == 'login':
         if len(params) == 0:
             login(token=None, tenant='production')
