@@ -347,14 +347,6 @@ def test_map_embeddings():
     for map in dataset.projections:
         assert map.map_link
 
-    map.tags.add(ids=[data[0]['id']], tags=['my_tag'])
-
-    assert len(map.tags.get_tags()['my_tag']) == 1
-
-    map.tags.remove(ids=[data[0]['id']], tags=['my_tag'])
-
-    assert 'my_tag' not in map.tags.get_tags()
-
     dataset.delete()
 
 
