@@ -299,7 +299,7 @@ def test_weird_inputs():
             elements.append({'text': '', 'id': str(i)})
         else:
             elements.append({'text': 'foo', 'id': str(i)})
-    p.add_text(data=elements)
+    p.add_data(data=elements)
     p.create_index(indexed_field='text', topic_model=True)
     with p.wait_for_dataset_lock():
         assert True
