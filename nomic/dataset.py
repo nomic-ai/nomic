@@ -1039,7 +1039,6 @@ class AtlasDataset(AtlasClass):
         else:
             duplicate_detection = NomicDuplicatesOptions(tag_duplicates=False)
 
-        print(self.modality)
         if self.modality == 'embedding':
             duplicate_detection.tag_duplicates = False
 
