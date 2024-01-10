@@ -304,9 +304,9 @@ def map_text(
             "Passing organization name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads)."
         )
 
-    raise DeprecationWarning("map_embeddings is deprecated and will soon be removed, use atlas.map_data instead.")
+    raise DeprecationWarning("map_text is deprecated and will soon be removed, use atlas.map_data instead.")
 
-    logger.warning("map_embeddings is deprecated and will soon be removed, you should use map_data instead.")
+    logger.warning("map_text is deprecated and will soon be removed, you should use map_data instead.")
 
     if id_field is None:
         id_field = ATLAS_DEFAULT_ID_FIELD
