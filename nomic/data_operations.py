@@ -577,58 +577,23 @@ class AtlasMapTags:
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
+        # Need to fetch tiles first
+        self.projection._fetch_tiles()
         #self._tb: pa.Table = projection._fetch_tiles().select([self.id_field])
-        self._tags = []
 
     @property
     def df(self) -> pd.DataFrame:
         """
         Pandas DataFrame mapping each data point to its tags.
         """
-
-        id_frame = self._tb.to_pandas()
-        tag_to_datums = self.get_tags()
-
-        # encoded contains a multi-hot vector withs 1 for all rows that contain that tag
-        encoded = {key: [] for key in list(tag_to_datums.keys())}
-        for id in id_frame[self.id_field]:
-            for key in encoded:
-                if id in tag_to_datums[key]:
-                    encoded[key].append(1)
-                else:
-                    encoded[key].append(0)
-
-        tag_frame = pandas.DataFrame(encoded)
-
-        return pd.concat([id_frame, tag_frame], axis=1)
-        
-    @property
-    def tags(self) -> List[Dict]:
-        """
-        Get list of tags user has created for projection.
-        """
-        tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
-                     headers=self.dataset.header,
-                     json={'project_id': self.dataset.id, 
-                           'projection_id': self.projection.id, 
-                           'include_dsl_rule': False}).json()
-        keep_tags = []
-        for tag in tags:
-            is_complete = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
-                headers=self.dataset.header,
-                json={'project_id': self.dataset.id, 
-                      'tag_id': tag["tag_id"], 
-                }).json()['is_complete']
-            if is_complete:
-                keep_tags.append(tag)
-        self._tags = keep_tags
-        return self._tags
+        # TODO
+        return None
     
     def _get_tag_by_name(self, name: str) -> Dict:
         """
         Returns the tag dictionary for a given tag name.
         """
-        for tag in self.tags:
+        for tag in self.get_tags():
             if tag["tag_name"] == name:
                 return tag
         raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
@@ -659,7 +624,7 @@ class AtlasMapTags:
         for path in ordered_tag_paths:
             tb = feather.read_table(path)
             last_coord = path.name.split(".")[0]
-            tile_path = path.with_name(last_coord + ".feather")
+            tile_path = path.with_name(last_coord + ".datum_id.feather")
             tile_tb = feather.read_table(tile_path).select([self.id_field])
 
             if "all_set" in tb.column_names:
@@ -681,7 +646,24 @@ class AtlasMapTags:
         Returns:
             A dictionary mapping data points to tags.
         '''
-        raise DeprecationWarning("Deprecated as of January 2024. Use `tags` property instead")
+        """
+        Get list of tags user has created for projection.
+        """
+        tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
+                     headers=self.dataset.header,
+                     params={'project_id': self.dataset.id, 
+                             'projection_id': self.projection.id, 
+                             'include_dsl_rule': False}).json()
+        keep_tags = []
+        for tag in tags:
+            is_complete = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
+                headers=self.dataset.header,
+                params={'project_id': self.dataset.id, 
+                      'tag_id': tag["tag_id"], 
+                }).json()['is_complete']
+            if is_complete:
+                keep_tags.append(tag)
+        return keep_tags
 
     def add(self, ids: List[str], tags: List[str]):
         '''
