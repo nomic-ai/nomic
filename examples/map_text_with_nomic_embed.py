@@ -2,7 +2,7 @@
 Maps text by using the nomic-embed-text-v1 model inference endpoint.
 
 Note, this is mainly a demo.
-You should just add_text to a project and let Atlas internally handle the embedding for you.
+You should just map_data to a dataset and let Atlas internally handle the embedding for you.
 """
 from nomic import atlas, embed
 import numpy as np
