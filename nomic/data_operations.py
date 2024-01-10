@@ -667,7 +667,12 @@ class AtlasMapTags:
                     datum_ids.extend(tile_tb[self.id_field].to_pylist())
             else:
                 # filter on rows
-                pass
+                try:
+                    tb = tb.append_column(self.id_field, tile_tb[self.id_field])
+                    datum_ids.extend(tb.filter(pc.field("bitmask") == True)[self.id_field].to_pylist())
+                except Exception as e:
+                    raise Exception(f"Failed to fetch datums in tag. {e}")
+        return datum_ids
 
     def get_tags(self) -> Dict[str, List[str]]:
         '''
