@@ -33,7 +33,7 @@ class AtlasMapDuplicates:
 
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
-        self.id_field = self.projection.project.id_field
+        self.id_field = self.projection.dataset.id_field
         try:
             self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, '_duplicate_class', '_cluster_id'])
         except pa.lib.ArrowInvalid as e:
@@ -81,7 +81,7 @@ class AtlasMapTopics:
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
         self.dataset = projection.dataset
-        self.id_field = self.projection.project.id_field
+        self.id_field = self.projection.dataset.id_field
         self._metadata = None
         self._hierarchy = None
 
@@ -143,11 +143,11 @@ class AtlasMapTopics:
             return self._metadata
 
         response = requests.get(
-            self.projection.project.atlas_api_path
+            self.projection.dataset.atlas_api_path
             + "/v1/project/{}/index/projection/{}".format(
-                self.projection.project.meta['id'], self.projection.projection_id
+                self.projection.dataset.meta['id'], self.projection.projection_id
             ),
-            headers=self.projection.project.header,
+            headers=self.projection.dataset.header,
         )
         topics = json.loads(response.text)['topic_models'][0]['features']
         topic_data = [e['properties'] for e in topics]
@@ -366,7 +366,7 @@ class AtlasMapEmbeddings:
 
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
-        self.id_field = self.projection.project.id_field
+        self.id_field = self.projection.dataset.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, 'x', 'y'])
         self.dataset = projection.dataset
         self._latent = None
@@ -442,13 +442,13 @@ class AtlasMapEmbeddings:
         """
         logger.warning("Downloading latent embeddings of all datapoints.")
         limit = 10_000
-        route = self.projection.project.atlas_api_path + '/v1/project/data/get/embedding/paged'
+        route = self.projection.dataset.atlas_api_path + '/v1/project/data/get/embedding/paged'
         last = None
 
         with tqdm(total=self.dataset.total_datums//limit) as pbar:
             while True:
                 params = {'projection_id': self.projection.id, "last_file": last, "page_size": limit}
-                r = requests.post(route, headers=self.projection.project.header, json=params)
+                r = requests.post(route, headers=self.projection.dataset.header, json=params)
                 if r.status_code == 204:
                     # Download complete!
                     break
@@ -508,8 +508,8 @@ class AtlasMapEmbeddings:
 
         if queries is not None:
             response = requests.post(
-                self.projection.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
-                headers=self.projection.project.header,
+                self.projection.dataset.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
+                headers=self.projection.dataset.header,
                 json={
                     'atlas_index_id': self.projection.atlas_index_id,
                     'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
@@ -518,8 +518,8 @@ class AtlasMapEmbeddings:
             )
         else:
             response = requests.post(
-                self.projection.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
-                headers=self.projection.project.header,
+                self.projection.dataset.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
+                headers=self.projection.dataset.header,
                 json={'atlas_index_id': self.projection.atlas_index_id, 'datum_ids': ids, 'k': k},
             )
 
@@ -576,9 +576,9 @@ class AtlasMapTags:
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
         self.dataset = projection.dataset
-        self.id_field = self.projection.project.id_field
-        self._tb: pa.Table = projection._fetch_tiles().select([self.id_field])
-        self._tags = None
+        self.id_field = self.projection.dataset.id_field
+        #self._tb: pa.Table = projection._fetch_tiles().select([self.id_field])
+        self._tags = []
 
     @property
     def df(self) -> pd.DataFrame:
@@ -607,12 +607,21 @@ class AtlasMapTags:
         """
         Get list of tags user has created for projection.
         """
-        # TODO: filter on complete
-        self._tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
+        tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
                      headers=self.dataset.header,
                      json={'project_id': self.dataset.id, 
                            'projection_id': self.projection.id, 
                            'include_dsl_rule': False}).json()
+        keep_tags = []
+        for tag in tags:
+            is_complete = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
+                headers=self.dataset.header,
+                json={'project_id': self.dataset.id, 
+                      'tag_id': tag["tag_id"], 
+                }).json()['is_complete']
+            if is_complete:
+                keep_tags.append(tag)
+        self._tags = keep_tags
         return self._tags
     
     def _get_tag_by_name(self, name: str) -> Dict:
@@ -635,13 +644,33 @@ class AtlasMapTags:
         tag_definition_id = tag["tag_definition_id"]
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
-
+        ordered_tag_paths = []
         for quad in tqdm(all_quads):
-
             quad_str = "/".join([str(q) for q in quad])
             filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
             path = self.projection.tile_destination / Path(filename)
             download_file(root + filename, path)
+            ordered_tag_paths.append(path)
+        return ordered_tag_paths
+
+    def get_datums_in_tag(self, tag_name: str):
+        ordered_tag_paths = self._download_tag(tag_name)
+        datum_ids = []
+        for path in ordered_tag_paths:
+            tb = feather.read_table(path)
+            last_coord = path.name.split(".")[0]
+            tile_path = path.with_name(last_coord + ".feather")
+            tile_tb = feather.read_table(tile_path).select([self.id_field])
+
+            if "all_set" in tb.column_names:
+                if tb["all_set"][0].as_py() == True:
+                    datum_ids.extend(tile_tb[self.id_field].to_pylist())
+            else:
+                # filter on rows
+                pass
+
+            
+
 
 
     def get_tags(self) -> Dict[str, List[str]]:
@@ -754,7 +783,7 @@ class AtlasMapData:
     def __init__(self, projection: "AtlasProjection", fields=None):
         self.projection = projection
         self.dataset = projection.dataset
-        self.id_field = self.projection.project.id_field
+        self.id_field = self.projection.dataset.id_field
         self._tb = None
         self.fields = fields
         try:
