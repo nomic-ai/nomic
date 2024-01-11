@@ -63,12 +63,28 @@ def convert_pyarrow_schema_for_atlas(schema: pa.Schema) -> pa.Schema:
 
 
 class NomicProjectOptions(BaseModel):
+    '''
+    Options for Nomic 2D Dimensionality Reduction Model
+
+    Args:
+        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction.
+        n_epochs: How many dataset passes to train the projection model.
+    '''
+
     n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS
     n_epochs: int = DEFAULT_PROJECTION_EPOCHS
     spread: float = DEFAULT_PROJECTION_SPREAD
 
 
 class NomicTopicOptions(BaseModel):
+    '''
+    Options for Nomic Topic Model
+
+    Args:
+        build_topic_model: If True, builds a topic model over your dataset's embeddings.
+        topic_label_field: The dataset field/column that Atlas will use to assign a human-readable description to each topic.
+    '''
+
     build_topic_model: bool = True
     community_description_target_field: Optional[str] = Field(None, alias='topic_label_field')
     cluster_method: str = 'fast'
@@ -76,9 +92,24 @@ class NomicTopicOptions(BaseModel):
 
 
 class NomicDuplicatesOptions(BaseModel):
+    '''
+    Options for Duplicate Detection
+
+    Args:
+        tag_duplicates: Should duplicate detection run over your datasets embeddings?
+        duplicate_cutoff: A hyperparameter of duplicate detection, smaller values capture more exact duplicates.
+    '''
+
     tag_duplicates: bool = True
     duplicate_cutoff: float = DEFAULT_DUPLICATE_THRESHOLD
 
 
 class NomicEmbedOptions(BaseModel):
+    '''
+    Options for Configuring the Nomic Embedding Model
+
+    Args:
+        model: The Nomic Embedding Model to use.
+    '''
+
     model: str = 'NomicEmbed'
