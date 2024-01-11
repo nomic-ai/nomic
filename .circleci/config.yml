@@ -38,18 +38,6 @@ commands:
 #            name: Run Integration Tests
 #            command: make mock | cat
 
-    deploy:
-      steps:
-        - run:
-            name: Build documentation.
-            command: make documentation | cat
-        - run:
-            name: Push documentation
-            command: aws s3 cp ./site s3://docs.nomic.ai/ --recursive | cat
-        - run:
-            name: Invalidate docs.nomic.ai cloudfront
-            command: aws cloudfront create-invalidation --distribution-id E3NWM6RNA66P6E --paths "/*"
-
 
 jobs:
   build_test:
@@ -68,7 +56,6 @@ jobs:
       - prep
       - build
 #        - test
-      - deploy
 
   build_deploy_pypi:
     docker:
