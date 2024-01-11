@@ -34,7 +34,12 @@ def get_api_credentials(fn=None):
         return credentials
 
 
-def login(token, tenant='production'):
+def login(token, tenant='production', domain=None):
+    if tenant not in ['production', 'staging'] and domain is None:
+        raise ValueError("Enterprise tenants must specify their deployment domain.")
+
+    if domain is not None:
+        tenants['enterprise'] = {'frontend_domain': domain, 'api_domain': f'api.{domain}'}
     environment = tenants[tenant]
     auth0_auth_endpoint = f"https://{environment['frontend_domain']}/cli-login"
 
@@ -121,8 +126,7 @@ def switch(tenant):
 @click.argument('command', nargs=1, default='')
 @click.argument('params', nargs=-1)
 def cli(command, params, domain=None):
-    if domain is not None:
-        tenants['enterprise'] = {'frontend_domain': domain, 'api_domain': f'api.{domain}'}
+
     if command == 'login':
         if len(params) == 0:
             login(token=None, tenant='production')
@@ -133,11 +137,11 @@ def cli(command, params, domain=None):
         if len(params) == 1 and params[0] == 'enterprise':
             if domain is None:
                 raise ValueError('Must pass --domain to log into an enterprise environment')
-            login(token=None, tenant='enterprise')
+            login(token=None, tenant='enterprise', domain=domain)
         if len(params) == 2 and params[0] == 'enterprise':
             if domain is None:
                 raise ValueError('Must pass --domain to log into an enterprise environment')
-            login(token=params[1], tenant='enterprise')
+            login(token=params[1], tenant='enterprise', domain=domain)
         if len(params) == 1:
             login(token=params[0], tenant='production')
     elif command == 'switch':
