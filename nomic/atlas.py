@@ -36,7 +36,7 @@ def map_data(
     Args:
         data: An ordered collection of the datapoints you are structuring. Can be a list of dictionaries, Pandas Dataframe or PyArrow Table.
         embeddings: An [N,d] numpy array containing the N embeddings to add.
-        identifier: The dataset identifier
+        identifier: A name for your dataset that is used to generate the dataset identifier. A unique name will be chosen if not supplied.
         description: The description of your dataset
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         is_public: Should the dataset be accessible outside your Nomic Atlas organization.
