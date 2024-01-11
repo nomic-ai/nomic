@@ -367,9 +367,7 @@ def test_map_text_pandas():
         }
     )
 
-    dataset = atlas.map_data(
-        identifier='UNITTEST_pandas_text', indexed_field="color", data=data, is_public=True
-    )
+    dataset = atlas.map_data(identifier='UNITTEST_pandas_text', indexed_field="color", data=data, is_public=True)
 
     assert dataset.total_datums == 50
 
