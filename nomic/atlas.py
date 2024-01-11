@@ -72,7 +72,7 @@ def map_data(
     # no metadata was specified
     added_id_field = False
     if data is None:
-        data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
+        data = [*[{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]]
         added_id_field = True
 
     if id_field == ATLAS_DEFAULT_ID_FIELD:
@@ -89,7 +89,7 @@ def map_data(
             ids = pa.array([b64int(i) for i in range(len(data))])
             data = data.append_column(id_field, ids)
             added_id_field = True
-        else:
+        elif id_field not in data[0]:
             raise ValueError("map_data data must be a list of dicts, a pandas dataframe, or a pyarrow table")
 
     if added_id_field:
