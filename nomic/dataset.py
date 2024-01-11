@@ -29,6 +29,7 @@ import nomic
 from .cli import refresh_bearer_token, validate_api_http_response
 from .data_inference import (
     NomicDuplicatesOptions,
+    NomicEmbedOptions,
     NomicProjectOptions,
     NomicTopicOptions,
     convert_pyarrow_schema_for_atlas,
@@ -1013,6 +1014,7 @@ class AtlasDataset(AtlasClass):
         projection: Union[bool, Dict, NomicProjectOptions] = True,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
+        embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = 'NomicEmbed',
         reuse_embeddings_from_index: str = None,
     ) -> AtlasProjection:
         '''
@@ -1026,6 +1028,7 @@ class AtlasDataset(AtlasClass):
             projection: Options for configuring the 2D projection algorithm
             topic_model: Options for configuring the topic model
             duplicate_detection: Options for configuring semantic duplicate detection
+            embedding_model: Options for configuring the embedding model
 
         Returns:
             The projection this index has built.
@@ -1056,6 +1059,15 @@ class AtlasDataset(AtlasClass):
             duplicate_detection = NomicDuplicatesOptions()
         else:
             duplicate_detection = NomicDuplicatesOptions(tag_duplicates=False)
+
+        if isinstance(embedding_model, Dict):
+            embedding_model = NomicEmbedOptions(**embedding_model)
+        elif isinstance(embedding_model, NomicEmbedOptions):
+            pass
+        elif isinstance(embedding_model, str):
+            embedding_model = NomicEmbedOptions(model=embedding_model)
+        else:
+            embedding_model = NomicEmbedOptions()
 
         if self.modality == 'embedding':
             duplicate_detection.tag_duplicates = False
@@ -1124,14 +1136,12 @@ class AtlasDataset(AtlasClass):
             if indexed_field not in self.project_fields:
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.project_fields}")
 
-            model = 'NomicEmbed'
-
             build_template = {
                 'project_id': self.id,
                 'index_name': name,
                 'indexed_field': indexed_field,
                 'atomizer_strategies': ['document', 'charchunk'],
-                'model': model,
+                'model': embedding_model.model,
                 'colorable_fields': [],
                 'reuse_atoms_and_embeddings_from': reuse_embedding_from_index_id,
                 'model_hyperparameters': json.dumps(
