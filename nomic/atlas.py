@@ -12,7 +12,7 @@ from loguru import logger
 from pandas import DataFrame
 from tqdm import tqdm
 
-from .data_inference import NomicDuplicatesOptions, NomicProjectOptions, NomicTopicOptions
+from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicProjectOptions, NomicTopicOptions
 from .dataset import AtlasDataset
 from .settings import *
 from .utils import arrow_iterator, b64int, get_random_name
@@ -29,6 +29,7 @@ def map_data(
     projection: Union[bool, Dict, NomicProjectOptions] = True,
     topic_model: Union[bool, Dict, NomicTopicOptions] = True,
     duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
+    embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
 ) -> AtlasDataset:
     """
 
@@ -39,9 +40,10 @@ def map_data(
         description: The description of your dataset
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         is_public: Should the dataset be accessible outside your Nomic Atlas organization.
-        projection: Hyperparameters to adjust Nomic Project - the dimensionality algorithm organizing your dataset.
-        topic_model: Hyperparameters to adjust Nomic Topic - the topic model organizing your dataset.
-        duplicate_detection: Hyperparameters to adjust Nomic Duplicates - the duplicate detection algorithm.
+        projection: Options to adjust Nomic Project - the dimensionality algorithm organizing your dataset.
+        topic_model: Options to adjust Nomic Topic - the topic model organizing your dataset.
+        duplicate_detection: Options to adjust Nomic Duplicates - the duplicate detection algorithm.
+        embedding_model: Options to adjust the embedding model used to embed your dataset.
     :return:
     """
     if embeddings is not None:
@@ -116,6 +118,7 @@ def map_data(
         projection=projection,
         topic_model=topic_model,
         duplicate_detection=duplicate_detection,
+        embedding_model=embedding_model,
     )
 
     project = dataset._latest_project_state()

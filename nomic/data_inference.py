@@ -78,3 +78,7 @@ class NomicTopicOptions(BaseModel):
 class NomicDuplicatesOptions(BaseModel):
     tag_duplicates: bool = True
     duplicate_cutoff: float = DEFAULT_DUPLICATE_THRESHOLD
+
+
+class NomicEmbedOptions(BaseModel):
+    model: str = 'NomicEmbed'
