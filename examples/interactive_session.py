@@ -10,14 +10,14 @@ documents = [dataset[i] for i in subset_idxs]
 
 dataset = atlas.map_data(data=documents,
                           indexed_field='text',
-                          name='News Dataset 25k',
+                          identifier='News Dataset 25k',
                           colorable_fields=['label'],
                           description='News Dataset 25k'
                           )
 
 
 with dataset.wait_for_dataset_lock():
-    map = project.get_map(name='News Dataset 25k')
+    map = dataset.maps[0]
     print(map.map_link)
-    print(project.total_datums)
+    print(dataset.total_datums)
 

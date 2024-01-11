@@ -13,7 +13,7 @@ second_upload = documents[500:]
 
 dataset = atlas.map_data(data=first_upload,
                           indexed_field='text',
-                          name='News 1k Example Progressive',
+                          identifier='News 1k Example Progressive',
                         )
 
 print(dataset.maps)

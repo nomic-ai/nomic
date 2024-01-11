@@ -10,7 +10,7 @@ documents = [dataset[i] for i in subset_idxs]
 
 project = atlas.map_data(data=documents,
                           indexed_field='text',
-                          name='News 100k Example',
+                          identifier='News 100k Example',
                           description='News 100k Example from the ag_news dataset hosted on huggingface.'
                           )
 print(project.maps)
