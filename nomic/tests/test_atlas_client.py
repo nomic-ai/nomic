@@ -323,7 +323,7 @@ def test_map_embeddings():
     map = dataset.maps[0]
 
     num_tries = 0
-    while map.project.is_locked:
+    while map.dataset.is_locked:
         time.sleep(10)
         num_tries += 1
         if num_tries > 5:

@@ -79,7 +79,7 @@ class AtlasMapTopics:
 
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
-        self.project = projection.project
+        self.dataset = projection.dataset
         self.id_field = self.projection.project.id_field
         self._metadata = None
         self._hierarchy = None
@@ -203,7 +203,7 @@ class AtlasMapTopics:
             raise ValueError("Topic depth out of range.")
 
         # Unique datum id column to aggregate
-        datum_id_col = self.project.meta["unique_id_field"]
+        datum_id_col = self.dataset.meta["unique_id_field"]
         df = self.df
 
         topic_datum_dict = df.groupby(f"topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
@@ -295,8 +295,8 @@ class AtlasMapTopics:
         np.save(bytesio, queries)
 
         response = requests.post(
-            self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
-            headers=self.project.header,
+            self.dataset.atlas_api_path + "/v1/project/data/get/embedding/topic",
+            headers=self.dataset.header,
             json={
                 'atlas_index_id': self.projection.atlas_index_id,
                 'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
@@ -367,7 +367,7 @@ class AtlasMapEmbeddings:
         self.projection = projection
         self.id_field = self.projection.project.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, 'x', 'y'])
-        self.project = projection.project
+        self.dataset = projection.dataset
         self._latent = None
 
     @property
@@ -545,26 +545,6 @@ class AtlasMapEmbeddings:
 
         raise DeprecationWarning("Deprecated as of June 2023. Iterate `map.embeddings.latent`.")
 
-        if self.project.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
-
-        offset = 0
-        limit = EMBEDDING_PAGINATION_LIMIT
-        while True:
-            response = requests.get(
-                self.atlas_api_path
-                + f"/v1/project/data/get/embedding/{self.project.id}/{self.projection.atlas_index_id}/{offset}/{limit}",
-                headers=self.header,
-            )
-            if response.status_code != 200:
-                raise Exception(response.text)
-
-            content = response.json()
-            if len(content['datum_ids']) == 0:
-                break
-            offset += len(content['datum_ids'])
-
-            yield content['datum_ids'], content['embeddings']
 
     def _download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
@@ -580,56 +560,7 @@ class AtlasMapEmbeddings:
 
         '''
         raise DeprecationWarning("Deprecated as of June 2023. Use `map.embeddings.latent`.")
-        self.project._latest_project_state()
 
-        total_datums = self.project.total_datums
-        if self.project.is_locked:
-            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
-
-        offset = 0
-        limit = EMBEDDING_PAGINATION_LIMIT
-
-        def download_shard(offset, check_access=False):
-            response = requests.get(
-                self.project.atlas_api_path
-                + f"/v1/project/data/get/embedding/{self.project.id}/{self.projection.atlas_index_id}/{offset}/{limit}",
-                headers=self.project.header,
-            )
-
-            if response.status_code != 200:
-                raise Exception(response.text)
-
-            if check_access:
-                return
-
-            shard_name = '{}_{}_{}.feather'.format(self.projection.atlas_index_id, offset, offset + limit)
-            shard_path = os.path.join(save_directory, shard_name)
-            try:
-                content = response.content
-                is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
-
-                if not is_arrow_format:
-                    raise Exception('Expected response to be in Arrow IPC format')
-
-                with open(shard_path, 'wb') as f:
-                    f.write(content)
-
-            except Exception as e:
-                logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
-
-        download_shard(0, check_access=True)
-
-        with tqdm(total=total_datums // limit) as pbar:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-                futures = {
-                    executor.submit(download_shard, cur_offset): cur_offset
-                    for cur_offset in range(0, total_datums, limit)
-                }
-                for future in concurrent.futures.as_completed(futures):
-                    _ = future.result()
-                    pbar.update(1)
-
-        return True
 
     def __repr__(self) -> str:
         return str(self.df)
@@ -643,7 +574,7 @@ class AtlasMapTags:
 
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
-        self.project = projection.project
+        self.dataset = projection.dataset
         self.id_field = self.projection.project.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field])
 
@@ -668,6 +599,35 @@ class AtlasMapTags:
         tag_frame = pandas.DataFrame(encoded)
 
         return pd.concat([id_frame, tag_frame], axis=1)
+    
+    def _get_user_tags(self):
+        requests.get(self.project.atlas_api_path + '/v1/project/projection/tags/get/all',
+                     headers=self.project.header,
+                     json={'project_id': self.project., 'projection_id': self.projection.id})
+    
+    def _download_tags(self, tag_name: str):
+        """
+        Downloads the feather tree for large sidecar columns.
+        """
+        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
+        root = f"{self.project.atlas_api_path}/v1/project/{self.project.id}/index/projection/{self.projection.id}/quadtree/"
+
+        all_quads = list(self.projection._tiles_in_order(coords_only=True))
+
+        for quad in tqdm(all_quads):
+
+            for sidecar in sidecars:
+                quad_str = "/".join([str(q) for q in quad])
+                encoded_colname = base64.urlsafe_b64encode(
+                    sidecar.encode("utf-8")
+                ).decode("utf-8")
+                filename = quad_str + "." + encoded_colname + ".feather"
+                path = self.projection.tile_destination / Path(filename)
+
+                # WARNING: Potentially large data request here
+                self._download_file(root + filename, path)
+        
+        return sidecars
 
     def get_tags(self) -> Dict[str, List[str]]:
         '''
@@ -778,7 +738,7 @@ class AtlasMapData:
 
     def __init__(self, projection: "AtlasProjection", fields=None):
         self.projection = projection
-        self.project = projection.project
+        self.dataset = projection.dataset
         self.id_field = self.projection.project.id_field
         self._tb = None
         self.fields = fields
