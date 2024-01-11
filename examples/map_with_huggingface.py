@@ -29,7 +29,7 @@ print(embeddings.shape)
 
 response = atlas.map_data(embeddings=embeddings,
                                 data=documents,
-                                name="Huggingface Model Example",
+                                identifier="Huggingface Model Example",
                                 description="An example of building a text map with a huggingface model.")
 
 print(response)

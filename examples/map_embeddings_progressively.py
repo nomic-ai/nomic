@@ -7,7 +7,7 @@ data = [{'upload': '1'} for i in range(len(embeddings))]
 
 dataset = atlas.map_data(embeddings=embeddings,
                                data=data,
-                               name='A Map That Gets Updated',
+                               identifier='A Map That Gets Updated',
                                colorable_fields=['upload'])
 map = dataset.get_map('A Map That Gets Updated')
 print(map)
