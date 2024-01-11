@@ -61,6 +61,7 @@ def map_data(
     project_name = get_random_name()
 
     dataset_name = project_name
+    index_name=dataset_name
 
     if identifier:
         dataset_name = identifier
