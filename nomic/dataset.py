@@ -1084,7 +1084,7 @@ class AtlasDataset(AtlasClass):
         colorable_fields = []
 
         for field in self.dataset_fields:
-            if field not in [self.id_field, indexed_field]:
+            if field not in [self.id_field, indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
 
         if self.modality == 'embedding':
