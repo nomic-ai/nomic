@@ -966,7 +966,7 @@ class AtlasDataset(AtlasClass):
         Retrieves a map.
 
         Args:
-            name: The name of your map. This defaults to your projects name but can be different if you build multiple maps in your dataset.
+            name: The name of your map. This defaults to your dataset name but can be different if you build multiple maps in your dataset.
             atlas_index_id: If specified, will only return a map if there is one built under the index with the id atlas_index_id.
             projection_id: If projection_id is specified, will only return a map if there is one built under the index with id projection_id.
 
@@ -1022,7 +1022,7 @@ class AtlasDataset(AtlasClass):
 
         Args:
             name: The name of the index and the map.
-            indexed_field: For text projects, name the data field corresponding to the text to be mapped.
+            indexed_field: For text datasets, name the data field corresponding to the text to be mapped.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
             modality: The data modality of this index. Currently, Atlas supports either `text` or `embedding` indices.
             projection: Options for configuring the 2D projection algorithm
@@ -1072,7 +1072,7 @@ class AtlasDataset(AtlasClass):
         if self.modality == 'embedding':
             duplicate_detection.tag_duplicates = False
 
-        # for large projects, alter the default projection configurations.
+        # for large datasets, alter the default projection configurations.
         if self.total_datums >= 1_000_000:
             if (
                 projection.n_epochs == DEFAULT_PROJECTION_EPOCHS
@@ -1508,7 +1508,7 @@ class AtlasDataset(AtlasClass):
 
         Args:
             data: An [N,] element list of dictionaries containing metadata for each embedding.
-            embeddings: An [N, d] matrix of embeddings for updating embedding projects. Leave as None to update text projects.
+            embeddings: An [N, d] matrix of embeddings for updating embedding dataset. Leave as None to update text dataset.
             shard_size: Data is uploaded in parallel by many threads. Adjust the number of datums to upload by each worker.
             num_workers: The number of workers to use when sending data.
 
