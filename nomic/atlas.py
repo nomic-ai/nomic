@@ -21,7 +21,7 @@ from .utils import arrow_iterator, b64int, get_random_name
 def map_data(
     data: Union[DataFrame, List[Dict], pa.Table, None] = None,
     embeddings: np.array = None,
-    name: str = None,
+    identifier: str = None,
     description: str = "",
     id_field: str = None,
     is_public: bool = True,
@@ -36,7 +36,7 @@ def map_data(
     Args:
         data: An ordered collection of the datapoints you are structuring. Can be a list of dictionaries, Pandas Dataframe or PyArrow Table.
         embeddings: An [N,d] numpy array containing the N embeddings to add.
-        name: The name of your dataset
+        identifier: The dataset identifier
         description: The description of your dataset
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         is_public: Should the dataset be accessible outside your Nomic Atlas organization.
@@ -60,11 +60,11 @@ def map_data(
 
     project_name = get_random_name()
 
-    index_name = project_name
+    dataset_name = project_name
 
-    if name:
-        project_name = name
-        index_name = name
+    if identifier:
+        dataset_name = identifier
+        index_name = identifier
     if description:
         description = description
 
@@ -85,7 +85,7 @@ def map_data(
         logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
     dataset = AtlasDataset(
-        identifier=project_name, description=description, unique_id_field=id_field, is_public=is_public
+        identifier=dataset_name, description=description, unique_id_field=id_field, is_public=is_public
     )
 
     number_of_datums_before_upload = dataset.total_datums

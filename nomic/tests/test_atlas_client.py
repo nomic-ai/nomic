@@ -38,7 +38,7 @@ def test_map_embeddings_with_errors():
     # test nested dictionaries
     with pytest.raises(Exception):
         data = [{'key': {'nested_key': 'nested_value'}} for i in range(len(embeddings))]
-        dataset = atlas.map_data(embeddings=embeddings, data=data, name=name, is_public=True)
+        dataset = atlas.map_data(embeddings=embeddings, data=data, identifier=name, is_public=True)
 
     try:
         AtlasDataset(name).delete()
@@ -49,7 +49,7 @@ def test_map_embeddings_with_errors():
     # test underscore
     with pytest.raises(Exception):
         data = [{'__hello': {'hello'}} for i in range(len(embeddings))]
-        dataset = atlas.map_data(embeddings=embeddings, data=data, name=name, is_public=True)
+        dataset = atlas.map_data(embeddings=embeddings, data=data, identifier=name, is_public=True)
 
     try:
         AtlasDataset(name).delete()
@@ -63,7 +63,7 @@ def test_map_embeddings_with_errors():
         dataset = atlas.map_data(
             embeddings=embeddings,
             data=data,
-            name=name,
+            identifier=name,
             id_field='id',
             is_public=True,
         )
@@ -82,7 +82,7 @@ def test_map_text_errors():
             data=[{'key': 'a'}],
             indexed_field='text',
             is_public=True,
-            name=name,
+            identifier=name,
             description='test map description',
         )
 
@@ -101,7 +101,7 @@ def test_date_metadata():
     ]
 
     dataset = atlas.map_data(
-        embeddings=embeddings, name=f"unittest-dataset-{random.randint(0,1000)}", data=data, is_public=True
+        embeddings=embeddings, identifier=f"unittest-dataset-{random.randint(0,1000)}", data=data, is_public=True
     )
 
     assert dataset.id
@@ -113,7 +113,7 @@ def test_date_metadata():
         data[1]['my_date'] = data[1]['my_date'] + 'asdf'
         dataset = atlas.map_data(
             embeddings=embeddings,
-            name=f"unittest-dataset-{random.randint(0,1000)}",
+            identifier=f"unittest-dataset-{random.randint(0,1000)}",
             id_field='id',
             data=data,
             is_public=True,
@@ -127,7 +127,7 @@ def test_dataset_with_updates():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        name='test_map_embedding_progressive',
+        identifier='test_map_embedding_progressive',
         id_field='id',
         data=data,
         is_public=True,
@@ -159,7 +159,7 @@ def test_topics():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        name=f"unittest-dataset-{random.randint(0,1000)}",
+        identifier=f"unittest-dataset-{random.randint(0,1000)}",
         id_field='id',
         data=data,
         is_public=True,
@@ -191,7 +191,7 @@ def test_data():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        name=f"unittest-dataset-{random.randint(0,1000)}",
+        identifier=f"unittest-dataset-{random.randint(0,1000)}",
         id_field='id',
         data=data,
         is_public=True,
@@ -313,7 +313,7 @@ def test_map_embeddings():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        name=f"unittest-dataset-{random.randint(0,1000)}",
+        identifier=f"unittest-dataset-{random.randint(0,1000)}",
         id_field='id',
         data=data,
         is_public=True,
@@ -338,7 +338,7 @@ def test_map_embeddings():
 
     assert isinstance(map.topics.hierarchy, dict)
 
-    dataset.create_index(name='My new index')
+    dataset.create_index(identifier='My new index')
     with dataset.wait_for_dataset_lock():
         neighbors, _ = map.embeddings.vector_search(queries=np.random.rand(1, 10), k=2)
         assert len(neighbors[0]) == 2
@@ -368,7 +368,7 @@ def test_map_text_pandas():
     )
 
     dataset = atlas.map_data(
-        name='UNITTEST_pandas_text', id_field='id', indexed_field="color", data=data, is_public=True
+        identifier='UNITTEST_pandas_text', id_field='id', indexed_field="color", data=data, is_public=True
     )
 
     assert dataset.total_datums == 50
@@ -387,7 +387,7 @@ def test_map_text_arrow():
     )
 
     dataset = atlas.map_data(
-        name='UNITTEST_arrow_text',
+        identifier='UNITTEST_arrow_text',
         id_field='id',
         indexed_field="color",
         data=data,
