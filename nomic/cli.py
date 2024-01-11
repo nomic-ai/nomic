@@ -35,11 +35,14 @@ def get_api_credentials(fn=None):
 
 
 def login(token, tenant='production', domain=None):
-    if tenant not in ['production', 'staging'] and domain is None:
+    if tenant == 'enterprise' and domain is None:
         raise ValueError("Enterprise tenants must specify their deployment domain.")
 
     if domain is not None:
         tenants['enterprise'] = {'frontend_domain': domain, 'api_domain': f'api.{domain}'}
+
+    if tenant not in tenants:
+        raise ValueError("Invalid tenant.")
     environment = tenants[tenant]
     auth0_auth_endpoint = f"https://{environment['frontend_domain']}/cli-login"
 
