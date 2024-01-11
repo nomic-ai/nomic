@@ -156,7 +156,7 @@ class AtlasClass(object):
             project_id: The project id
 
         Returns:
-            Returns the requested project.
+            Returns the requested dataset.
         '''
 
         assert_valid_project_id(project_id)
@@ -200,7 +200,7 @@ class AtlasClass(object):
             identifier: the organization slug and dataset slug seperated by a slash
 
         Returns:
-            Returns the requested project.
+            Returns the requested dataset.
         '''
 
         if not self.is_valid_dataset_identifier(identifier=identifier):
@@ -226,7 +226,7 @@ class AtlasClass(object):
             identifer: the organization slug and dataset slug separated by a slash
 
         Returns:
-            Returns the requested project.
+            Returns the requested dataset.
         '''
         slugs = identifier.split('/')
         if '/' not in identifier or len(slugs) != 2:
@@ -412,7 +412,7 @@ class AtlasProjection:
     Interact and access state of an Atlas Map including text/vector search.
     This class should not be instantiated directly.
 
-    Instead instantiate an AtlasDataset and use the project.maps attribute to retrieve an AtlasProjection.
+    Instead instantiate an AtlasDataset and use the dataset.maps attribute to retrieve an AtlasProjection.
     '''
 
     def __init__(self, project: "AtlasDataset", atlas_index_id: str, projection_id: str, name):
@@ -713,7 +713,7 @@ class AtlasDataset(AtlasClass):
         description: Optional[str] = 'A description for your map.',
         unique_id_field: Optional[str] = None,
         is_public: bool = True,
-        project_id=None,
+        dataset_id=None,
         organization_name=None,
     ):
         """
@@ -724,12 +724,12 @@ class AtlasDataset(AtlasClass):
         **Parameters:**
 
         * **identifier** - The dataset identifier in the form `dataset` or `organization/dataset`. If no organization is passed, your default organization will be used.
-        * **description** - A description for the project.
+        * **description** - A description for the dataset.
         * **unique_id_field** - The field that uniquely identifies each data point.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
         * **dataset_id** - An alternative way to load a dataset is by passing the dataset_id directly. This only works if a dataset exists.
         """
-        assert identifier is not None or project_id is not None, "You must pass a dataset identifier"
+        assert identifier is not None or dataset_id is not None, "You must pass a dataset identifier"
 
         super().__init__()
 
@@ -738,8 +738,8 @@ class AtlasDataset(AtlasClass):
                 f"Passing organization_name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads)."
             )
 
-        if project_id is not None:
-            self.meta = self._get_project_by_id(project_id)
+        if dataset_id is not None:
+            self.meta = self._get_project_by_id(dataset_id)
             return
 
         if not self.is_valid_dataset_identifier(identifier=identifier):
@@ -750,26 +750,26 @@ class AtlasDataset(AtlasClass):
 
         if dataset:  # dataset already exists
             logger.info(f"Loading existing dataset `{identifier}``.")
-            project_id = dataset['id']
+            dataset_id = dataset['id']
 
-        if project_id is None:  # if there is no existing project, make a new one.
+        if dataset_id is None:  # if there is no existing project, make a new one.
             if unique_id_field is None:  # if not all parameters are specified, we weren't trying to make a project
                 raise ValueError(f"Dataset `{identifier}` does not exist.")
 
             # if modality is None:
-            #     raise ValueError("You must specify a modality when creating a new project.")
+            #     raise ValueError("You must specify a modality when creating a new dataset.")
             #
             # assert modality in ['text', 'embedding'], "Modality must be either `text` or `embedding`"
             assert identifier is not None
 
-            project_id = self._create_project(
+            dataset_id = self._create_project(
                 identifier=identifier,
                 description=description,
                 unique_id_field=unique_id_field,
                 is_public=is_public,
             )
 
-        self.meta = self._get_project_by_id(project_id=project_id)
+        self.meta = self._get_project_by_id(project_id=dataset_id)
         self._schema = None
 
     def delete(self):
@@ -799,8 +799,8 @@ class AtlasDataset(AtlasClass):
 
         **Parameters:**
 
-        * **identifier** - The identifier for the project.
-        * **description** - A description for the project.
+        * **identifier** - The identifier for the dataset.
+        * **description** - A description for the dataset.
         * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
 
@@ -885,7 +885,7 @@ class AtlasDataset(AtlasClass):
 
     @property
     def id(self) -> str:
-        '''The UUID of the project.'''
+        '''The UUID of the dataset.'''
         return self.meta['id']
 
     @property
@@ -894,7 +894,7 @@ class AtlasDataset(AtlasClass):
 
     @property
     def total_datums(self) -> int:
-        '''The total number of data points in the project.'''
+        '''The total number of data points in the dataset.'''
         return self.meta['total_datums_in_project']
 
     @property
@@ -941,7 +941,7 @@ class AtlasDataset(AtlasClass):
     @property
     def is_accepting_data(self) -> bool:
         '''
-        Checks if the dataset can accept data. Projects cannot accept data when they are being indexed.
+        Checks if the dataset can accept data. Datasets cannot accept data when they are being indexed.
 
         Returns:
             True if dataset is unlocked for data additions, false otherwise.
@@ -966,7 +966,7 @@ class AtlasDataset(AtlasClass):
         Retrieves a map.
 
         Args:
-            name: The name of your map. This defaults to your projects name but can be different if you build multiple maps in your project.
+            name: The name of your map. This defaults to your projects name but can be different if you build multiple maps in your dataset.
             atlas_index_id: If specified, will only return a map if there is one built under the index with the id atlas_index_id.
             projection_id: If projection_id is specified, will only return a map if there is one built under the index with id projection_id.
 
@@ -1004,7 +1004,7 @@ class AtlasDataset(AtlasClass):
             if index.name == name:
                 return index.projections[0]
 
-        raise ValueError(f"Could not find a map named {name} in your project.")
+        raise ValueError(f"Could not find a map named {name} in your dataset.")
 
     def create_index(
         self,
@@ -1018,7 +1018,7 @@ class AtlasDataset(AtlasClass):
         reuse_embeddings_from_index: str = None,
     ) -> AtlasProjection:
         '''
-        Creates an index in the specified project.
+        Creates an index in the specified dataset.
 
         Args:
             name: The name of the index and the map.
@@ -1083,7 +1083,7 @@ class AtlasDataset(AtlasClass):
 
         if self.modality == 'embedding':
             if duplicate_detection.tag_duplicates:
-                raise ValueError("Cannot tag duplicates in an embedding project.")
+                raise ValueError("Cannot tag duplicates in an embedding dataset.")
             if topic_model.community_description_target_field is None:
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
@@ -1208,7 +1208,7 @@ class AtlasDataset(AtlasClass):
                 projection = None
 
         if projection is None:
-            logger.warning("Could not find a map being built for this project.")
+            logger.warning("Could not find a map being built for this dataset.")
         logger.info(f"Created map `{projection.name}` in dataset `{self.identifier}`: {projection.map_link}")
         return projection
 
@@ -1274,10 +1274,10 @@ class AtlasDataset(AtlasClass):
 
     def delete_data(self, ids: List[str]) -> bool:
         '''
-        Deletes the specified datums from the project.
+        Deletes the specified datapoints from the dataset.
 
         Args:
-            ids: A list of datum ids to delete
+            ids: A list of data ids to delete
 
         Returns:
             True if data deleted successfully.
@@ -1312,7 +1312,7 @@ class AtlasDataset(AtlasClass):
 
     def _add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
         """
-        Add text data to the project.
+        Add text data to the dataset.
         data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the dataset schema.
         pbar: (Optional). A tqdm progress bar to display progress.
         """
@@ -1326,7 +1326,7 @@ class AtlasDataset(AtlasClass):
 
     def _add_embeddings(self, data: Union[DataFrame, List[Dict], pa.Table, None], embeddings: np.array, pbar=None):
         """
-        Add data, with associated embeddings, to the project.
+        Add data, with associated embeddings, to the dataset.
 
         Args:
             data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the dataset schema.
