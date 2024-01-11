@@ -827,12 +827,12 @@ class AtlasMapData:
         if sidecars is None:
             sidecars = [
                 field
-                for field in self.project.project_fields
+                for field in self.project.dataset_fields
                 if field not in self._basic_data.column_names and field != "_embeddings"
             ]
         else:
             for field in sidecars:
-                assert field in self.project.project_fields, f"Field {field} not found in project fields."
+                assert field in self.project.dataset_fields, f"Field {field} not found in project fields."
 
         for quad in tqdm(all_quads):
             for sidecar in sidecars:

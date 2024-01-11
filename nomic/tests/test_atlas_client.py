@@ -338,7 +338,7 @@ def test_map_embeddings():
 
     assert isinstance(map.topics.hierarchy, dict)
 
-    dataset.create_index(identifier='My new index')
+    dataset.create_index()
     with dataset.wait_for_dataset_lock():
         neighbors, _ = map.embeddings.vector_search(queries=np.random.rand(1, 10), k=2)
         assert len(neighbors[0]) == 2
