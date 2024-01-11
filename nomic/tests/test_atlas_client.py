@@ -26,7 +26,7 @@ def test_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
 
-    dataset = atlas.map_data(name=f"unittest-dataset-{random.randint(0,1000)}", embeddings=embeddings)
+    dataset = atlas.map_data(identifier=f"unittest-dataset-{random.randint(0,1000)}", embeddings=embeddings)
     AtlasDataset(dataset.identifier).delete()
 
 
