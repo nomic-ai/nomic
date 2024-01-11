@@ -21,6 +21,7 @@ from pyarrow import feather, ipc
 from tqdm import tqdm
 
 from .settings import EMBEDDING_PAGINATION_LIMIT
+from utils import download_file
 
 
 class AtlasMapDuplicates:
@@ -444,7 +445,7 @@ class AtlasMapEmbeddings:
         route = self.projection.project.atlas_api_path + '/v1/project/data/get/embedding/paged'
         last = None
 
-        with tqdm(total=self.project.total_datums // limit) as pbar:
+        with tqdm(total=self.dataset.total_datums//limit) as pbar:
             while True:
                 params = {'projection_id': self.projection.id, "last_file": last, "page_size": limit}
                 r = requests.post(route, headers=self.projection.project.header, json=params)
@@ -577,6 +578,7 @@ class AtlasMapTags:
         self.dataset = projection.dataset
         self.id_field = self.projection.project.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field])
+        self._tags = None
 
     @property
     def df(self) -> pd.DataFrame:
@@ -599,35 +601,48 @@ class AtlasMapTags:
         tag_frame = pandas.DataFrame(encoded)
 
         return pd.concat([id_frame, tag_frame], axis=1)
+        
+    @property
+    def tags(self) -> List[Dict]:
+        """
+        Get list of tags user has created for projection.
+        """
+        # TODO: filter on complete
+        self._tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
+                     headers=self.dataset.header,
+                     json={'project_id': self.dataset.id, 
+                           'projection_id': self.projection.id, 
+                           'include_dsl_rule': False}).json()
+        return self._tags
     
-    def _get_user_tags(self):
-        requests.get(self.project.atlas_api_path + '/v1/project/projection/tags/get/all',
-                     headers=self.project.header,
-                     json={'project_id': self.project., 'projection_id': self.projection.id})
+    def _get_tag_by_name(self, name: str) -> Dict:
+        """
+        Returns the tag dictionary for a given tag name.
+        """
+        for tag in self.tags:
+            if tag["tag_name"] == name:
+                return tag
+        raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
     
-    def _download_tags(self, tag_name: str):
+    def _download_tag(self, tag_name: str):
         """
         Downloads the feather tree for large sidecar columns.
         """
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.project.atlas_api_path}/v1/project/{self.project.id}/index/projection/{self.projection.id}/quadtree/"
+        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
+
+        tag = self._get_tag_by_name(tag_name)
+        tag_definition_id = tag["tag_definition_id"]
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
 
         for quad in tqdm(all_quads):
 
-            for sidecar in sidecars:
-                quad_str = "/".join([str(q) for q in quad])
-                encoded_colname = base64.urlsafe_b64encode(
-                    sidecar.encode("utf-8")
-                ).decode("utf-8")
-                filename = quad_str + "." + encoded_colname + ".feather"
-                path = self.projection.tile_destination / Path(filename)
+            quad_str = "/".join([str(q) for q in quad])
+            filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
+            path = self.projection.tile_destination / Path(filename)
+            download_file(root + filename, path)
 
-                # WARNING: Potentially large data request here
-                self._download_file(root + filename, path)
-        
-        return sidecars
 
     def get_tags(self) -> Dict[str, List[str]]:
         '''
@@ -638,10 +653,10 @@ class AtlasMapTags:
         '''
         # now get the tags
         datums_and_tags = requests.post(
-            self.project.atlas_api_path + '/v1/project/tag/read/all_by_datum',
-            headers=self.project.header,
+            self.dataset.atlas_api_path + '/v1/project/tag/read/all_by_datum',
+            headers=self.dataset.header,
             json={
-                'project_id': self.project.id,
+                'project_id': self.dataset.id,
             },
         )
 
@@ -669,7 +684,7 @@ class AtlasMapTags:
 
         colname = json.dumps(
             {
-                'project_id': self.project.id,
+                'project_id': self.dataset.id,
                 'atlas_index_id': self.projection.atlas_index_id,
                 'type': 'datum_id',
                 'tags': tags,
@@ -682,9 +697,9 @@ class AtlasMapTags:
         writer.close()
         payload = buffer.getvalue()
 
-        headers = self.project.header.copy()
+        headers = self.dataset.header.copy()
         headers['Content-Type'] = 'application/octet-stream'
-        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/add", headers=headers, data=payload)
+        response = requests.post(self.dataset.atlas_api_path + "/v1/project/tag/add", headers=headers, data=payload)
         if response.status_code != 200:
             raise Exception("Failed to add tags")
 
@@ -706,7 +721,7 @@ class AtlasMapTags:
 
         colname = json.dumps(
             {
-                'project_id': self.project.id,
+                'project_id': self.dataset.id,
                 'atlas_index_id': self.projection.atlas_index_id,
                 'type': 'datum_id',
                 'tags': tags,
@@ -720,9 +735,9 @@ class AtlasMapTags:
         writer.close()
         payload = buffer.getvalue()
 
-        headers = self.project.header.copy()
+        headers = self.dataset.header.copy()
         headers['Content-Type'] = 'application/octet-stream'
-        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
+        response = requests.post(self.dataset.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
         if response.status_code != 200:
             raise Exception("Failed to delete tags")
 
@@ -782,19 +797,19 @@ class AtlasMapData:
         Downloads the feather tree for large sidecar columns.
         """
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.project.atlas_api_path}/v1/project/{self.project.id}/index/projection/{self.projection.id}/quadtree/"
+        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         sidecars = fields
         if sidecars is None:
             sidecars = [
                 field
-                for field in self.project.dataset_fields
+                for field in self.dataset.dataset_fields
                 if field not in self._basic_data.column_names and field != "_embeddings"
             ]
         else:
             for field in sidecars:
-                assert field in self.project.dataset_fields, f"Field {field} not found in project fields."
+                assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
 
         for quad in tqdm(all_quads):
             for sidecar in sidecars:
@@ -805,17 +820,9 @@ class AtlasMapData:
 
                 if not os.path.exists(path):
                     # WARNING: Potentially large data request here
-                    self._download_file(root + filename, path)
-
+                    download_file(root + filename, path)
+        
         return sidecars
-
-    def _download_file(self, url: str, path: str):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with requests.get(url, stream=True) as response:
-            response.raise_for_status()
-            with open(path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
 
     @property
     def df(self) -> pandas.DataFrame:
