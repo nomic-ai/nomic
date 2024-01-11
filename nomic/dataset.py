@@ -1081,6 +1081,12 @@ class AtlasDataset(AtlasClass):
                 projection.n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
                 projection.n_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
 
+        colorable_fields = []
+
+        for field in self.dataset_fields:
+            if field not in [self.id_field, indexed_field]:
+                colorable_fields.append(field)
+
         if self.modality == 'embedding':
             if duplicate_detection.tag_duplicates:
                 raise ValueError("Cannot tag duplicates in an embedding dataset.")
@@ -1094,7 +1100,7 @@ class AtlasDataset(AtlasClass):
                 'indexed_field': None,
                 'atomizer_strategies': None,
                 'model': None,
-                'colorable_fields': [],
+                'colorable_fields': colorable_fields,
                 'model_hyperparameters': None,
                 'nearest_neighbor_index': 'HNSWIndex',
                 'nearest_neighbor_index_hyperparameters': json.dumps({'space': 'l2', 'ef_construction': 100, 'M': 16}),
@@ -1142,7 +1148,7 @@ class AtlasDataset(AtlasClass):
                 'indexed_field': indexed_field,
                 'atomizer_strategies': ['document', 'charchunk'],
                 'model': embedding_model.model,
-                'colorable_fields': [],
+                'colorable_fields': colorable_fields,
                 'reuse_atoms_and_embeddings_from': reuse_embedding_from_index_id,
                 'model_hyperparameters': json.dumps(
                     {
