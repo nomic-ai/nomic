@@ -193,7 +193,7 @@ class AtlasClass(object):
 
         return response.json()['id']
 
-    def _get_project_by_slug_identifier(self, identifier: str):
+    def _get_dataset_by_slug_identifier(self, identifier: str):
         '''
 
         Args:
@@ -727,7 +727,7 @@ class AtlasDataset(AtlasClass):
         * **description** - A description for the project.
         * **unique_id_field** - The field that uniquely identifies each data point.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
-        * **project_id** - An alternative way to retrieve a dataset is by passing the project_id directly. This only works if a dataset exists.
+        * **dataset_id** - An alternative way to load a dataset is by passing the dataset_id directly. This only works if a dataset exists.
         """
         assert identifier is not None or project_id is not None, "You must pass a dataset identifier"
 
@@ -746,11 +746,11 @@ class AtlasDataset(AtlasClass):
             default_org_slug = self._get_current_users_main_organization()['slug']
             identifier = default_org_slug + '/' + identifier
 
-        project = self._get_project_by_slug_identifier(identifier=identifier)
+        dataset = self._get_dataset_by_slug_identifier(identifier=identifier)
 
-        if project:  # dataset already exists
+        if dataset:  # dataset already exists
             logger.info(f"Loading existing dataset `{identifier}``.")
-            project_id = project['id']
+            project_id = dataset['id']
 
         if project_id is None:  # if there is no existing project, make a new one.
             if unique_id_field is None:  # if not all parameters are specified, we weren't trying to make a project
@@ -842,7 +842,7 @@ class AtlasDataset(AtlasClass):
 
         return response.json()['project_id']
 
-    def _latest_project_state(self):
+    def _latest_dataset_state(self):
         '''
         Refreshes the project's state. Try to call this sparingly but use it when you need it.
         '''
@@ -852,7 +852,7 @@ class AtlasDataset(AtlasClass):
 
     @property
     def indices(self) -> List[AtlasIndex]:
-        self._latest_project_state()
+        self._latest_dataset_state()
         output = []
         for index in self.meta['atlas_indices']:
             projections = []
@@ -903,17 +903,17 @@ class AtlasDataset(AtlasClass):
 
     @property
     def name(self) -> str:
-        '''The name of the project.'''
+        '''The customizable name of the dataset.'''
         return self.meta['project_name']
 
     @property
     def slug(self) -> str:
-        '''The slug for this project'''
+        '''The URL-safe identifier for this dataset.'''
         return self.meta['slug']
 
     @property
     def identifier(self) -> str:
-        '''The slug for this project'''
+        '''The Atlas globally unique, URL-safe identifier for this dataset'''
         return self.meta['organization_slug'] + '/' + self.meta['slug']
 
     @property
@@ -921,12 +921,12 @@ class AtlasDataset(AtlasClass):
         return self.meta['description']
 
     @property
-    def project_fields(self):
+    def dataset_fields(self):
         return self.meta['project_fields']
 
     @property
     def is_locked(self) -> bool:
-        self._latest_project_state()
+        self._latest_dataset_state()
         return self.meta['insert_update_delete_lock']
 
     @property
@@ -1014,7 +1014,7 @@ class AtlasDataset(AtlasClass):
         projection: Union[bool, Dict, NomicProjectOptions] = True,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
-        embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = 'NomicEmbed',
+        embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
         reuse_embeddings_from_index: str = None,
     ) -> AtlasProjection:
         '''
@@ -1035,7 +1035,7 @@ class AtlasDataset(AtlasClass):
 
         '''
 
-        self._latest_project_state()
+        self._latest_dataset_state()
 
         if isinstance(projection, Dict):
             projection = NomicProjectOptions(**projection)
@@ -1133,8 +1133,8 @@ class AtlasDataset(AtlasClass):
             if indexed_field is None:
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
-            if indexed_field not in self.project_fields:
-                raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.project_fields}")
+            if indexed_field not in self.dataset_fields:
+                raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
 
             build_template = {
                 'project_id': self.id,
@@ -1217,7 +1217,7 @@ class AtlasDataset(AtlasClass):
         return f"AtlasDataset: <{m}>"
 
     def _repr_html_(self):
-        self._latest_project_state()
+        self._latest_dataset_state()
         m = self.meta
         html = f"""
             <strong><a href="https://atlas.nomic.ai/data/project/{m['id']}">{m['slug']}</strong></a>
@@ -1336,7 +1336,7 @@ class AtlasDataset(AtlasClass):
 
         """
         # TODO: validate embedding size.
-        assert embeddings.shape[1] == self.embedding_size, "Embedding size must match the embedding size of the project."
+        assert embeddings.shape[1] == self.embedding_size, "Embedding size must match the embedding size of the dataset."
         """
         assert type(embeddings) == np.ndarray, "Embeddings must be a NumPy array."
         assert len(embeddings.shape) == 2, "Embeddings must be a 2D NumPy array."
