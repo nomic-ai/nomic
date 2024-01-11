@@ -121,8 +121,8 @@ def map_data(
         embedding_model=embedding_model,
     )
 
-    project = dataset._latest_project_state()
-    return project
+    dataset = dataset._latest_dataset_state()
+    return dataset
 
 
 def map_embeddings(
