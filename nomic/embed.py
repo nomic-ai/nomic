@@ -2,12 +2,15 @@ import base64
 import os
 from io import BytesIO
 from typing import List, Union
+import concurrent
+import concurrent.futures
 
 import PIL
 import PIL.Image
 import requests
 
 from .dataset import AtlasClass
+from .settings import *
 
 atlas_class = AtlasClass()
 
@@ -48,7 +51,6 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
         An object containing your embeddings and request metadata
     """
 
-    batch_size = 250
 
     def run_inference(batch):
         response = requests.post(
@@ -64,14 +66,11 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
             print(response.text)
             raise Exception(response.status_code)
 
-    # naive batching, we should parallelize this across threads like we do with uploads.
-    # TODO this should all be re-written prior to public release
-    responses = []
-    for i in range(0, len(images), batch_size):
+    def send_request(i):
         image_batch = []
-
+        shard = images[i:i+IMAGE_EMBEDDING_BATCH_SIZE]
         # process images into base64 encoded strings (for now)
-        for image in images[i : i + batch_size]:
+        for image in shard:
             # TODO implement check for bytes.
             # TODO implement check for a valid image.
             if isinstance(image, str) and os.path.exists(image):
@@ -83,15 +82,30 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
                 image_batch.append(('images', buffered.getvalue()))
             else:
                 raise ValueError(f"Not a valid file: {image}")
-        print(len(image_batch))
         response = run_inference(batch=image_batch)
         print(response['usage'])
-        responses.append(response)
+        return (i, response)
 
-    final_response = {}
-    final_response['embeddings'] = [embedding for response in responses for embedding in response['embeddings']]
-    final_response['usage'] = {}
-    final_response['usage']['prompt_tokens'] = sum([response['usage']['prompt_tokens'] for response in responses])
-    final_response['usage']['total_tokens'] = final_response['usage']['prompt_tokens']
+
+    # naive batching, we should parallelize this across threads like we do with uploads.
+    responses = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(send_request, i): i for i in range(0, len(images), IMAGE_EMBEDDING_BATCH_SIZE)}
+        while futures:
+            done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
+            # process any completed futures
+            for future in done:
+                response = future.result()
+                responses.append(response)
+                del futures[future]
+
+        responses = sorted(responses, key=lambda x: x[0])
+        responses = [e[1] for e in responses]
+
+        final_response = {}
+        final_response['embeddings'] = [embedding for response in responses for embedding in response['embeddings']]
+        final_response['usage'] = {}
+        final_response['usage']['prompt_tokens'] = sum([response['usage']['prompt_tokens'] for response in responses])
+        final_response['usage']['total_tokens'] = final_response['usage']['prompt_tokens']
 
     return final_response
