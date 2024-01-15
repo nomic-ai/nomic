@@ -66,6 +66,16 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
             print(response.text)
             raise Exception(response.status_code)
 
+    def resize_pil(img):
+        width, height = img.size
+        #if image is too large, downsample before sending over the wire
+        max_width = 512
+        max_height = 512
+        if max_width > 512 or max_height > 512:
+            downsize_factor = max(width/max_width, height/max_height)
+            img.resize((width/downsize_factor, height/downsize_factor))
+        return img
+
     def send_request(i):
         image_batch = []
         shard = images[i:i+IMAGE_EMBEDDING_BATCH_SIZE]
@@ -74,11 +84,15 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
             # TODO implement check for bytes.
             # TODO implement check for a valid image.
             if isinstance(image, str) and os.path.exists(image):
-                image_batch.append(('images', open(image, "rb")))
+                img = Image.open(image)
+                buffered = BytesIO()
+                img.save(buffered, format="JPEG")
+                image_batch.append(('images', buffered.getvalue()))
 
             elif isinstance(image, PIL.Image.Image):
+                img = resize_pil(image)
                 buffered = BytesIO()
-                image.save(buffered, format="JPEG")
+                img.save(buffered, format="JPEG")
                 image_batch.append(('images', buffered.getvalue()))
             else:
                 raise ValueError(f"Not a valid file: {image}")
@@ -89,7 +103,7 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
 
     # naive batching, we should parallelize this across threads like we do with uploads.
     responses = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = {executor.submit(send_request, i): i for i in range(0, len(images), IMAGE_EMBEDDING_BATCH_SIZE)}
         while futures:
             done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
