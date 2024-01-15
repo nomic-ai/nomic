@@ -77,7 +77,7 @@ def login(token, tenant='production', domain=None):
             'expires': time.time() + 80000,
         }
         if tenant == 'enterprise':
-            saved_credentials |= environment
+            saved_credentials = {**saved_credentials, **environment}
         json.dump(saved_credentials, file)
 
 
