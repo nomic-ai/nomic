@@ -103,7 +103,7 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
 
     # naive batching, we should parallelize this across threads like we do with uploads.
     responses = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = {executor.submit(send_request, i): i for i in range(0, len(images), IMAGE_EMBEDDING_BATCH_SIZE)}
         while futures:
             done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
