@@ -22,7 +22,7 @@ from pyarrow import feather, ipc
 from tqdm import tqdm
 
 from .settings import EMBEDDING_PAGINATION_LIMIT
-from .utils import download_file
+from .utils import download_feather
 
 
 class AtlasMapDuplicates:
@@ -574,13 +574,13 @@ class AtlasMapTags:
     the associated pandas DataFrame.
     """
 
-    def __init__(self, projection: "AtlasProjection", keep_outdated: Optional[bool] = True):
+    def __init__(self, projection: "AtlasProjection", auto_cleanup: Optional[bool] = False):
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
         # Pre-fetch tiles first upon initialization
         self.projection._fetch_tiles(overwrite=False)
-        self.keep_outdated = keep_outdated
+        self.auto_cleanup = auto_cleanup
 
     @property
     def df(self) -> pd.DataFrame:
@@ -589,12 +589,34 @@ class AtlasMapTags:
         '''
         tags = self.get_tags()
         tag_definition_ids = [tag["tag_definition_id"] for tag in tags]
-        self._remove_outdated_tag_files(tag_definition_ids)
+        if self.auto_cleanup:
+            self._remove_outdated_tag_files(tag_definition_ids)
         for tag in tags:
             self._download_tag(tag["tag_name"])
-        
-        return None
-    
+        tbs = []
+        all_quads = list(self.projection._tiles_in_order(coords_only=True))
+        for quad in tqdm(all_quads):
+            quad_str = "/".join([str(q) for q in quad])
+            datum_id_filename = quad_str + "." + "datum_id" + ".feather"
+            path = self.projection.tile_destination / Path(datum_id_filename)
+            tb = feather.read_table(path, memory_map=True)
+            for tag in tags:
+                tag_definition_id = tag["tag_definition_id"]
+                tag_filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
+                path = self.projection.tile_destination / Path(tag_filename)
+                tag_tb = feather.read_table(path, memory_map=True)
+                bitmask = None
+                if "all_set" in tag_tb.column_names:
+                    if tag_tb["all_set"][0].as_py() == True:
+                        bitmask = pa.BooleanArray([True] * len(tb))
+                    else:
+                        bitmask = pa.BooleanArray([False] * len(tb))
+                else:
+                    bitmask = tag_tb["bitmask"]
+                tb = tb.append_column(tag["tag_name"], bitmask)
+            tbs.append(tb)
+        return pa.concat_tables(tbs).to_pandas()
+            
     def get_tags(self) -> Dict[str, List[str]]:
         '''
         Retrieves back all tags made in the web browser for a specific map.
@@ -664,7 +686,7 @@ class AtlasMapTags:
         Downloads the feather tree for large sidecar columns.
         """
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
+        root_url = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
         tag = self._get_tag_by_name(tag_name)
         tag_definition_id = tag["tag_definition_id"]
@@ -683,7 +705,7 @@ class AtlasMapTags:
                 except pa.ArrowInvalid:
                     should_download=True
             if not path.exists() or overwrite or should_download:
-                download_file(root + filename, path)
+                download_feather(root_url + filename, path)
             ordered_tag_paths.append(path)
         return ordered_tag_paths
     
@@ -693,7 +715,7 @@ class AtlasMapTags:
         Any tag with a definition not in tag_definition_ids will be deleted.
 
         Args:
-            tag_definition_ids: A list of tag definition ids that are valid.
+            tag_definition_ids: A list of tag definition ids to keep.
         '''
         # NOTE: This currently only gets triggered on `df` property
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
@@ -820,7 +842,7 @@ class AtlasMapData:
 
                 if not os.path.exists(path):
                     # WARNING: Potentially large data request here
-                    download_file(root + filename, path)
+                    download_feather(root + filename, path)
         
         return sidecars
 

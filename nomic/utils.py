@@ -238,7 +238,7 @@ def get_object_size_in_bytes(obj):
     return sz
 
 # Helpful function for downloading feather files
-def download_file(url: str, path: str):
+def download_feather(url: str, path: str):
     path.parent.mkdir(parents=True, exist_ok=True)
     with requests.get(url, stream=True) as response:
         response.raise_for_status()

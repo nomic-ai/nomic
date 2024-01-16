@@ -643,15 +643,15 @@ class AtlasProjection:
             quad = rawquad + ".feather"
             all_quads.append(quad)
             path = self.tile_destination / quad
-            should_redownload = False
-            if path.exists():
+            should_download = False
+            if path.exists() and not overwrite:
                 try:
                     feather.read_table(path, memory_map=True)
                 except pa.lib.ArrowInvalid:
-                    should_redownload = True
+                    should_download = True
 
-            if not path.exists() or overwrite or should_redownload:
-                data = requests.get(root + quad, headers=self.project.header)
+            if not path.exists() or overwrite or should_download:
+                data = requests.get(root + quad)
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
                 tb = feather.read_table(readable, memory_map=True)
