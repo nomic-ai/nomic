@@ -652,7 +652,7 @@ class AtlasProjection:
             all_quads.append(quad)
             path = self.tile_destination / quad
             if not path.exists() or overwrite:
-                data = requests.get(root + quad)
+                data = requests.get(root + quad, headers=self.project.header)
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
                 tb = feather.read_table(readable, memory_map=True)

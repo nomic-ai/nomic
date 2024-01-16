@@ -683,7 +683,9 @@ class AtlasMapTags:
             json={
                 'project_id': self.project.id,
             },
-        ).json()['results']
+        )
+
+        datums_and_tags = datums_and_tags.json()['results']
 
         label_to_datums = {}
         for item in datums_and_tags:
