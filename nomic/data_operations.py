@@ -583,7 +583,7 @@ class AtlasMapTags:
         self.auto_cleanup = auto_cleanup
 
     @property
-    def df(self) -> pd.DataFrame:
+    def df(self, overwrite: Optional[bool]=False) -> pd.DataFrame:
         '''
         Pandas DataFrame mapping each data point to its tags.
         '''
@@ -592,7 +592,7 @@ class AtlasMapTags:
         if self.auto_cleanup:
             self._remove_outdated_tag_files(tag_definition_ids)
         for tag in tags:
-            self._download_tag(tag["tag_name"])
+            self._download_tag(tag["tag_name"], overwrite=overwrite)
         tbs = []
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
@@ -608,9 +608,9 @@ class AtlasMapTags:
                 bitmask = None
                 if "all_set" in tag_tb.column_names:
                     if tag_tb["all_set"][0].as_py() == True:
-                        bitmask = pa.BooleanArray([True] * len(tb))
+                        bitmask = pa.array([True] * len(tb), type=pa.bool_())
                     else:
-                        bitmask = pa.BooleanArray([False] * len(tb))
+                        bitmask = pa.array([False] * len(tb), type=pa.bool_())
                 else:
                     bitmask = tag_tb["bitmask"]
                 tb = tb.append_column(tag["tag_name"], bitmask)
