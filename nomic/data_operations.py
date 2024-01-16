@@ -669,10 +669,6 @@ class AtlasMapTags:
                 # filter on rows
                 pass
 
-            
-
-
-
     def get_tags(self) -> Dict[str, List[str]]:
         '''
         Retrieves back all tags made in the web browser for a specific map.
@@ -680,24 +676,7 @@ class AtlasMapTags:
         Returns:
             A dictionary mapping data points to tags.
         '''
-        # now get the tags
-        datums_and_tags = requests.post(
-            self.dataset.atlas_api_path + '/v1/project/tag/read/all_by_datum',
-            headers=self.dataset.header,
-            json={
-                'project_id': self.dataset.id,
-            },
-        )
-
-        datums_and_tags = datums_and_tags.json()['results']
-
-        label_to_datums = {}
-        for item in datums_and_tags:
-            for label in item['labels']:
-                if label not in label_to_datums:
-                    label_to_datums[label] = set()
-                label_to_datums[label].add(item['datum_id'])
-        return label_to_datums
+        raise DeprecationWarning("Deprecated as of January 2024. Use `tags` property instead")
 
     def add(self, ids: List[str], tags: List[str]):
         '''
@@ -708,29 +687,7 @@ class AtlasMapTags:
             tags: A list containing the tags you want to apply to these data points.
 
         '''
-        assert isinstance(ids, list), 'ids must be a list of strings'
-        assert isinstance(tags, list), 'tags must be a list of strings'
-
-        colname = json.dumps(
-            {
-                'project_id': self.dataset.id,
-                'atlas_index_id': self.projection.atlas_index_id,
-                'type': 'datum_id',
-                'tags': tags,
-            }
-        )
-        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
-        buffer = io.BytesIO()
-        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
-        writer.write_table(payload_table)
-        writer.close()
-        payload = buffer.getvalue()
-
-        headers = self.dataset.header.copy()
-        headers['Content-Type'] = 'application/octet-stream'
-        response = requests.post(self.dataset.atlas_api_path + "/v1/project/tag/add", headers=headers, data=payload)
-        if response.status_code != 200:
-            raise Exception("Failed to add tags")
+        raise NotImplementedError("AtlasMapTags.add is not implemented.")
 
     def remove(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
         '''
@@ -745,30 +702,7 @@ class AtlasMapTags:
             True on success.
 
         '''
-        assert isinstance(ids, list), 'datum_ids must be a list of strings'
-        assert isinstance(tags, list), 'tags must be a list of strings'
-
-        colname = json.dumps(
-            {
-                'project_id': self.dataset.id,
-                'atlas_index_id': self.projection.atlas_index_id,
-                'type': 'datum_id',
-                'tags': tags,
-                'delete_all': delete_all,
-            }
-        )
-        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
-        buffer = io.BytesIO()
-        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
-        writer.write_table(payload_table)
-        writer.close()
-        payload = buffer.getvalue()
-
-        headers = self.dataset.header.copy()
-        headers['Content-Type'] = 'application/octet-stream'
-        response = requests.post(self.dataset.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
-        if response.status_code != 200:
-            raise Exception("Failed to delete tags")
+        raise NotImplementedError("AtlasMapTags.remove is not implemented.")
 
     def __repr__(self) -> str:
         return str(self.df)
