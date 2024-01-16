@@ -632,7 +632,7 @@ class AtlasProjection:
         Returns:
             A list containing all quadtiles downloads.
         '''
-
+        # TODO: change overwrite default to False once updating projection is removed.
         self.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f'{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/'
         quads = [f'0/0/0']
@@ -643,13 +643,21 @@ class AtlasProjection:
             quad = rawquad + ".feather"
             all_quads.append(quad)
             path = self.tile_destination / quad
-            if not path.exists() or overwrite:
+            should_redownload = False
+            if path.exists():
+                try:
+                    feather.read_table(path, memory_map=True)
+                except pa.lib.ArrowInvalid:
+                    should_redownload = True
+
+            if not path.exists() or overwrite or should_redownload:
                 data = requests.get(root + quad, headers=self.project.header)
                 readable = io.BytesIO(data.content)
                 readable.seek(0)
                 tb = feather.read_table(readable, memory_map=True)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 feather.write_feather(tb, path)
+
             schema = ipc.open_file(path).schema
             if sidecars is None and b'sidecars' in schema.metadata:
                 # Grab just the filenames

@@ -1,6 +1,7 @@
 import base64
 import concurrent
 import concurrent.futures
+import glob
 import io
 import json
 import os
@@ -8,7 +9,7 @@ from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, Optional, List, Tuple
 
 import numpy as np
 import pandas
@@ -573,53 +574,63 @@ class AtlasMapTags:
     the associated pandas DataFrame.
     """
 
-    def __init__(self, projection: "AtlasProjection"):
+    def __init__(self, projection: "AtlasProjection", keep_outdated: Optional[bool] = True):
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        # Need to fetch tiles first
-        self.projection._fetch_tiles()
-        #self._tb: pa.Table = projection._fetch_tiles().select([self.id_field])
+        # Pre-fetch tiles first upon initialization
+        self.projection._fetch_tiles(overwrite=False)
+        self.keep_outdated = keep_outdated
 
     @property
     def df(self) -> pd.DataFrame:
-        """
+        '''
         Pandas DataFrame mapping each data point to its tags.
-        """
-        # TODO
+        '''
+        tags = self.get_tags()
+        tag_definition_ids = [tag["tag_definition_id"] for tag in tags]
+        self._remove_outdated_tag_files(tag_definition_ids)
+        for tag in tags:
+            self._download_tag(tag["tag_name"])
+        
         return None
     
-    def _get_tag_by_name(self, name: str) -> Dict:
-        """
-        Returns the tag dictionary for a given tag name.
-        """
-        for tag in self.get_tags():
-            if tag["tag_name"] == name:
-                return tag
-        raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
+    def get_tags(self) -> Dict[str, List[str]]:
+        '''
+        Retrieves back all tags made in the web browser for a specific map.
+        Each tag is a dictionary containing tag_name, tag_id, and metadata.
+
+        Returns:
+            A list of tags a user has created for projection.
+        '''
+        tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
+                     headers=self.dataset.header,
+                     params={'project_id': self.dataset.id, 
+                             'projection_id': self.projection.id, 
+                             'include_dsl_rule': False}).json()
+        keep_tags = []
+        for tag in tags:
+            is_complete = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
+                headers=self.dataset.header,
+                params={'project_id': self.dataset.id, 
+                      'tag_id': tag["tag_id"], 
+                }).json()['is_complete']
+            if is_complete:
+                keep_tags.append(tag)
+        return keep_tags
     
-    def _download_tag(self, tag_name: str):
-        """
-        Downloads the feather tree for large sidecar columns.
-        """
-        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
+    def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool]=False):
+        '''
+        Returns the datum ids in a given tag.
 
-        tag = self._get_tag_by_name(tag_name)
-        tag_definition_id = tag["tag_definition_id"]
+        Args:
+            overwrite: If True, re-downloads the tag. Otherwise, checks to see if up
+            to date tag already exists.
 
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        ordered_tag_paths = []
-        for quad in tqdm(all_quads):
-            quad_str = "/".join([str(q) for q in quad])
-            filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-            path = self.projection.tile_destination / Path(filename)
-            download_file(root + filename, path)
-            ordered_tag_paths.append(path)
-        return ordered_tag_paths
-
-    def get_datums_in_tag(self, tag_name: str):
-        ordered_tag_paths = self._download_tag(tag_name)
+        Returns:
+            List of datum ids.
+        '''
+        ordered_tag_paths = self._download_tag(tag_name, overwrite=overwrite)
         datum_ids = []
         for path in ordered_tag_paths:
             tb = feather.read_table(path)
@@ -639,57 +650,96 @@ class AtlasMapTags:
                     raise Exception(f"Failed to fetch datums in tag. {e}")
         return datum_ids
 
-    def get_tags(self) -> Dict[str, List[str]]:
-        '''
-        Retrieves back all tags made in the web browser for a specific map.
+    def _get_tag_by_name(self, name: str) -> Dict:
+        """
+        Returns the tag dictionary for a given tag name.
+        """
+        for tag in self.get_tags():
+            if tag["tag_name"] == name:
+                return tag
+        raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
+    
+    def _download_tag(self, tag_name: str, overwrite: Optional[bool] = False):
+        """
+        Downloads the feather tree for large sidecar columns.
+        """
+        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
+        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
-        Returns:
-            A dictionary mapping data points to tags.
+        tag = self._get_tag_by_name(tag_name)
+        tag_definition_id = tag["tag_definition_id"]
+
+        all_quads = list(self.projection._tiles_in_order(coords_only=True))
+        ordered_tag_paths = []
+        for quad in tqdm(all_quads):
+            quad_str = "/".join([str(q) for q in quad])
+            filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
+            path = self.projection.tile_destination / Path(filename)
+            should_download = False
+            if path.exists() and not overwrite:
+                try:
+                    feather.read_table(path)
+                    ordered_tag_paths.append(path)
+                except pa.ArrowInvalid:
+                    should_download=True
+            if not path.exists() or overwrite or should_download:
+                download_file(root + filename, path)
+            ordered_tag_paths.append(path)
+        return ordered_tag_paths
+    
+    def _remove_outdated_tag_files(self, tag_definition_ids: List[str]):
         '''
-        """
-        Get list of tags user has created for projection.
-        """
-        tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
-                     headers=self.dataset.header,
-                     params={'project_id': self.dataset.id, 
-                             'projection_id': self.projection.id, 
-                             'include_dsl_rule': False}).json()
-        keep_tags = []
-        for tag in tags:
-            is_complete = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
-                headers=self.dataset.header,
-                params={'project_id': self.dataset.id, 
-                      'tag_id': tag["tag_id"], 
-                }).json()['is_complete']
-            if is_complete:
-                keep_tags.append(tag)
-        return keep_tags
+        Attempts to remove outdated tag files based on tag definition ids.
+        Any tag with a definition not in tag_definition_ids will be deleted.
+
+        Args:
+            tag_definition_ids: A list of tag definition ids that are valid.
+        '''
+        # NOTE: This currently only gets triggered on `df` property
+        all_quads = list(self.projection._tiles_in_order(coords_only=True))
+        for quad in tqdm(all_quads):
+            quad_str = "/".join([str(q) for q in quad])
+            tile = self.projection.tile_destination / Path(quad_str)
+            tile_dir = tile.parent
+            if tile_dir.exists():
+                tagged_files = tile_dir.glob('*_tag*')
+                for file in tagged_files:
+                    tag_definition_id = file.name.split(".")[-2]
+                    if tag_definition_id in tag_definition_ids:
+                        try:
+                            file.unlink()
+                        except PermissionError:
+                            print("Permission denied: unable to delete outdated tag file. Skipping")
+                            return
+                        except Exception as e:
+                            print(f"Exception occurred when trying to delete outdated tag file: {e}. Skipping")
+                            return
 
     def add(self, ids: List[str], tags: List[str]):
-        '''
-        Adds tags to datapoints.
+        # '''
+        # Adds tags to datapoints.
 
-        Args:
-            ids: The datum ids you want to tag
-            tags: A list containing the tags you want to apply to these data points.
+        # Args:
+        #     ids: The datum ids you want to tag
+        #     tags: A list containing the tags you want to apply to these data points.
 
-        '''
-        raise NotImplementedError("AtlasMapTags.add is not implemented.")
+        # '''
+        raise NotImplementedError("AtlasMapTags.add is not supported.")
 
     def remove(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
-        '''
-        Deletes the specified tags from the given data points.
+        # '''
+        # Deletes the specified tags from the given data points.
 
-        Args:
-            ids: The datum_ids to delete tags from.
-            tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
-            delete_all: If true, ignores ids parameter and deletes all specified tags from all data points.
+        # Args:
+        #     ids: The datum_ids to delete tags from.
+        #     tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
+        #     delete_all: If true, ignores ids parameter and deletes all specified tags from all data points.
 
-        Returns:
-            True on success.
+        # Returns:
+        #     True on success.
 
-        '''
-        raise NotImplementedError("AtlasMapTags.remove is not implemented.")
+        # '''
+        raise NotImplementedError("AtlasMapTags.remove is not supported.")
 
     def __repr__(self) -> str:
         return str(self.df)
