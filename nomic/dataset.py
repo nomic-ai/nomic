@@ -658,7 +658,14 @@ class AtlasProjection:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 feather.write_feather(tb, path)
 
-            schema = ipc.open_file(path).schema
+            try:
+                schema = ipc.open_file(path).schema
+            except pa.ArrowInvalid: # <- I think that's it?
+                # Remove the file, put the quad identifier on top of the list, and try again.
+                path.unlink()
+                quad.insert(0, rawquad)
+                continue
+                
             if sidecars is None and b'sidecars' in schema.metadata:
                 # Grab just the filenames
                 sidecars = set([v for k, v in json.loads(schema.metadata.get(b'sidecars')).items()])
