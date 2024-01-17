@@ -174,11 +174,16 @@ def test_topics():
         assert len(dataset.maps[0].topics.vector_search_topics(q, depth=1, k=3)['topics']) == 3
         assert isinstance(dataset.maps[0].topics.group_by_topic(topic_depth=1), list)
 
-        # start = datetime(2019, 1, 1)
-        # end = datetime(2025, 1, 1)
-        # assert isinstance(dataset.maps[0].topics.get_topic_density("date", start, end), dict)
-
         dataset.delete()
+
+
+def test_tagging_private():
+    dataset = AtlasDataset("wine-test-private")
+    map = dataset.maps[0]
+    datum_ids = map.tags.get_datums_in_tag("oak")
+    assert len(datum_ids) > 0
+    tag_df = map.tags.df
+    assert len(tag_df.columns) == 4
 
 
 def test_data():
