@@ -9,7 +9,7 @@ import requests
 import pyarrow as pa
 from uuid import UUID
 
-import pyarrow as pa, feather
+import pyarrow as pa
 
 nouns = [
     'newton',
@@ -245,6 +245,6 @@ def download_feather(url: str, path: str, headers: Optional[dict] = None):
     data = requests.get(url, headers=headers)
     readable = BytesIO(data.content)
     readable.seek(0)
-    tb = feather.read_table(readable, memory_map=True)
+    tb = pa.feather.read_table(readable, memory_map=True)
     path.parent.mkdir(parents=True, exist_ok=True)
-    feather.write_feather(tb, path)
+    pa.feather.write_feather(tb, path)
