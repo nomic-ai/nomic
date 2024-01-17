@@ -7,7 +7,7 @@ import os
 import pickle
 import time
 import uuid
-from collections import defaultdict
+from collections import defaultdict, deque
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -572,7 +572,7 @@ class AtlasProjection:
         """
         if self._tile_data is not None:
             return self._tile_data
-        self._download_feather(overwrite=overwrite)
+        self._download_large_feather(overwrite=overwrite)
         tbs = []
         root = feather.read_table(self.tile_destination / "0/0/0.feather", memory_map=True)
         try:
@@ -623,7 +623,7 @@ class AtlasProjection:
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
 
-    def _download_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
+    def _download_large_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
         '''
         Downloads the feather tree.
         Args:
@@ -633,39 +633,38 @@ class AtlasProjection:
             A list containing all quadtiles downloads.
         '''
         # TODO: change overwrite default to False once updating projection is removed.
+        quads = deque([f'0/0/0'])
         self.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f'{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/'
-        quads = [f'0/0/0']
         all_quads = []
         sidecars = None
         while len(quads) > 0:
-            rawquad = quads.pop(0)
+            rawquad = quads.popleft()
             quad = rawquad + ".feather"
             all_quads.append(quad)
             path = self.tile_destination / quad
-            should_download = False
-            if path.exists() and not overwrite:
+
+            download_attempt = 0
+            download_success = False
+            schema = None
+            while download_attempt < 3 and not download_success:
+                download_attempt += 1
+                if not path.exists() or overwrite:
+                    data = requests.get(root + quad)
+                    readable = io.BytesIO(data.content)
+                    readable.seek(0)
+                    tb = feather.read_table(readable, memory_map=True)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    feather.write_feather(tb, path)
                 try:
-                    feather.read_table(path, memory_map=True)
-                except pa.lib.ArrowInvalid:
-                    should_download = True
+                    schema = ipc.open_file(path).schema
+                    download_success = True
+                except pa.ArrowInvalid:
+                    path.unlink(missing_ok=True)
+            
+            if not download_success:
+                raise Exception(f"Failed to download tiles. Aborting...")
 
-            if not path.exists() or overwrite or should_download:
-                data = requests.get(root + quad)
-                readable = io.BytesIO(data.content)
-                readable.seek(0)
-                tb = feather.read_table(readable, memory_map=True)
-                path.parent.mkdir(parents=True, exist_ok=True)
-                feather.write_feather(tb, path)
-
-            try:
-                schema = ipc.open_file(path).schema
-            except pa.ArrowInvalid: # <- I think that's it?
-                # Remove the file, put the quad identifier on top of the list, and try again.
-                path.unlink()
-                quad.insert(0, rawquad)
-                continue
-                
             if sidecars is None and b'sidecars' in schema.metadata:
                 # Grab just the filenames
                 sidecars = set([v for k, v in json.loads(schema.metadata.get(b'sidecars')).items()])
