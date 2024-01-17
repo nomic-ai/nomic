@@ -751,7 +751,7 @@ class AtlasMapTags:
         #     tags: A list containing the tags you want to apply to these data points.
 
         # '''
-        raise NotImplementedError("AtlasMapTags.add is not supported.")
+        raise NotImplementedError("AtlasMapTags.add is currently not supported.")
 
     def remove(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
         # '''
@@ -766,7 +766,7 @@ class AtlasMapTags:
         #     True on success.
 
         # '''
-        raise NotImplementedError("AtlasMapTags.remove is not supported.")
+        raise NotImplementedError("AtlasMapTags.remove is currently not supported.")
 
     def __repr__(self) -> str:
         return str(self.df)
