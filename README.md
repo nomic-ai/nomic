@@ -114,9 +114,9 @@ num_embeddings = 10000
 embeddings = np.random.rand(num_embeddings, 256)
 
 # Create Atlas project
-project = atlas.map_embeddings(embeddings=embeddings)
+dataset = atlas.map_data(embeddings=embeddings)
 
-print(project)
+print(dataset)
 ```
 
 ## Atlas usage examples
@@ -129,7 +129,7 @@ You can access Atlas latent embeddings (e.g. high dimensional) or the two-dimens
 
 ```python
 # Access your Atlas map and download your embeddings
-map = project.maps[0]
+map = dataset.maps[0]
 
 projected_embeddings = map.embeddings.projected
 latent_embeddings = map.embeddings.latent
@@ -166,7 +166,7 @@ of an AtlasMap.
 
 ```python
 # Access your Atlas map
-map = project.maps[0]
+map = dataset.maps[0]
 
 # Access a pandas DataFrame associating each datum on your map to their topics at each topic depth.
 topic_df = map.topics.df
@@ -195,13 +195,13 @@ Use Atlas to automatically find nearest neighbors in your vector database.
 
 ```python
 # Load map and perform vector search for the five nearest neighbors of datum with id "my_query_point"
-map = project.maps[0]
+map = dataset.maps[0]
 
-with project.wait_for_project_lock():
+with dataset.wait_for_dataset_lock():
   neighbors, _ = map.embeddings.vector_search(ids=['my_query_point'], k=5)
 
 # Return similar data points
-similar_datapoints = project.get_data(ids=neighbors[0])
+similar_datapoints = dataset.get_data(ids=neighbors[0])
 
 print(similar_datapoints)
 ```
@@ -218,10 +218,6 @@ Nearest neighbors:
 "Intel Seen Readying New Wi-Fi Chips  SAN FRANCISCO (Reuters) - Intel Corp. this week is  expected to introduce a chip that adds support for a relatively  obscure version of Wi-Fi, analysts said on Monday, in a move  that could help ease congestion on wireless networks."
 "Intel pledges to bring Itanic down to Xeon price-point EM64T a stand-in until the real anti-AMD64 kit arrives"
 ```
-
-## Documentation
-
-Detailed documentation can be found at [https://docs.nomic.ai](https://docs.nomic.ai).
 
 ## Background
 
