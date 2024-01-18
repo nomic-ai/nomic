@@ -139,7 +139,7 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
             # TODO implement check for bytes.
             # TODO implement check for a valid image.
             if isinstance(image, str) and os.path.exists(image):
-                img = Image.open(image)
+                img = PIL.Image.open(image)
                 buffered = BytesIO()
                 img.save(buffered, format="JPEG")
                 image_batch.append(('images', buffered.getvalue()))
