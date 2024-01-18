@@ -180,7 +180,7 @@ def test_topics():
 def test_tagging_private():
     dataset = AtlasDataset("wine-test-private")
     map = dataset.maps[0]
-    datum_ids = map.tags.get_datums_in_tag("oak")
+    datum_ids = map.tags.get_datums_in_tag("chardonnay")
     assert len(datum_ids) > 0
     tag_df = map.tags.df
     assert len(tag_df.columns) == 4
