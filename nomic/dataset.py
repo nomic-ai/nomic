@@ -650,7 +650,7 @@ class AtlasProjection:
             while download_attempt < 3 and not download_success:
                 download_attempt += 1
                 if not path.exists() or overwrite:
-                    data = requests.get(root + quad)
+                    data = requests.get(root + quad, headers=self.dataset.header)
                     readable = io.BytesIO(data.content)
                     readable.seek(0)
                     tb = feather.read_table(readable, memory_map=True)
