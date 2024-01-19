@@ -1,9 +1,11 @@
 import base64
-import os
-from io import BytesIO
-from typing import List, Union
 import concurrent
 import concurrent.futures
+import logging
+import os
+import time
+from io import BytesIO
+from typing import List, Union
 
 import PIL
 import PIL.Image
@@ -14,8 +16,51 @@ from .settings import *
 
 atlas_class = AtlasClass()
 
+MAX_TEXT_REQUEST_SIZE = 50
 
-def text(texts: List[str], model: str = 'nomic-embed-text-v1'):
+
+def is_backoff_status_code(code: int):
+    if code == 429 or code >= 500:
+        # server error, do backoff
+        return True
+    return False
+
+
+def request_backoff(
+    callable,
+    init_backoff=1.0,
+    ratio=2.0,
+    max_retries=5,
+    backoff_if=is_backoff_status_code,
+):
+    for attempt in range(max_retries + 1):
+        response = callable()
+        if attempt == max_retries:
+            return response
+        if backoff_if(response.status_code):
+            delay = init_backoff * (ratio**attempt)
+            logging.info(f"server error, backing off for {int(delay)}s")
+            time.sleep(delay)
+        else:
+            return response
+
+
+def text_api_request(texts: List[str], model: str):
+    response = request_backoff(
+        lambda: requests.post(
+            atlas_class.atlas_api_path + "/v1/embedding/text",
+            headers=atlas_class.header,
+            json={"texts": texts, "model": model},
+        )
+    )
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception((response.status_code, response.text))
+
+
+def text(texts: List[str], model: str = "nomic-embed-text-v1"):
     """
     Generates embeddings for the given text.
 
@@ -26,17 +71,27 @@ def text(texts: List[str], model: str = 'nomic-embed-text-v1'):
     Returns:
         An object containing your embeddings and request metadata
     """
+    max_workers = 10
+    chunksize = MAX_TEXT_REQUEST_SIZE
+    smallchunk = max(1, int(len(texts) / max_workers))
+    # if there are fewer texts per worker than the max chunksize just split them evenly
+    chunksize = min(smallchunk, chunksize)
 
-    response = requests.post(
-        atlas_class.atlas_api_path + "/v1/embedding/text",
-        headers=atlas_class.header,
-        json={'texts': texts, 'model': model},
-    )
+    combined = {'embeddings': [], 'usage': {}, 'model': 'model'}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = []
+        for chunkstart in range(0, len(texts), chunksize):
+            chunkend = min(len(texts), chunkstart + chunksize)
+            chunk = texts[chunkstart:chunkend]
+            futures.append(executor.submit(text_api_request, chunk, model))
 
-    if response.status_code == 200:
-        return response.json()
-    else:
-        raise Exception(str(response.json()))
+        for future in futures:
+            response = future.result()
+            assert response['model'] == model
+            combined['embeddings'] += response['embeddings']
+            for counter, value in response['usage'].items():
+                combined['usage'][counter] = combined['usage'].get(counter, 0) + value
+    return combined
 
 
 def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision-v1'):
@@ -84,7 +139,7 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
             # TODO implement check for bytes.
             # TODO implement check for a valid image.
             if isinstance(image, str) and os.path.exists(image):
-                img = Image.open(image)
+                img = PIL.Image.open(image)
                 buffered = BytesIO()
                 img.save(buffered, format="JPEG")
                 image_batch.append(('images', buffered.getvalue()))
