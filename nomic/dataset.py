@@ -7,7 +7,7 @@ import os
 import pickle
 import time
 import uuid
-from collections import defaultdict, deque
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
@@ -633,13 +633,13 @@ class AtlasProjection:
             A list containing all quadtiles downloads.
         '''
         # TODO: change overwrite default to False once updating projection is removed.
-        quads = deque([f'0/0/0'])
+        quads = [f'0/0/0']
         self.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f'{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/'
         all_quads = []
         sidecars = None
         while len(quads) > 0:
-            rawquad = quads.popleft()
+            rawquad = quads.pop(0)
             quad = rawquad + ".feather"
             all_quads.append(quad)
             path = self.tile_destination / quad
