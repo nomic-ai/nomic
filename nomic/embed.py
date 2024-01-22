@@ -45,12 +45,12 @@ def request_backoff(
             return response
 
 
-def text_api_request(texts: List[str], model: str):
+def text_api_request(texts: List[str], model: str, task_type: str):
     response = request_backoff(
         lambda: requests.post(
             atlas_class.atlas_api_path + "/v1/embedding/text",
             headers=atlas_class.header,
-            json={"texts": texts, "model": model},
+            json={"texts": texts, "model": model, "task_type": task_type},
         )
     )
 
@@ -60,17 +60,19 @@ def text_api_request(texts: List[str], model: str):
         raise Exception((response.status_code, response.text))
 
 
-def text(texts: List[str], model: str = "nomic-embed-text-v1"):
+def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = "search_document"):
     """
     Generates embeddings for the given text.
 
     Args:
         texts: the text to embed
         model: the model to use when embedding
+        task_type: the task type to use when embedding. One of `search_query`, `search_document`, `classification`, `clustering`
 
     Returns:
         An object containing your embeddings and request metadata
     """
+    assert task_type in ["search_query", "search_document", "classification", "clustering"], f"Invalid task type: {task_type}"
     max_workers = 10
     chunksize = MAX_TEXT_REQUEST_SIZE
     smallchunk = max(1, int(len(texts) / max_workers))
@@ -83,7 +85,7 @@ def text(texts: List[str], model: str = "nomic-embed-text-v1"):
         for chunkstart in range(0, len(texts), chunksize):
             chunkend = min(len(texts), chunkstart + chunksize)
             chunk = texts[chunkstart:chunkend]
-            futures.append(executor.submit(text_api_request, chunk, model))
+            futures.append(executor.submit(text_api_request, chunk, model, task_type))
 
         for future in futures:
             response = future.result()
