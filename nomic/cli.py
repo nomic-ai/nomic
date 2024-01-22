@@ -1,4 +1,5 @@
 import json
+import jwt
 import os
 import time
 from pathlib import Path
@@ -62,20 +63,31 @@ def login(token, tenant='production', domain=None):
     if not nomic_base_path.exists():
         nomic_base_path.mkdir()
 
-    response = requests.get('https://' + environment['api_domain'] + f"/v1/user/token/refresh/{token}")
-    response = validate_api_http_response(response)
 
-    if not response.status_code == 200:
-        raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
+    expires = None
+    refresh_token = None
 
-    bearer_token = response.json()['access_token']
+    if token.startswith('nk-'):
+        bearer_token = token
+    else:
+        refresh_token = token
+        response = requests.get('https://' + environment['api_domain'] + f"/v1/user/token/refresh/{token}")
+        response = validate_api_http_response(response)
+
+        if not response.status_code == 200:
+            raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
+        bearer_token = response.json()['access_token']
+        decoded_token = jwt.decode(bearer_token, options={"verify_signature": False})
+        expires = decoded_token['exp']
+
     with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
         saved_credentials = {
-            'refresh_token': token,
+            'refresh_token': refresh_token,
             'token': bearer_token,
             'tenant': tenant,
-            'expires': time.time() + 80000,
+            'expires': expires
         }
+
         if tenant == 'enterprise':
             saved_credentials = {**saved_credentials, **environment}
         json.dump(saved_credentials, file)
@@ -83,7 +95,7 @@ def login(token, tenant='production', domain=None):
 
 def refresh_bearer_token():
     credentials = get_api_credentials()
-    if time.time() >= credentials['expires']:
+    if credentials['expires'] and time.time() >= credentials['expires']:
         try:
             environment = tenants[credentials['tenant']]
         except KeyError:
