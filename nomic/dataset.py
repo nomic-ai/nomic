@@ -436,8 +436,7 @@ class AtlasProjection:
         '''
         Retrieves a map link.
         '''
-        #return f"{self.project.web_path}/data/{self.project.meta['organization_slug']}/{self.project.meta['slug']}/map"
-        return f"{self.project.web_path}/map/{self.project.id}/{self.id}"
+        return f"{self.project.web_path}/data/{self.project.meta['organization_slug']}/{self.project.meta['slug']}/map"
 
     @property
     def _status(self):

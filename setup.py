@@ -6,7 +6,7 @@ description = 'The official Nomic python client.'
     
 setup(
     name='nomic',
-    version='3.0.4',
+    version='3.0.5',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
@@ -29,6 +29,7 @@ setup(
         'tqdm',
         'pyarrow',
         'pillow',
+        'pyjwt'
     ],
     extras_require={
         'dev': [
