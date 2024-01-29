@@ -706,6 +706,26 @@ class AtlasProjection:
             raise Exception(response.text)
 
 
+class AtlasDataStream(AtlasClass):
+    def __init__(self, name: Optional[str] = 'contrastors'):
+        super().__init__()
+        if name != 'contrastors':
+            raise NotImplementedError("Only contrastors datastream is currently supported")
+        self.name = name
+
+    # TODO: add support for other datastreams
+    def get_credentials(self):
+        endpoint = f"/v1/data/{self.name}"
+        response = requests.get(
+            self.atlas_api_path + endpoint,
+            headers = self.header,
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise ValueError(response.text)
+
+
 class AtlasDataset(AtlasClass):
     def __init__(
         self,
