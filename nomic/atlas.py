@@ -13,7 +13,7 @@ from pandas import DataFrame
 from tqdm import tqdm
 
 from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicProjectOptions, NomicTopicOptions
-from .dataset import AtlasDataAccess, AtlasDataset
+from .dataset import AtlasDataStream, AtlasDataset
 from .settings import *
 from .utils import arrow_iterator, b64int, get_random_name
 
@@ -221,10 +221,15 @@ def map_text(
     raise DeprecationWarning("map_text is deprecated and will soon be removed, use atlas.map_data instead.")
 
 
-def get_contrastors_keys() -> Dict[str, str]:
+# NOTE: This will be deprecated for AtlasDataStream class
+def _get_datastream_credentials(name: Optional[str] = 'contrastors') -> Dict[str, str]:
     '''
+    Returns credentials for a datastream.
+
+    Args:
+        name: Datastream name
     Returns:
-        A dictionary with access keys for contrastors data.
+        A dictionary with credentials to access a datastream.
     '''
-    atlas_data_access = AtlasDataAccess()
-    return atlas_data_access.get_contrastors_keys()
+    atlas_data_access = AtlasDataStream(name)
+    return atlas_data_access.get_credentials()
