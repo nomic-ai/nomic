@@ -715,15 +715,15 @@ class AtlasDataStream(AtlasClass):
 
     # TODO: add support for other datastreams
     def get_credentials(self):
-        endpoint = "/v1/data/{self.name}"
-        response = requests.post(
+        endpoint = f"/v1/data/{self.name}"
+        response = requests.get(
             self.atlas_api_path + endpoint,
             headers = self.header,
         )
         if response.status_code == 200:
-            raise response.json()
+            return response.json()
         else:
-            raise Exception(response.text)
+            raise ValueError(response.text)
 
 
 class AtlasDataset(AtlasClass):
