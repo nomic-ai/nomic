@@ -711,7 +711,7 @@ class AtlasDataAccess(AtlasClass):
         super().__init__()
 
     def get_contrastors_keys(self):
-        endpoint = "/v1/access/contrastors"
+        endpoint = "/v1/data/contrastors"
         response = requests.post(
             self.atlas_api_path + endpoint,
             headers = self.header,
