@@ -401,6 +401,6 @@ def test_map_text_arrow():
 
 
 def test_contrastors_access():
-    keys = atlas._get_contrastors_keys()
+    keys = atlas._get_datastream_credentials()
     assert keys["access_key"] is not None
     assert keys["secret_key"] is not None
