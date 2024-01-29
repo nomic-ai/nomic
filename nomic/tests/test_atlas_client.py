@@ -398,3 +398,9 @@ def test_map_text_arrow():
     assert dataset.total_datums == 50
 
     dataset.delete()
+
+
+def test_contrastors_access():
+    keys = atlas.get_contrastors_keys()
+    assert keys["access_key"] is not None
+    assert keys["secret_key"] is not None

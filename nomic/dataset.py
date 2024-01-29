@@ -706,6 +706,22 @@ class AtlasProjection:
             raise Exception(response.text)
 
 
+class AtlasDataAccess(AtlasClass):
+    def __init__(self):
+        super().__init__()
+
+    def get_contrastors_keys(self):
+        endpoint = "/v1/access/contrastors"
+        response = requests.post(
+            self.atlas_api_path + endpoint,
+            headers = self.header,
+        )
+        if response.status_code == 200:
+            raise response.json()
+        else:
+            raise Exception(response.text)
+
+
 class AtlasDataset(AtlasClass):
     def __init__(
         self,
