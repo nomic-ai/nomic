@@ -75,12 +75,22 @@ def map_data(
         data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
         added_id_field = True
 
-    if id_field == ATLAS_DEFAULT_ID_FIELD and id_field not in data[0]:
-        added_id_field = True
-        for i in range(len(data)):
-            # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
-            data[i] = data[i].copy()
-            data[i][id_field] = b64int(i)
+    if id_field == ATLAS_DEFAULT_ID_FIELD:
+        if isinstance(data, list) and id_field not in data[0]:
+            added_id_field = True
+            for i in range(len(data)):
+                # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
+                data[i] = data[i].copy()
+                data[i][id_field] = b64int(i)
+        elif isinstance(data, DataFrame) and id_field not in data.columns:
+            data[id_field] = [b64int(i) for i in range(data.shape[0])]
+            added_id_field = True
+        elif isinstance(data, pa.Table) and not id_field in data.column_names:
+            ids = pa.array([b64int(i) for i in range(len(data))])
+            data = data.append_column(id_field, ids)
+            added_id_field = True
+        elif id_field not in data[0]:
+            raise ValueError("map_data data must be a list of dicts, a pandas dataframe, or a pyarrow table")
 
     if added_id_field:
         logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")

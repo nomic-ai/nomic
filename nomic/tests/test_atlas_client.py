@@ -363,14 +363,11 @@ def test_map_text_pandas():
     data = pd.DataFrame(
         {
             'field': [str(uuid.uuid4()) for i in range(size)],
-            'id': [str(uuid.uuid4()) for i in range(size)],
             'color': [random.choice(['red', 'blue', 'green']) for i in range(size)],
         }
     )
 
-    dataset = atlas.map_data(
-        identifier='UNITTEST_pandas_text', id_field='id', indexed_field="color", data=data, is_public=True
-    )
+    dataset = atlas.map_data(identifier='UNITTEST_pandas_text', indexed_field="color", data=data, is_public=True)
 
     assert dataset.total_datums == 50
 
