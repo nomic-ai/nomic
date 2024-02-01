@@ -14,10 +14,9 @@ import requests
 from .dataset import AtlasClass
 from .settings import *
 
-atlas_class = AtlasClass()
+atlas_class = None
 
 MAX_TEXT_REQUEST_SIZE = 50
-
 
 def is_backoff_status_code(code: int):
     if code == 429 or code >= 500:
@@ -46,6 +45,7 @@ def request_backoff(
 
 
 def text_api_request(texts: List[str], model: str, task_type: str):
+    global atlas_class
     response = request_backoff(
         lambda: requests.post(
             atlas_class.atlas_api_path + "/v1/embedding/text",
@@ -72,7 +72,10 @@ def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = 
     Returns:
         An object containing your embeddings and request metadata
     """
+    global atlas_class
     assert task_type in ["search_query", "search_document", "classification", "clustering"], f"Invalid task type: {task_type}"
+    if atlas_class is None:
+        atlas_class = AtlasClass()
     max_workers = 10
     chunksize = MAX_TEXT_REQUEST_SIZE
     smallchunk = max(1, int(len(texts) / max_workers))
