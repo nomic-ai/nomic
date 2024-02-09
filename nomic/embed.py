@@ -17,6 +17,7 @@ from .settings import *
 atlas_class = None
 
 MAX_TEXT_REQUEST_SIZE = 50
+MIN_EMBEDDING_DIMENSIONALITY = 128
 
 def is_backoff_status_code(code: int):
     if code == 429 or code >= 500:
@@ -44,13 +45,13 @@ def request_backoff(
             return response
 
 
-def text_api_request(texts: List[str], model: str, task_type: str):
+def text_api_request(texts: List[str], model: str, task_type: str, dimensionality: int = None):
     global atlas_class
     response = request_backoff(
         lambda: requests.post(
             atlas_class.atlas_api_path + "/v1/embedding/text",
             headers=atlas_class.header,
-            json={"texts": texts, "model": model, "task_type": task_type},
+            json={"texts": texts, "model": model, "task_type": task_type, "dimensionality": dimensionality},
         )
     )
 
@@ -60,7 +61,7 @@ def text_api_request(texts: List[str], model: str, task_type: str):
         raise Exception((response.status_code, response.text))
 
 
-def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = "search_document"):
+def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = "search_document", dimensionality: int = None):
     """
     Generates embeddings for the given text.
 
@@ -74,6 +75,10 @@ def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = 
     """
     global atlas_class
     assert task_type in ["search_query", "search_document", "classification", "clustering"], f"Invalid task type: {task_type}"
+
+    if dimensionality and dimensionality < MIN_EMBEDDING_DIMENSIONALITY:
+        logging.warning(f"Dimensionality {dimensionality} is less than the suggested of {MIN_EMBEDDING_DIMENSIONALITY}. Performance may be degraded.")
+
     if atlas_class is None:
         atlas_class = AtlasClass()
     max_workers = 10
@@ -88,7 +93,7 @@ def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = 
         for chunkstart in range(0, len(texts), chunksize):
             chunkend = min(len(texts), chunkstart + chunksize)
             chunk = texts[chunkstart:chunkend]
-            futures.append(executor.submit(text_api_request, chunk, model, task_type))
+            futures.append(executor.submit(text_api_request, chunk, model, task_type, dimensionality))
 
         for future in futures:
             response = future.result()
