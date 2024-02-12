@@ -17,7 +17,7 @@ from .settings import *
 atlas_class = None
 
 MAX_TEXT_REQUEST_SIZE = 50
-MIN_EMBEDDING_DIMENSIONALITY = 128
+MIN_EMBEDDING_DIMENSIONALITY = 64
 
 def is_backoff_status_code(code: int):
     if code == 429 or code >= 500:
