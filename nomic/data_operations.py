@@ -596,7 +596,7 @@ class AtlasMapTags:
         tbs = []
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
-            quad_str = os.path.join([str(q) for q in quad])
+            quad_str = os.path.join(*[str(q) for q in quad])
             datum_id_filename = quad_str + "." + "datum_id" + ".feather"
             path = self.projection.tile_destination / Path(datum_id_filename)
             tb = feather.read_table(path, memory_map=True)
@@ -694,7 +694,7 @@ class AtlasMapTags:
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         ordered_tag_paths = []
         for quad in tqdm(all_quads):
-            quad_str = os.path.join([str(q) for q in quad])
+            quad_str = os.path.join(*[str(q) for q in quad])
             filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
             path = self.projection.tile_destination / Path(filename)
             download_attempt = 0
@@ -725,7 +725,7 @@ class AtlasMapTags:
         # NOTE: This currently only gets triggered on `df` property
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
-            quad_str = os.path.join([str(q) for q in quad])
+            quad_str = os.path.join(*[str(q) for q in quad])
             tile = self.projection.tile_destination / Path(quad_str)
             tile_dir = tile.parent
             if tile_dir.exists():
@@ -840,7 +840,7 @@ class AtlasMapData:
 
         for quad in tqdm(all_quads):
             for sidecar in sidecars:
-                quad_str = os.path.join([str(q) for q in quad])
+                quad_str = os.path.join(*[str(q) for q in quad])
                 encoded_colname = base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8")
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / Path(filename)
