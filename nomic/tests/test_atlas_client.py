@@ -118,6 +118,7 @@ def test_date_metadata():
             data=data,
             is_public=True,
         )
+        dataset.delete()
 
 
 def test_dataset_with_updates():
