@@ -45,13 +45,13 @@ def request_backoff(
             return response
 
 
-def text_api_request(texts: List[str], model: str, task_type: str, dimensionality: int = None):
+def text_api_request(texts: List[str], model: str, task_type: str, dimensionality: int = None, long_text_mode: str = "truncate"):
     global atlas_class
     response = request_backoff(
         lambda: requests.post(
             atlas_class.atlas_api_path + "/v1/embedding/text",
             headers=atlas_class.header,
-            json={"texts": texts, "model": model, "task_type": task_type, "dimensionality": dimensionality},
+            json={"texts": texts, "model": model, "task_type": task_type, "dimensionality": dimensionality, "long_text_mode": long_text_mode},
         )
     )
 
@@ -61,7 +61,7 @@ def text_api_request(texts: List[str], model: str, task_type: str, dimensionalit
         raise Exception((response.status_code, response.text))
 
 
-def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = "search_document", dimensionality: int = None):
+def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = "search_document", dimensionality: int = None, long_text_mode: str = "truncate"):
     """
     Generates embeddings for the given text.
 
@@ -93,7 +93,7 @@ def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = 
         for chunkstart in range(0, len(texts), chunksize):
             chunkend = min(len(texts), chunkstart + chunksize)
             chunk = texts[chunkstart:chunkend]
-            futures.append(executor.submit(text_api_request, chunk, model, task_type, dimensionality))
+            futures.append(executor.submit(text_api_request, chunk, model, task_type, dimensionality, long_text_mode))
 
         for future in futures:
             response = future.result()
