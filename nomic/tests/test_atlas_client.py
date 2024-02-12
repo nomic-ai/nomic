@@ -184,7 +184,7 @@ def test_tagging_private():
     datum_ids = map.tags.get_datums_in_tag("chardonnay")
     assert len(datum_ids) > 0
     tag_df = map.tags.df
-    assert len(tag_df.columns) == 4
+    assert len(tag_df.columns) == 2
 
 
 def test_data():
