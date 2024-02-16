@@ -78,7 +78,7 @@ class AtlasEmbeddingExplorer(Callback):
         self.description = description
         self.is_public = is_public
         self.overwrite = overwrite_on_validation
-        self.dataset = None
+        self.project = None
         self.map = None
         self.atlas = AtlasLightningContainer()
         self.rebuild_time_delay = rebuild_time_delay
@@ -165,6 +165,6 @@ class AtlasEmbeddingExplorer(Callback):
             logger.info(e)
             logger.info("Failed to update your map on this validation epoch.")
             return
-        self.dataset = project
+        self.project = project
         self.map = project.maps[0]
         self.last_rebuild_timestamp = datetime.now()

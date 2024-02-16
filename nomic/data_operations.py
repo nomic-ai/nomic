@@ -1,7 +1,6 @@
 import base64
 import concurrent
 import concurrent.futures
-import glob
 import io
 import json
 import os
@@ -9,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Iterable, Optional, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 import pandas
@@ -22,7 +21,6 @@ from pyarrow import feather, ipc
 from tqdm import tqdm
 
 from .settings import EMBEDDING_PAGINATION_LIMIT
-from .utils import download_feather
 
 
 class AtlasMapDuplicates:
@@ -34,7 +32,7 @@ class AtlasMapDuplicates:
 
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
-        self.id_field = self.projection.dataset.id_field
+        self.id_field = self.projection.project.id_field
         try:
             self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, '_duplicate_class', '_cluster_id'])
         except pa.lib.ArrowInvalid as e:
@@ -81,8 +79,8 @@ class AtlasMapTopics:
 
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
-        self.dataset = projection.dataset
-        self.id_field = self.projection.dataset.id_field
+        self.project = projection.project
+        self.id_field = self.projection.project.id_field
         self._metadata = None
         self._hierarchy = None
 
@@ -144,11 +142,11 @@ class AtlasMapTopics:
             return self._metadata
 
         response = requests.get(
-            self.projection.dataset.atlas_api_path
+            self.projection.project.atlas_api_path
             + "/v1/project/{}/index/projection/{}".format(
-                self.projection.dataset.meta['id'], self.projection.projection_id
+                self.projection.project.meta['id'], self.projection.projection_id
             ),
-            headers=self.projection.dataset.header,
+            headers=self.projection.project.header,
         )
         topics = json.loads(response.text)['topic_models'][0]['features']
         topic_data = [e['properties'] for e in topics]
@@ -205,7 +203,7 @@ class AtlasMapTopics:
             raise ValueError("Topic depth out of range.")
 
         # Unique datum id column to aggregate
-        datum_id_col = self.dataset.meta["unique_id_field"]
+        datum_id_col = self.project.meta["unique_id_field"]
         df = self.df
 
         topic_datum_dict = df.groupby(f"topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
@@ -297,8 +295,8 @@ class AtlasMapTopics:
         np.save(bytesio, queries)
 
         response = requests.post(
-            self.dataset.atlas_api_path + "/v1/project/data/get/embedding/topic",
-            headers=self.dataset.header,
+            self.project.atlas_api_path + "/v1/project/data/get/embedding/topic",
+            headers=self.project.header,
             json={
                 'atlas_index_id': self.projection.atlas_index_id,
                 'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
@@ -367,9 +365,9 @@ class AtlasMapEmbeddings:
 
     def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
-        self.id_field = self.projection.dataset.id_field
+        self.id_field = self.projection.project.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, 'x', 'y'])
-        self.dataset = projection.dataset
+        self.project = projection.project
         self._latent = None
 
     @property
@@ -443,13 +441,13 @@ class AtlasMapEmbeddings:
         """
         logger.warning("Downloading latent embeddings of all datapoints.")
         limit = 10_000
-        route = self.projection.dataset.atlas_api_path + '/v1/project/data/get/embedding/paged'
+        route = self.projection.project.atlas_api_path + '/v1/project/data/get/embedding/paged'
         last = None
 
-        with tqdm(total=self.dataset.total_datums//limit) as pbar:
+        with tqdm(total=self.project.total_datums // limit) as pbar:
             while True:
                 params = {'projection_id': self.projection.id, "last_file": last, "page_size": limit}
-                r = requests.post(route, headers=self.projection.dataset.header, json=params)
+                r = requests.post(route, headers=self.projection.project.header, json=params)
                 if r.status_code == 204:
                     # Download complete!
                     break
@@ -509,8 +507,8 @@ class AtlasMapEmbeddings:
 
         if queries is not None:
             response = requests.post(
-                self.projection.dataset.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
-                headers=self.projection.dataset.header,
+                self.projection.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
+                headers=self.projection.project.header,
                 json={
                     'atlas_index_id': self.projection.atlas_index_id,
                     'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
@@ -519,8 +517,8 @@ class AtlasMapEmbeddings:
             )
         else:
             response = requests.post(
-                self.projection.dataset.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
-                headers=self.projection.dataset.header,
+                self.projection.project.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
+                headers=self.projection.project.header,
                 json={'atlas_index_id': self.projection.atlas_index_id, 'datum_ids': ids, 'k': k},
             )
 
@@ -547,6 +545,26 @@ class AtlasMapEmbeddings:
 
         raise DeprecationWarning("Deprecated as of June 2023. Iterate `map.embeddings.latent`.")
 
+        if self.project.is_locked:
+            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+
+        offset = 0
+        limit = EMBEDDING_PAGINATION_LIMIT
+        while True:
+            response = requests.get(
+                self.atlas_api_path
+                + f"/v1/project/data/get/embedding/{self.project.id}/{self.projection.atlas_index_id}/{offset}/{limit}",
+                headers=self.header,
+            )
+            if response.status_code != 200:
+                raise Exception(response.text)
+
+            content = response.json()
+            if len(content['datum_ids']) == 0:
+                break
+            offset += len(content['datum_ids'])
+
+            yield content['datum_ids'], content['embeddings']
 
     def _download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
@@ -562,7 +580,56 @@ class AtlasMapEmbeddings:
 
         '''
         raise DeprecationWarning("Deprecated as of June 2023. Use `map.embeddings.latent`.")
+        self.project._latest_project_state()
 
+        total_datums = self.project.total_datums
+        if self.project.is_locked:
+            raise Exception('Project is locked! Please wait until the project is unlocked to download embeddings')
+
+        offset = 0
+        limit = EMBEDDING_PAGINATION_LIMIT
+
+        def download_shard(offset, check_access=False):
+            response = requests.get(
+                self.project.atlas_api_path
+                + f"/v1/project/data/get/embedding/{self.project.id}/{self.projection.atlas_index_id}/{offset}/{limit}",
+                headers=self.project.header,
+            )
+
+            if response.status_code != 200:
+                raise Exception(response.text)
+
+            if check_access:
+                return
+
+            shard_name = '{}_{}_{}.feather'.format(self.projection.atlas_index_id, offset, offset + limit)
+            shard_path = os.path.join(save_directory, shard_name)
+            try:
+                content = response.content
+                is_arrow_format = content[:6] == b"ARROW1" and content[-6:] == b"ARROW1"
+
+                if not is_arrow_format:
+                    raise Exception('Expected response to be in Arrow IPC format')
+
+                with open(shard_path, 'wb') as f:
+                    f.write(content)
+
+            except Exception as e:
+                logger.error('Shard {} download failed with error: {}'.format(shard_name, e))
+
+        download_shard(0, check_access=True)
+
+        with tqdm(total=total_datums // limit) as pbar:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+                futures = {
+                    executor.submit(download_shard, cur_offset): cur_offset
+                    for cur_offset in range(0, total_datums, limit)
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    _ = future.result()
+                    pbar.update(1)
+
+        return True
 
     def __repr__(self) -> str:
         return str(self.df)
@@ -574,199 +641,130 @@ class AtlasMapTags:
     the associated pandas DataFrame.
     """
 
-    def __init__(self, projection: "AtlasProjection", auto_cleanup: Optional[bool] = False):
+    def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
-        self.dataset = projection.dataset
-        self.id_field = self.projection.dataset.id_field
-        # Pre-fetch tiles first upon initialization
-        self.projection._fetch_tiles(overwrite=False)
-        self.auto_cleanup = auto_cleanup
+        self.project = projection.project
+        self.id_field = self.projection.project.id_field
+        self._tb: pa.Table = projection._fetch_tiles().select([self.id_field])
 
     @property
-    def df(self, overwrite: Optional[bool]=False) -> pd.DataFrame:
-        '''
+    def df(self) -> pd.DataFrame:
+        """
         Pandas DataFrame mapping each data point to its tags.
-        '''
-        tags = self.get_tags()
-        tag_definition_ids = [tag["tag_definition_id"] for tag in tags]
-        if self.auto_cleanup:
-            self._remove_outdated_tag_files(tag_definition_ids)
-        for tag in tags:
-            self._download_tag(tag["tag_name"], overwrite=overwrite)
-        tbs = []
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            datum_id_filename = quad_str + "." + "datum_id" + ".feather"
-            path = self.projection.tile_destination / Path(datum_id_filename)
-            tb = feather.read_table(path, memory_map=True)
-            for tag in tags:
-                tag_definition_id = tag["tag_definition_id"]
-                tag_filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-                path = self.projection.tile_destination / Path(tag_filename)
-                tag_tb = feather.read_table(path, memory_map=True)
-                bitmask = None
-                if "all_set" in tag_tb.column_names:
-                    if tag_tb["all_set"][0].as_py() == True:
-                        bitmask = pa.array([True] * len(tb), type=pa.bool_())
-                    else:
-                        bitmask = pa.array([False] * len(tb), type=pa.bool_())
+        """
+
+        id_frame = self._tb.to_pandas()
+        tag_to_datums = self.get_tags()
+
+        # encoded contains a multi-hot vector withs 1 for all rows that contain that tag
+        encoded = {key: [] for key in list(tag_to_datums.keys())}
+        for id in id_frame[self.id_field]:
+            for key in encoded:
+                if id in tag_to_datums[key]:
+                    encoded[key].append(1)
                 else:
-                    bitmask = tag_tb["bitmask"]
-                tb = tb.append_column(tag["tag_name"], bitmask)
-            tbs.append(tb)
-        return pa.concat_tables(tbs).to_pandas()
-            
+                    encoded[key].append(0)
+
+        tag_frame = pandas.DataFrame(encoded)
+
+        return pd.concat([id_frame, tag_frame], axis=1)
+
     def get_tags(self) -> Dict[str, List[str]]:
         '''
         Retrieves back all tags made in the web browser for a specific map.
-        Each tag is a dictionary containing tag_name, tag_id, and metadata.
 
         Returns:
-            A list of tags a user has created for projection.
+            A dictionary mapping data points to tags.
         '''
-        tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
-                     headers=self.dataset.header,
-                     params={'project_id': self.dataset.id, 
-                             'projection_id': self.projection.id, 
-                             'include_dsl_rule': False}).json()
-        keep_tags = []
-        for tag in tags:
-            is_complete = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
-                headers=self.dataset.header,
-                params={'project_id': self.dataset.id, 
-                      'tag_id': tag["tag_id"], 
-                }).json()['is_complete']
-            if is_complete:
-                keep_tags.append(tag)
-        return keep_tags
-    
-    def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool]=False):
-        '''
-        Returns the datum ids in a given tag.
+        # now get the tags
+        datums_and_tags = requests.post(
+            self.project.atlas_api_path + '/v1/project/tag/read/all_by_datum',
+            headers=self.project.header,
+            json={
+                'project_id': self.project.id,
+            },
+        )
 
-        Args:
-            overwrite: If True, re-downloads the tag. Otherwise, checks to see if up
-            to date tag already exists.
+        datums_and_tags = datums_and_tags.json()['results']
 
-        Returns:
-            List of datum ids.
-        '''
-        ordered_tag_paths = self._download_tag(tag_name, overwrite=overwrite)
-        datum_ids = []
-        for path in ordered_tag_paths:
-            tb = feather.read_table(path)
-            last_coord = path.name.split(".")[0]
-            tile_path = path.with_name(last_coord + ".datum_id.feather")
-            tile_tb = feather.read_table(tile_path).select([self.id_field])
-
-            if "all_set" in tb.column_names:
-                if tb["all_set"][0].as_py() == True:
-                    datum_ids.extend(tile_tb[self.id_field].to_pylist())
-            else:
-                # filter on rows
-                try:
-                    tb = tb.append_column(self.id_field, tile_tb[self.id_field])
-                    datum_ids.extend(tb.filter(pc.field("bitmask") == True)[self.id_field].to_pylist())
-                except Exception as e:
-                    raise Exception(f"Failed to fetch datums in tag. {e}")
-        return datum_ids
-
-    def _get_tag_by_name(self, name: str) -> Dict:
-        """
-        Returns the tag dictionary for a given tag name.
-        """
-        for tag in self.get_tags():
-            if tag["tag_name"] == name:
-                return tag
-        raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
-    
-    def _download_tag(self, tag_name: str, overwrite: Optional[bool] = False):
-        """
-        Downloads the feather tree for large sidecar columns.
-        """
-        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root_url = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
-
-        tag = self._get_tag_by_name(tag_name)
-        tag_definition_id = tag["tag_definition_id"]
-
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        ordered_tag_paths = []
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-            path = self.projection.tile_destination / Path(filename)
-            download_attempt = 0
-            download_success = False
-            while download_attempt < 3 and not download_success:
-                download_attempt += 1
-                if not path.exists() or overwrite:
-                    download_feather(root_url + filename, path, headers=self.dataset.header)
-                try:
-                    ipc.open_file(path).schema
-                    download_success = True
-                except pa.ArrowInvalid:
-                    path.unlink(missing_ok=True)
-            
-            if not download_success:
-                raise Exception(f"Failed to download tag {tag_name}.")
-            ordered_tag_paths.append(path)
-        return ordered_tag_paths
-    
-    def _remove_outdated_tag_files(self, tag_definition_ids: List[str]):
-        '''
-        Attempts to remove outdated tag files based on tag definition ids.
-        Any tag with a definition not in tag_definition_ids will be deleted.
-
-        Args:
-            tag_definition_ids: A list of tag definition ids to keep.
-        '''
-        # NOTE: This currently only gets triggered on `df` property
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            tile = self.projection.tile_destination / Path(quad_str)
-            tile_dir = tile.parent
-            if tile_dir.exists():
-                tagged_files = tile_dir.glob('*_tag*')
-                for file in tagged_files:
-                    tag_definition_id = file.name.split(".")[-2]
-                    if tag_definition_id in tag_definition_ids:
-                        try:
-                            file.unlink()
-                        except PermissionError:
-                            print("Permission denied: unable to delete outdated tag file. Skipping")
-                            return
-                        except Exception as e:
-                            print(f"Exception occurred when trying to delete outdated tag file: {e}. Skipping")
-                            return
+        label_to_datums = {}
+        for item in datums_and_tags:
+            for label in item['labels']:
+                if label not in label_to_datums:
+                    label_to_datums[label] = set()
+                label_to_datums[label].add(item['datum_id'])
+        return label_to_datums
 
     def add(self, ids: List[str], tags: List[str]):
-        # '''
-        # Adds tags to datapoints.
+        '''
+        Adds tags to datapoints.
 
-        # Args:
-        #     ids: The datum ids you want to tag
-        #     tags: A list containing the tags you want to apply to these data points.
+        Args:
+            ids: The datum ids you want to tag
+            tags: A list containing the tags you want to apply to these data points.
 
-        # '''
-        raise NotImplementedError("AtlasMapTags.add is currently not supported.")
+        '''
+        assert isinstance(ids, list), 'ids must be a list of strings'
+        assert isinstance(tags, list), 'tags must be a list of strings'
+
+        colname = json.dumps(
+            {
+                'project_id': self.project.id,
+                'atlas_index_id': self.projection.atlas_index_id,
+                'type': 'datum_id',
+                'tags': tags,
+            }
+        )
+        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
+        buffer = io.BytesIO()
+        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
+        writer.write_table(payload_table)
+        writer.close()
+        payload = buffer.getvalue()
+
+        headers = self.project.header.copy()
+        headers['Content-Type'] = 'application/octet-stream'
+        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/add", headers=headers, data=payload)
+        if response.status_code != 200:
+            raise Exception("Failed to add tags")
 
     def remove(self, ids: List[str], tags: List[str], delete_all: bool = False) -> bool:
-        # '''
-        # Deletes the specified tags from the given data points.
+        '''
+        Deletes the specified tags from the given data points.
 
-        # Args:
-        #     ids: The datum_ids to delete tags from.
-        #     tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
-        #     delete_all: If true, ignores ids parameter and deletes all specified tags from all data points.
+        Args:
+            ids: The datum_ids to delete tags from.
+            tags: The list of tags to delete from the data points. Each tag will be applied to all data points in `ids`.
+            delete_all: If true, ignores ids parameter and deletes all specified tags from all data points.
 
-        # Returns:
-        #     True on success.
+        Returns:
+            True on success.
 
-        # '''
-        raise NotImplementedError("AtlasMapTags.remove is currently not supported.")
+        '''
+        assert isinstance(ids, list), 'datum_ids must be a list of strings'
+        assert isinstance(tags, list), 'tags must be a list of strings'
+
+        colname = json.dumps(
+            {
+                'project_id': self.project.id,
+                'atlas_index_id': self.projection.atlas_index_id,
+                'type': 'datum_id',
+                'tags': tags,
+                'delete_all': delete_all,
+            }
+        )
+        payload_table = pa.table([pa.array(ids, type=pa.string())], [colname])
+        buffer = io.BytesIO()
+        writer = ipc.new_file(buffer, payload_table.schema, options=ipc.IpcWriteOptions(compression='zstd'))
+        writer.write_table(payload_table)
+        writer.close()
+        payload = buffer.getvalue()
+
+        headers = self.project.header.copy()
+        headers['Content-Type'] = 'application/octet-stream'
+        response = requests.post(self.project.atlas_api_path + "/v1/project/tag/delete", headers=headers, data=payload)
+        if response.status_code != 200:
+            raise Exception("Failed to delete tags")
 
     def __repr__(self) -> str:
         return str(self.df)
@@ -780,8 +778,8 @@ class AtlasMapData:
 
     def __init__(self, projection: "AtlasProjection", fields=None):
         self.projection = projection
-        self.dataset = projection.dataset
-        self.id_field = self.projection.dataset.id_field
+        self.project = projection.project
+        self.id_field = self.projection.project.id_field
         self._tb = None
         self.fields = fields
         try:
@@ -824,32 +822,40 @@ class AtlasMapData:
         Downloads the feather tree for large sidecar columns.
         """
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
+        root = f"{self.project.atlas_api_path}/v1/project/{self.project.id}/index/projection/{self.projection.id}/quadtree/"
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         sidecars = fields
         if sidecars is None:
             sidecars = [
                 field
-                for field in self.dataset.dataset_fields
+                for field in self.project.dataset_fields
                 if field not in self._basic_data.column_names and field != "_embeddings"
             ]
         else:
             for field in sidecars:
-                assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
+                assert field in self.project.dataset_fields, f"Field {field} not found in project fields."
 
         for quad in tqdm(all_quads):
             for sidecar in sidecars:
-                quad_str = os.path.join(*[str(q) for q in quad])
+                quad_str = "/".join([str(q) for q in quad])
                 encoded_colname = base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8")
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / Path(filename)
 
                 if not os.path.exists(path):
                     # WARNING: Potentially large data request here
-                    download_feather(root + filename, path, headers=self.dataset.header)
-        
+                    self._download_file(root + filename, path)
+
         return sidecars
+
+    def _download_file(self, url: str, path: str):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with requests.get(url, stream=True) as response:
+            response.raise_for_status()
+            with open(path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
 
     @property
     def df(self) -> pandas.DataFrame:
