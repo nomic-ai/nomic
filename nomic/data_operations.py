@@ -36,10 +36,17 @@ class AtlasMapDuplicates:
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
         try:
-            self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, '_duplicate_class', '_cluster_id'])
+            duplicate_fields = [field for field in projection._fetch_tiles().column_names if "_duplicate_class" in field]
+            cluster_fields = [field for field in projection._fetch_tiles().column_names if "_cluster" in field]
+            assert len(duplicate_fields) > 0, "Duplicate detection has not yet been run on this map."
+            self.duplicate_field = duplicate_fields[0]
+            self.cluster_field = cluster_fields[0]
+            self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, self.duplicate_field, self.cluster_field])
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Duplicate detection has not yet been run on this map.")
-        self._tb = self._tb.rename_columns([self.id_field, 'duplicate_class', 'cluster_id'])
+        self.duplicate_field = self.duplicate_field.lstrip("_")
+        self.cluster_field = self.cluster_field.lstrip("_")
+        self._tb = self._tb.rename_columns([self.id_field, self.duplicate_field, self.cluster_field])
 
     @property
     def df(self) -> pd.DataFrame:
@@ -63,13 +70,13 @@ class AtlasMapDuplicates:
         Returns:
             The ids for all data points which are semantic duplicates and are candidates for being deleted from the dataset. If you remove these data points from your dataset, your dataset will be semantically deduplicated.
         """
-        dupes = self.tb[self.id_field].filter(pc.equal(self.tb['duplicate_class'], 'deletion candidate'))
+        dupes = self.tb[self.id_field].filter(pc.equal(self.tb[self.duplicate_field], 'deletion candidate'))
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
-        repr = f"===Atlas Duplicates for ({self.projection})    git push --set-upstream origin docs-clean\n"
-        duplicate_count = len(self.tb[self.id_field].filter(pc.equal(self.tb['duplicate_class'], 'deletion candidate')))
-        cluster_count = len(self.tb['cluster_id'].value_counts())
+        repr = f"===Atlas Duplicates for ({self.projection})\n"
+        duplicate_count = len(self.tb[self.id_field].filter(pc.equal(self.tb[self.duplicate_field], 'deletion candidate')))
+        cluster_count = len(self.tb[self.cluster_field].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
         return repr + self.df.__repr__()
 
