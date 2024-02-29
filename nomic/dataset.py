@@ -1137,6 +1137,8 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
+                        'num_generated_noise': projection.num_generated_noise,
+                        'model': projection.model,
                     }
                 ),
                 'topic_model_hyperparameters': json.dumps(
