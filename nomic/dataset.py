@@ -1096,9 +1096,6 @@ class AtlasDataset(AtlasClass):
         else:
             embedding_model = NomicEmbedOptions()
 
-        if self.modality == 'embedding':
-            duplicate_detection.tag_duplicates = False
-
         # for large datasets, alter the default projection configurations.
         if self.total_datums >= 1_000_000:
             if (
@@ -1115,8 +1112,6 @@ class AtlasDataset(AtlasClass):
                 colorable_fields.append(field)
 
         if self.modality == 'embedding':
-            if duplicate_detection.tag_duplicates:
-                raise ValueError("Cannot tag duplicates in an embedding dataset.")
             if topic_model.community_description_target_field is None:
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
@@ -1145,6 +1140,12 @@ class AtlasDataset(AtlasClass):
                         'community_description_target_field': topic_model.community_description_target_field,
                         'cluster_method': topic_model.cluster_method,
                         'enforce_topic_hierarchy': topic_model.enforce_topic_hierarchy,
+                    }
+                ),
+                'duplicate_detection_hyperparameters': json.dumps(
+                    {
+                        'tag_duplicates': duplicate_detection.tag_duplicates,
+                        'duplicate_cutoff': duplicate_detection.duplicate_cutoff,
                     }
                 ),
             }
