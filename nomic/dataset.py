@@ -1583,18 +1583,14 @@ class AtlasDataset(AtlasClass):
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
                 if self.modality == 'embedding':
-                    self.add_embeddings(
+                    self._add_embeddings(
                         embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
                         data=data[i : i + MAX_MEMORY_CHUNK],
-                        shard_size=shard_size,
-                        num_workers=num_workers,
                         pbar=pbar,
                     )
                 else:
-                    self.add_text(
+                    self._add_text(
                         data=data[i : i + MAX_MEMORY_CHUNK],
-                        shard_size=shard_size,
-                        num_workers=num_workers,
                         pbar=pbar,
                     )
         logger.info("Upload succeeded.")
