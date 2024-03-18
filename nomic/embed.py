@@ -116,7 +116,6 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
         An object containing your embeddings and request metadata
     """
 
-
     def run_inference(batch):
         response = requests.post(
             atlas_class.atlas_api_path + "/v1/embedding/image",
@@ -188,3 +187,11 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
         final_response['usage']['total_tokens'] = final_response['usage']['prompt_tokens']
 
     return final_response
+
+
+def tokenize(tokenizer_path = None):
+    pass
+
+
+def create_triton_request():
+    pass
