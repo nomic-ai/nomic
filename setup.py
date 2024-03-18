@@ -29,7 +29,8 @@ setup(
         'tqdm',
         'pyarrow',
         'pillow',
-        'pyjwt'
+        'pyjwt',
+        'tokenizers'
     ],
     extras_require={
         'dev': [
