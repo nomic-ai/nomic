@@ -560,7 +560,7 @@ class AtlasProjection:
             self._data = AtlasMapData(self)
         return self._data
 
-    def _fetch_tiles(self, overwrite: bool = True):
+    def _fetch_tiles(self, overwrite: bool = False):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
