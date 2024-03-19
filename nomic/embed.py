@@ -187,11 +187,3 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
         final_response['usage']['total_tokens'] = final_response['usage']['prompt_tokens']
 
     return final_response
-
-
-def tokenize(tokenizer_path = None):
-    pass
-
-
-def create_triton_request():
-    pass
