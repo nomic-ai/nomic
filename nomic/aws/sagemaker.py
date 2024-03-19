@@ -116,12 +116,13 @@ def tokenize_text(
             raise ValueError("Either tokenizer or model must be provided")
         tokenizer = load_tokenizer(model)
     # padding and truncation are handled by tokenizer
-    
+
     all_tokens = tokenizer.encode(text, add_special_tokens=add_special_tokens).ids
     if len(all_tokens) == 0:
         logger.warning(f"Zero tokens generated from text.")
         all_tokens = tokenize_text(EMPTY_PLACEHOLDER, add_special_tokens=False).ids
     return all_tokens
+
 
 def create_sm_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     """
