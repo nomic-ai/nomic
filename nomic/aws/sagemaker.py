@@ -101,8 +101,8 @@ def create_sagemaker_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     inputs = []
     outputs = []
 
-    inputs.append(aiohttpclient.InferInput("input_ids", input_ids.shape, "INT32"))
-    inputs.append(aiohttpclient.InferInput("attention_mask", input_ids.shape, "INT32"))
+    inputs.append(aiohttpclient.InferInput("input_ids", list(input_ids.shape), "INT32"))
+    inputs.append(aiohttpclient.InferInput("attention_mask", list(input_ids.shape), "INT32"))
 
     # Initialize the data
     inputs[0].set_data_from_numpy(input_ids, binary_data=True)
@@ -110,10 +110,10 @@ def create_sagemaker_request_for_batch(texts: List[str], tokenizer: Tokenizer):
 
     # have to set to binary since http doesn't natively support fp16
     outputs.append(aiohttpclient.InferRequestedOutput("embedding", binary_data=True))
-    request = InferenceServerClient.generate_request_body(
+    request, header_length = InferenceServerClient.generate_request_body(
         inputs=inputs, outputs=outputs
     )
-    return request
+    return request, header_length
 
 
 def batch_sagemaker_requests(texts: List[str], batch_size=32):
