@@ -116,11 +116,12 @@ def tokenize_text(
             raise ValueError("Either tokenizer or model must be provided")
         tokenizer = load_tokenizer(model)
     # padding and truncation are handled by tokenizer
+    
     all_tokens = tokenizer.encode(text, add_special_tokens=add_special_tokens).ids
     if len(all_tokens) == 0:
         logger.warning(f"Zero tokens generated from text.")
         all_tokens = tokenize_text(EMPTY_PLACEHOLDER, add_special_tokens=False).ids
-
+    return all_tokens
 
 def create_sm_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     """
@@ -136,7 +137,6 @@ def create_sm_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     all_tokens = []
     for text in texts:
         all_tokens.append(tokenize_text(text, tokenizer=tokenizer))
-
     input_ids = np.array(all_tokens, dtype=np.int32)
     mlen = max(len(tokens) for tokens in all_tokens)
     attention_mask = [
@@ -171,7 +171,7 @@ def create_sm_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     return request
 
 
-def batch_sagemaker_requests(texts: List[str], tokenizer: Tokenizer, batch_size=32):
+def batch_sagemaker_requests(texts: List[str], batch_size=32):
     """Yield sagemaker triton requests from specified size from list of texts.
     One request will be yielded for each batch.
     Batch size should be set based on GPU provisioned for sagemaker endpoint.

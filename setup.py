@@ -47,7 +47,23 @@ setup(
             "cairosvg"
         ],
         'aws': [
-            'tritonclient>=2.43.0',
+            'tritonclient[http]>=2.43.0',
+            'tokenizers>=0.15.2'
+        ],
+        'all': [
+            "click",
+            "jsonlines",
+            "loguru",
+            'rich',
+            'requests',
+            'numpy',
+            'pandas',
+            'pydantic',
+            'tqdm',
+            'pyarrow',
+            'pillow',
+            'pyjwt',
+            'tritonclient[http]>=2.43.0',
             'tokenizers>=0.15.2'
         ]
     },
