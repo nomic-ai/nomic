@@ -107,16 +107,10 @@ def no_trunc(tok):
 
 def tokenize_text(
     text,
-    tokenizer=None,
-    model: Optional[NomicTextEmbeddingModel] = None,
+    tokenizer: Tokenizer,
     add_special_tokens=False,
 ):
-    if tokenizer is None:
-        if model is None:
-            raise ValueError("Either tokenizer or model must be provided")
-        tokenizer = load_tokenizer(model)
     # padding and truncation are handled by tokenizer
-
     all_tokens = tokenizer.encode(text, add_special_tokens=add_special_tokens).ids
     if len(all_tokens) == 0:
         logger.warning(f"Zero tokens generated from text.")
