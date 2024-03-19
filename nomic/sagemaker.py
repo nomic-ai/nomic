@@ -5,37 +5,34 @@
 import hashlib
 import logging
 from contextlib import contextmanager
-from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
-
+from typing import List, Optional
 
 import numpy as np
 import tritonclient.http.aio as aiohttpclient
-from tritonclient.http._utils import _get_inference_request
 from tokenizers import Tokenizer
-
+from tritonclient.http._utils import _get_inference_request
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
 text_embedding_model_info = {
-    'nomic-embed-text-v1.5': {
-        'dim': 768,
-        'max_length': 2048,
-        'pad_id': 0,
-        'recommended_dims': [768, 512, 384, 256, 128],
+    "nomic-embed-text-v1.5": {
+        "dim": 768,
+        "max_length": 2048,
+        "pad_id": 0,
+        "recommended_dims": [768, 512, 384, 256, 128],
     },
 }
 
-NULL_PLACEHOLDER = hashlib.md5(b'nomic null').hexdigest()
-EMPTY_PLACEHOLDER = hashlib.md5(b'nomic empty').hexdigest()
+NULL_PLACEHOLDER = hashlib.md5(b"nomic null").hexdigest()
+EMPTY_PLACEHOLDER = hashlib.md5(b"nomic empty").hexdigest()
 
 
 class NomicTextEmbeddingModel(Enum):
-    nomic_embed_text_v1_5 = 'nomic-embed-text-v1.5'
+    nomic_embed_text_v1_5 = "nomic-embed-text-v1.5"
 
     def hamming_capable(self):
         return self == NomicTextEmbeddingModel.nomic_embed_text_v1_5
@@ -44,16 +41,18 @@ class NomicTextEmbeddingModel(Enum):
         return self == NomicTextEmbeddingModel.nomic_embed_text_v1_5
 
     def dim(self):
-        return text_embedding_model_info[self.value]['dim']
+        return text_embedding_model_info[self.value]["dim"]
 
     def recommended_dims(self):
-        return text_embedding_model_info[self.value].get('recommended_dims') or [self.dim()]
+        return text_embedding_model_info[self.value].get("recommended_dims") or [
+            self.dim()
+        ]
 
     def max_length(self):
-        return text_embedding_model_info[self.value]['max_length']
+        return text_embedding_model_info[self.value]["max_length"]
 
     def pad_token(self) -> int:
-        return text_embedding_model_info[self.value]['pad_id']
+        return text_embedding_model_info[self.value]["pad_id"]
 
 
 def null_empty_placeholder(text: Optional[str]) -> str:
@@ -62,7 +61,7 @@ def null_empty_placeholder(text: Optional[str]) -> str:
     """
     if text is None:
         return NULL_PLACEHOLDER
-    if text.strip() == '':
+    if text.strip() == "":
         return EMPTY_PLACEHOLDER
     return text
 
@@ -73,14 +72,16 @@ def load_tokenizer(model: NomicTextEmbeddingModel) -> Tokenizer:
     :param model: the model doing the embedding
     :return:
     """
-    tokdir = Path(__file__).parent / 'tokenizers'
+    tokdir = Path(__file__).parent / "tokenizers"
     if model == NomicTextEmbeddingModel.nomic_embed_text_v1_5:
-        tokenizer = Tokenizer.from_file(str(tokdir / 'bert-base-uncased.json'))
+        tokenizer = Tokenizer.from_file(str(tokdir / "bert-base-uncased.json"))
+        # TODO: change to 8192
         tokenizer.enable_truncation(max_length=2048)
-        tokenizer.enable_padding(pad_id=0, pad_token='[PAD]', pad_to_multiple_of=64)
+        tokenizer.enable_padding(pad_id=0, pad_token="[PAD]", pad_to_multiple_of=64)
     else:
         raise Exception(f"Could not determine tokenizer for model: {model.value}")
     return tokenizer
+
 
 @contextmanager
 def no_pad(tok):
@@ -92,6 +93,7 @@ def no_pad(tok):
     else:
         yield tok
 
+
 @contextmanager
 def no_trunc(tok):
     if tok.truncation is not None:
@@ -102,10 +104,13 @@ def no_trunc(tok):
     else:
         yield tok
 
-def tokenize_text(text,
-                  tokenizer = None, 
-                  model: Optional[NomicTextEmbeddingModel] = None, 
-                  add_special_tokens=False):
+
+def tokenize_text(
+    text,
+    tokenizer=None,
+    model: Optional[NomicTextEmbeddingModel] = None,
+    add_special_tokens=False,
+):
     if tokenizer is None:
         if model is None:
             raise ValueError("Either tokenizer or model must be provided")
@@ -113,18 +118,30 @@ def tokenize_text(text,
     # padding and truncation are handled by tokenizer
     all_tokens = tokenizer.encode(text, add_special_tokens=add_special_tokens).ids
     if len(all_tokens) == 0:
-        logger.warning(f'Zero tokens generated from text.')
+        logger.warning(f"Zero tokens generated from text.")
         all_tokens = tokenize_text(EMPTY_PLACEHOLDER, add_special_tokens=False).ids
-    
 
-def create_sm_request_for_batch(texts):
+
+def create_sm_request_for_batch(texts: List[str], tokenizer: Tokenizer):
+    """
+    Tokenizes and creates a Triton embedding request from a list of texts.
+
+    Args:
+        texts: List of texts to be batched.
+        tokenizer: Tokenizer to use.
+
+    Returns:
+        HTTP Request object for Triton server.
+    """
     all_tokens = []
     for text in texts:
-        all_tokens.append(tokenize_text(text))
+        all_tokens.append(tokenize_text(text, tokenizer=tokenizer))
 
     input_ids = np.array(all_tokens, dtype=np.int32)
     mlen = max(len(tokens) for tokens in all_tokens)
-    attention_mask = [([1] * len(tokens)) + [0] * (mlen - len(tokens)) for tokens in all_tokens]
+    attention_mask = [
+        ([1] * len(tokens)) + [0] * (mlen - len(tokens)) for tokens in all_tokens
+    ]
     attention_mask = np.array(attention_mask, dtype=np.int32)
 
     inputs = []
@@ -140,13 +157,33 @@ def create_sm_request_for_batch(texts):
     # have to set to binary since http doesn't natively support fp16
     outputs.append(aiohttpclient.InferRequestedOutput("embedding", binary_data=True))
 
-    request = _get_inference_request(inputs=inputs, 
-                                     request_id="", 
-                                     outputs=outputs, 
-                                     sequence_id="", 
-                                     sequence_start=0, 
-                                     sequence_end=None, 
-                                     priority=None, 
-                                     timeout=None, 
-                                     custom_parameters=None)
+    request = _get_inference_request(
+        inputs=inputs,
+        request_id="",
+        outputs=outputs,
+        sequence_id="",
+        sequence_start=0,
+        sequence_end=None,
+        priority=None,
+        timeout=None,
+        custom_parameters=None,
+    )
     return request
+
+
+def batch_sagemaker_requests(texts: List[str], tokenizer: Tokenizer, batch_size=32):
+    """Yield sagemaker triton requests from specified size from list of texts.
+    One request will be yielded for each batch.
+    Batch size should be set based on GPU provisioned for sagemaker endpoint.
+
+    Args:
+        texts: List of texts to be batched.
+        batch_size: Size of each batch.
+
+    Yields:
+        Batches of data with size equal to batch_size.
+    """
+
+    tokenizer = load_tokenizer(NomicTextEmbeddingModel.nomic_embed_text_v1_5)
+    for i in range(0, len(texts), batch_size):
+        yield create_sm_request_for_batch(texts[i : i + batch_size], tokenizer)
