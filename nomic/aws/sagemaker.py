@@ -138,7 +138,7 @@ def batch_sagemaker_requests(texts: List[str], batch_size=32):
 
 def parse_sagemaker_response(response):
     """
-    Parse the response from a sagemaker triton server and return the result as a numpy array.
+    Parse response from a sagemaker triton server and return the embedding as a numpy array.
 
     Args:
         response: The response from the sagemaker triton server.
@@ -156,5 +156,4 @@ def parse_sagemaker_response(response):
     result = InferenceServerClient.parse_response_body(
         response["Body"].read(), header_length=int(header_length_str)
     )
-    print(result)
     return result.as_numpy("embedding")
