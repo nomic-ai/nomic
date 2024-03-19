@@ -102,7 +102,9 @@ def create_sagemaker_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     outputs = []
 
     inputs.append(aiohttpclient.InferInput("input_ids", list(input_ids.shape), "INT32"))
-    inputs.append(aiohttpclient.InferInput("attention_mask", list(input_ids.shape), "INT32"))
+    inputs.append(
+        aiohttpclient.InferInput("attention_mask", list(input_ids.shape), "INT32")
+    )
 
     # Initialize the data
     inputs[0].set_data_from_numpy(input_ids, binary_data=True)
@@ -132,3 +134,27 @@ def batch_sagemaker_requests(texts: List[str], batch_size=32):
     tokenizer = load_tokenizer(NomicTextEmbeddingModel.nomic_embed_text_v1_5)
     for i in range(0, len(texts), batch_size):
         yield create_sagemaker_request_for_batch(texts[i : i + batch_size], tokenizer)
+
+
+def parse_sagemaker_response(response):
+    """
+    Parse the response from a sagemaker triton server and return the result as a numpy array.
+
+    Args:
+        response: The response from the sagemaker triton server.
+
+    Returns:
+        Numpy array of embeddings.
+    """
+    # Parse json header size length from the response
+    header_length_prefix = (
+        "application/vnd.sagemaker-triton.binary+json;json-header-size="
+    )
+    header_length_str = response["ContentType"][len(header_length_prefix) :]
+
+    # Read response body
+    result = InferenceServerClient.parse_response_body(
+        response["Body"].read(), header_length=int(header_length_str)
+    )
+    print(result)
+    return result.as_numpy("embedding")
