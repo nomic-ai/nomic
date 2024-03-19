@@ -124,7 +124,7 @@ def tokenize_text(
     return all_tokens
 
 
-def create_sm_request_for_batch(texts: List[str], tokenizer: Tokenizer):
+def create_sagemaker_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     """
     Tokenizes and creates a Triton embedding request from a list of texts.
 
@@ -178,4 +178,4 @@ def batch_sagemaker_requests(texts: List[str], batch_size=32):
 
     tokenizer = load_tokenizer(NomicTextEmbeddingModel.nomic_embed_text_v1_5)
     for i in range(0, len(texts), batch_size):
-        yield create_sm_request_for_batch(texts[i : i + batch_size], tokenizer)
+        yield create_sagemaker_request_for_batch(texts[i : i + batch_size], tokenizer)
