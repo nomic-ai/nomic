@@ -6,7 +6,7 @@ description = 'The official Nomic python client.'
     
 setup(
     name='nomic',
-    version='3.0.15',
+    version='3.0.16',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
@@ -30,7 +30,6 @@ setup(
         'pyarrow',
         'pillow',
         'pyjwt',
-        'tokenizers'
     ],
     extras_require={
         'dev': [
@@ -46,8 +45,11 @@ setup(
             "mkdocs-jupyter",
             "pillow",
             "cairosvg"
+        ],
+        'aws': [
+            'tritonclient>=2.43.0',
+            'tokenizers>=0.15.2'
         ]
-
     },
     entry_points={
         'console_scripts': ['nomic=nomic.cli:cli'],
