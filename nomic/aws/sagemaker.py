@@ -11,8 +11,8 @@ from typing import List, Optional
 
 import numpy as np
 import tritonclient.http.aio as aiohttpclient
-from tritonclient.http import InferenceServerClient
 from tokenizers import Tokenizer
+from tritonclient.http import InferenceServerClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -157,7 +157,9 @@ def create_sm_request_for_batch(texts: List[str], tokenizer: Tokenizer):
 
     # have to set to binary since http doesn't natively support fp16
     outputs.append(aiohttpclient.InferRequestedOutput("embedding", binary_data=True))
-    request = InferenceServerClient.generate_request_body(inputs=inputs, outputs=outputs)
+    request = InferenceServerClient.generate_request_body(
+        inputs=inputs, outputs=outputs
+    )
     return request
 
 
