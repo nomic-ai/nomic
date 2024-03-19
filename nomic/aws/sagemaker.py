@@ -4,7 +4,6 @@
 
 import hashlib
 import logging
-from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional
@@ -83,41 +82,6 @@ def load_tokenizer(model: NomicTextEmbeddingModel) -> Tokenizer:
     return tokenizer
 
 
-@contextmanager
-def no_pad(tok):
-    if tok.padding is not None:
-        keep = tok.padding
-        tok.no_padding()
-        yield tok
-        tok.enable_padding(**keep)
-    else:
-        yield tok
-
-
-@contextmanager
-def no_trunc(tok):
-    if tok.truncation is not None:
-        keep = tok.truncation
-        tok.no_truncation()
-        yield tok
-        tok.enable_truncation(**keep)
-    else:
-        yield tok
-
-
-def tokenize_text(
-    text,
-    tokenizer: Tokenizer,
-    add_special_tokens=False,
-):
-    # padding and truncation are handled by tokenizer
-    all_tokens = tokenizer.encode(text, add_special_tokens=add_special_tokens).ids
-    if len(all_tokens) == 0:
-        logger.warning(f"Zero tokens generated from text.")
-        all_tokens = tokenize_text(EMPTY_PLACEHOLDER, add_special_tokens=False).ids
-    return all_tokens
-
-
 def create_sagemaker_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     """
     Tokenizes and creates a Triton embedding request from a list of texts.
@@ -129,15 +93,10 @@ def create_sagemaker_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     Returns:
         HTTP Request object for Triton server.
     """
-    all_tokens = []
-    for text in texts:
-        all_tokens.append(tokenize_text(text, tokenizer=tokenizer))
-    input_ids = np.array(all_tokens, dtype=np.int32)
-    mlen = max(len(tokens) for tokens in all_tokens)
-    attention_mask = [
-        ([1] * len(tokens)) + [0] * (mlen - len(tokens)) for tokens in all_tokens
-    ]
-    attention_mask = np.array(attention_mask, dtype=np.int32)
+    encoded = tokenizer.encode_batch(texts)
+
+    input_ids = np.array([e.ids for e in encoded], dtype=np.int32)
+    attention_mask = np.array([e.attention_mask for e in encoded], dtype=np.int32)
 
     inputs = []
     outputs = []
