@@ -32,7 +32,11 @@ setup(
         'pyjwt'
     ],
     extras_require={
+        "local": [
+            "gpt4all>=2.3.3,<3",
+        ],
         'dev': [
+            "nomic[local]",
             'black',
             'coverage',
             "pylint",

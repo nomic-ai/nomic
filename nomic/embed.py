@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import concurrent
 import concurrent.futures
@@ -5,7 +7,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import List, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, overload
 
 import PIL
 import PIL.Image
@@ -14,10 +16,23 @@ import requests
 from .dataset import AtlasClass
 from .settings import *
 
+try:
+    from gpt4all import Embed4All
+except ImportError:
+    if not TYPE_CHECKING:
+        Embed4All = None
+
 atlas_class = None
 
 MAX_TEXT_REQUEST_SIZE = 50
 MIN_EMBEDDING_DIMENSIONALITY = 64
+
+# mapping of Atlas model name -> Embed4All model filename
+_EMBED4ALL_MODELS = {
+    "nomic-embed-text-v1": "nomic-embed-text-v1.f16.gguf",
+    "nomic-embed-text-v1.5": "nomic-embed-text-v1.5.f16.gguf",
+}
+
 
 def is_backoff_status_code(code: int):
     if code == 429 or code >= 500:
@@ -61,25 +76,106 @@ def text_api_request(texts: List[str], model: str, task_type: str, dimensionalit
         raise Exception((response.status_code, response.text))
 
 
+def _should_use_embed4all() -> bool:
+    # TODO(cebtenzzre): implement
+    return True
+
+
+@overload
 def text(
-    texts: List[str],
+    texts: list[str],
+    *,
+    model: str = ...,
+    task_type: str = ...,
+    dimensionality: int | None = ...,
+    long_text_mode: str = ...,
+    inference_mode: Literal["atlas"] = ...,
+) -> dict[str, Any]: ...
+@overload
+def text(
+    texts: list[str],
+    *,
+    model: str = ...,
+    task_type: str = ...,
+    dimensionality: int | None = ...,
+    long_text_mode: str = ...,
+    inference_mode: Literal["local", "dynamic"],
+    **kwargs: Any,
+) -> dict[str, Any]: ...
+@overload
+def text(
+    texts: list[str],
+    *,
+    model: str = ...,
+    task_type: str = ...,
+    dimensionality: int | None = ...,
+    long_text_mode: str = ...,
+    inference_mode: str,
+    **kwargs: Any,
+) -> dict[str, Any]: ...
+
+
+def text(
+    texts: list[str],
     *,
     model: str = "nomic-embed-text-v1",
     task_type: str = "search_document",
-    dimensionality: int = None,
+    dimensionality: int | None = None,
     long_text_mode: str = "truncate",
-):
+    inference_mode: str = "atlas",
+    **kwargs: Any,
+) -> dict[str, Any]:
     """
     Generates embeddings for the given text.
 
     Args:
-        texts: the text to embed
-        model: the model to use when embedding
-        task_type: the task type to use when embedding. One of `search_query`, `search_document`, `classification`, `clustering`
+        texts: The text to embed.
+        model: The model to use when embedding.
+        task_type: The task type to use when embedding. One of `search_query`, `search_document`, `classification`, `clustering`.
+        dimensionality: The embedding dimension, for use with Matryoshka-capable models. Defaults to full-size.
+        long_text_mode: How to handle texts longer than the model can accept. One of `mean` or `truncate`.
+        inference_mode: How to generate embeddings. One of `atlas`, `local` (Embed4All), or `dynamic` (automatic).
+            Defaults to `atlas`.
+        kwargs: Remaining arguments are passed to the Embed4All contructor.
 
     Returns:
-        An object containing your embeddings and request metadata
+        A dict containing your embeddings and request metadata
     """
+    if isinstance(texts, str):
+        raise TypeError("'texts' parameter must be list[str], not str")
+
+    modes = {
+        "atlas": False,
+        "local": True,
+        "dynamic": _should_use_embed4all(),
+    }
+
+    try:
+        use_embed4all = modes[inference_mode]
+    except KeyError:
+        raise ValueError(f"Unknown inference mode: {inference_mode!r}") from None
+
+    if inference_mode == "atlas":
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
+    elif Embed4All is None:
+        raise RuntimeError(
+            f"The 'gpt4all' package is required for local inference. Suggestion: `pip install \"nomic[local]\"`",
+        )
+
+    if use_embed4all:
+        return _text_embed4all(texts, model, task_type, dimensionality, long_text_mode, **kwargs)
+
+    return _text_atlas(texts, model, task_type, dimensionality, long_text_mode)
+
+
+def _text_atlas(
+    texts: list[str],
+    model: str,
+    task_type: str,
+    dimensionality: int | None,
+    long_text_mode: str,
+) -> dict[str, Any]:
     global atlas_class
     assert task_type in ["search_query", "search_document", "classification", "clustering"], f"Invalid task type: {task_type}"
 
@@ -111,7 +207,51 @@ def text(
     return combined
 
 
-def images(images: Union[str, PIL.Image.Image], *, model: str = 'nomic-embed-vision-v1'):
+_embed4all: Embed4All | None = None
+_embed4all_kwargs: dict[str, Any] | None = None
+
+
+def _text_embed4all(
+    texts: list[str],
+    model: str,
+    task_type: str,
+    dimensionality: int | None,
+    long_text_mode: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    global _embed4all, _embed4all_kwargs
+
+    try:
+        g4a_model = _EMBED4ALL_MODELS[model]
+    except KeyError:
+        raise ValueError(f"Unsupported model for local embeddings: {model!r}") from None
+
+    if _embed4all is None or _embed4all.gpt4all.config["filename"] != g4a_model or _embed4all_kwargs != kwargs:
+        _embed4all = Embed4All(g4a_model, **kwargs)
+        _embed4all_kwargs = kwargs
+
+    output = _embed4all.embed(
+        texts,
+        prefix=task_type,
+        dimensionality=dimensionality,
+        long_text_mode=long_text_mode,
+        return_dict=True,
+        atlas=True,
+    )
+    ntok = output["n_prompt_tokens"]
+    usage = {"prompt_tokens": ntok, "total_tokens": ntok}
+    return {"embeddings": output["embeddings"], "usage": usage, "model": model}
+
+
+def free_embedding_model() -> None:
+    """Free the current Embed4All instance and its associated system resources."""
+    global _embed4all, _embed4all_kwargs
+    if _embed4all is not None:
+        _embed4all.close()
+        _embed4all = _embed4all_kwargs = None
+
+
+def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
 
