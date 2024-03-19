@@ -2,21 +2,16 @@
 # It may make sense to move code eventually to embed.py or somewhere more generic but
 # it currently lives here to separate out dependencies.
 
-import asyncio
 import hashlib
 import logging
-from collections.abc import Iterable
-from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import AsyncGenerator, AsyncIterator, Callable, Dict, Generic, List, Optional, Tuple, TypeVar
-from weakref import WeakKeyDictionary
+from typing import Optional
 
 
 import numpy as np
-import psutil
-import pyarrow as pa
 import tritonclient.http.aio as aiohttpclient
 from tritonclient.http._utils import _get_inference_request
 from tokenizers import Tokenizer
