@@ -50,7 +50,6 @@ setup(
             'tritonclient[http]>=2.43.0',
             'tokenizers>=0.15.2',
             'boto3',
-            'sagemaker'
         ],
         'all': [
             "click",
