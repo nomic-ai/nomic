@@ -12,6 +12,7 @@ import numpy as np
 import tritonclient.http.aio as aiohttpclient
 from tokenizers import Tokenizer
 from tritonclient.http import InferenceServerClient
+import boto3
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -157,3 +158,33 @@ def parse_sagemaker_response(response):
         response["Body"].read(), header_length=int(header_length_str)
     )
     return result.as_numpy("embedding")
+
+
+def embed_text(texts: List[str], sagemaker_endpoint: str, region_name: str, batch_size=32):
+    """
+    Embed a list of texts using a sagemaker model endpoint.
+
+    Args:
+        sagemaker_endpoint: The sagemaker endpoint to use.
+        texts: List of texts to be embedded.
+        batch_size: Size of each batch.
+
+    Returns:
+        Numpy array of embeddings.
+    """
+    if len(texts) == 0:
+        logger.warning("No texts to embed.")
+        return None
+
+    client = boto3.client("sagemaker-runtime", region_name=region_name)
+    embeddings = []
+
+    embeddings = []
+    for embed_request, header_length in batch_sagemaker_requests(texts, batch_size=batch_size):
+        response = client.invoke_endpoint(
+            EndpointName=sagemaker_endpoint,
+            Body=embed_request,
+            ContentType="application/vnd.sagemaker-triton.binary+json;json-header-size={}".format(header_length),
+        )
+        embeddings.append(parse_sagemaker_response(response))
+    return np.vstack(embeddings)
