@@ -49,7 +49,7 @@ setup(
         'aws': [
             'tritonclient[http]>=2.43.0',
             'tokenizers>=0.15.2',
-            'boto3',
+            'boto3'
         ],
         'all': [
             "click",
@@ -65,7 +65,8 @@ setup(
             'pillow',
             'pyjwt',
             'tritonclient[http]>=2.43.0',
-            'tokenizers>=0.15.2'
+            'tokenizers>=0.15.2',
+            'boto3'
         ]
     },
     entry_points={
