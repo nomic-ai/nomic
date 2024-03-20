@@ -1114,6 +1114,15 @@ class AtlasDataset(AtlasClass):
             if field not in [self.id_field, indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
 
+        if projection.n_neighbors > projection.index_n_neighbors:
+            raise ValueError("`n_neighbors` cannot be greater than `index_n_neighbors`")
+        
+        if projection.index_n_neighbors > DEFAULT_LARGE_PROJECTION_N_NEIGHBORS:
+            raise ValueError(f"`index_n_neighbors` must be lower than {DEFAULT_LARGE_PROJECTION_N_NEIGHBORS}")
+        
+        if projection.rho < 0.0 or projection.rho > 1.0:
+            raise ValueError("`rho` must be in [0,1]")
+
         if self.modality == 'embedding':
             if duplicate_detection.tag_duplicates:
                 raise ValueError("Cannot tag duplicates in an embedding dataset.")
@@ -1137,7 +1146,8 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
-                        'num_generated_noise': projection.num_generated_noise,
+                        'index_n_neighbors': projection.index_n_neighbors,
+                        'rho': projection.rho,
                         'model': projection.model,
                     }
                 ),
@@ -1195,7 +1205,8 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
-                        'num_generated_noise': projection.num_generated_noise,
+                        'index_n_neighbors': projection.index_n_neighbors,
+                        'rho': projection.rho,
                         'model': projection.model,
                     }
                 ),

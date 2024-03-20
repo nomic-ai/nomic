@@ -9,7 +9,8 @@ from .settings import (
     DEFAULT_PROJECTION_N_NEIGHBORS,
     DEFAULT_PROJECTION_SPREAD,
     DEFAULT_PROJECTION_MODEL,
-    DEFAULT_GENERATED_NOISE,
+    DEFAULT_INDEX_N_NEIGHBORS,
+    DEFAULT_PROJECTION_RHO
 )
 
 
@@ -76,8 +77,9 @@ class NomicProjectOptions(BaseModel):
     n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS
     n_epochs: int = DEFAULT_PROJECTION_EPOCHS
     spread: float = DEFAULT_PROJECTION_SPREAD
-    num_generated_noise: int = DEFAULT_GENERATED_NOISE
+    index_n_neighbors: int = DEFAULT_INDEX_N_NEIGHBORS
     model: str = DEFAULT_PROJECTION_MODEL
+    rho: float = DEFAULT_PROJECTION_RHO
 
 
 class NomicTopicOptions(BaseModel):
