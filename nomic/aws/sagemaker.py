@@ -167,8 +167,9 @@ def embed_text(
     Embed a list of texts using a sagemaker model endpoint.
 
     Args:
-        sagemaker_endpoint: The sagemaker endpoint to use.
         texts: List of texts to be embedded.
+        sagemaker_endpoint: The sagemaker endpoint to use.
+        region_name: AWS region sagemaker endpoint is in.
         batch_size: Size of each batch.
 
     Returns:
