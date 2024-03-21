@@ -10,9 +10,8 @@ from typing import List, Optional
 
 import boto3
 import numpy as np
-import tritonclient.http.aio as aiohttpclient
 from tokenizers import Tokenizer
-from tritonclient.http import InferenceServerClient
+from tritonclient.http import InferenceServerClient, InferInput, InferRequestedOutput
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -102,17 +101,15 @@ def create_sagemaker_request_for_batch(texts: List[str], tokenizer: Tokenizer):
     inputs = []
     outputs = []
 
-    inputs.append(aiohttpclient.InferInput("input_ids", list(input_ids.shape), "INT32"))
-    inputs.append(
-        aiohttpclient.InferInput("attention_mask", list(input_ids.shape), "INT32")
-    )
+    inputs.append(InferInput("input_ids", list(input_ids.shape), "INT32"))
+    inputs.append(InferInput("attention_mask", list(input_ids.shape), "INT32"))
 
     # Initialize the data
     inputs[0].set_data_from_numpy(input_ids, binary_data=True)
     inputs[1].set_data_from_numpy(attention_mask, binary_data=True)
 
     # have to set to binary since http doesn't natively support fp16
-    outputs.append(aiohttpclient.InferRequestedOutput("embedding", binary_data=True))
+    outputs.append(InferRequestedOutput("embedding", binary_data=True))
     request, header_length = InferenceServerClient.generate_request_body(
         inputs=inputs, outputs=outputs
     )
@@ -173,7 +170,7 @@ def embed_text(
         batch_size: Size of each batch.
 
     Returns:
-        Numpy array of embeddings.
+        np.float16 array of embeddings.
     """
     if len(texts) == 0:
         logger.warning("No texts to embed.")
