@@ -1097,13 +1097,13 @@ class AtlasDataset(AtlasClass):
             embedding_model = NomicEmbedOptions()
 
         # for large datasets, alter the default projection configurations.
-        if self.total_datums >= 1_000_000:
-            if (
-                projection.n_epochs == DEFAULT_PROJECTION_EPOCHS
-                and projection.n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS
-            ):
-                projection.n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
-                projection.n_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
+        # if self.total_datums >= 1_000_000:
+        #     if (
+        #         projection.n_epochs == DEFAULT_PROJECTION_EPOCHS
+        #         and projection.n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS
+        #     ):
+        #         projection.n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
+        #         projection.n_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
 
         colorable_fields = []
 
