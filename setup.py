@@ -48,7 +48,6 @@ setup(
         ],
         'aws': [
             'tritonclient[http]>=2.43.0',
-            'tokenizers>=0.15.2',
             'boto3'
         ],
         'all': [
@@ -65,7 +64,6 @@ setup(
             'pillow',
             'pyjwt',
             'tritonclient[http]>=2.43.0',
-            'tokenizers>=0.15.2',
             'boto3'
         ]
     },
