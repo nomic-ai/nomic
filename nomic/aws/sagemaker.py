@@ -10,6 +10,7 @@ from typing import List
 
 import boto3
 import numpy as np
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -90,7 +91,7 @@ def embed_texts(
     embeddings = []
 
     embeddings = []
-    for i in range(0, len(texts), batch_size):
+    for i in tqdm(range(0, len(texts), batch_size)):
         batch = json.dumps({"texts": texts[i : i + batch_size]})
         response = client.invoke_endpoint(
             EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json"
