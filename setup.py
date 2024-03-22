@@ -47,7 +47,6 @@ setup(
             "cairosvg"
         ],
         'aws': [
-            'tritonclient[http]>=2.43.0',
             'boto3'
         ],
         'all': [
@@ -63,7 +62,6 @@ setup(
             'pyarrow',
             'pillow',
             'pyjwt',
-            'tritonclient[http]>=2.43.0',
             'boto3'
         ]
     },

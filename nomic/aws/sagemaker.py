@@ -67,7 +67,7 @@ def parse_sagemaker_response(response):
     return np.array(resp["embeddings"], dtype=np.float16)
 
 
-def embed_text(
+def embed_texts(
     texts: List[str], sagemaker_endpoint: str, region_name: str, batch_size=32
 ):
     """

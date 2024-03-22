@@ -1,7 +1,6 @@
 def _check_aws_dependencies():
     try:
-        import tokenizers
-        import tritonclient.http
+        import boto3
     except ImportError as e:
         missing_package = str(e).split("No module named ")[-1].strip("'")
         raise ImportError(
@@ -9,6 +8,4 @@ def _check_aws_dependencies():
             "Please install it by running 'pip install nomic[aws]'."
         )
 
-
 _check_aws_dependencies()
-from .sagemaker import batch_sagemaker_requests
