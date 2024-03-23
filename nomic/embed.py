@@ -87,7 +87,7 @@ def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = 
     # if there are fewer texts per worker than the max chunksize just split them evenly
     chunksize = min(smallchunk, chunksize)
 
-    combined = {'embeddings': [], 'usage': {}, 'model': 'model'}
+    combined = {'embeddings': [], 'usage': {}, 'model': model}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         for chunkstart in range(0, len(texts), chunksize):
