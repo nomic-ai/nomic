@@ -8,6 +8,7 @@ def _check_aws_dependencies():
             "Please install it by running 'pip install nomic[aws]'."
         )
 
+
 _check_aws_dependencies()
 
 from .sagemaker import embed_texts

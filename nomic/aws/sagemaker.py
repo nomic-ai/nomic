@@ -1,56 +1,39 @@
-# Note: This file contains methods to prepare embedding requests for Sagemaker.
-# It may make sense to move code eventually to embed.py or somewhere more generic but
-# it currently lives here to separate out dependencies.
-
-import hashlib
 import json
 import logging
-from enum import Enum
-from typing import List
+from typing import List, Optional
 
 import boto3
 import numpy as np
+import sagemaker
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# NOTE: Currently Sagemaker only supports nomic-embed-text-v1.5 model.
 
-text_embedding_model_info = {
-    "nomic-embed-text-v1.5": {
-        "dim": 768,
-        "max_length": 2048,
-        "pad_id": 0,
-        "recommended_dims": [768, 512, 384, 256, 128],
-    },
-}
-
-NULL_PLACEHOLDER = hashlib.md5(b"nomic null").hexdigest()
-EMPTY_PLACEHOLDER = hashlib.md5(b"nomic empty").hexdigest()
+SAGEMAKER_MODELS = {"nomic-embed-text-v1.5": {"us-east-2": "TODO: ARN"}}
 
 
-class NomicTextEmbeddingModel(Enum):
-    nomic_embed_text_v1_5 = "nomic-embed-text-v1.5"
+def _get_supported_regions(model: str):
+    return SAGEMAKER_MODELS[model].keys()
 
-    def hamming_capable(self):
-        return self == NomicTextEmbeddingModel.nomic_embed_text_v1_5
 
-    def matryoshka_capable(self):
-        return self == NomicTextEmbeddingModel.nomic_embed_text_v1_5
+def _get_model_and_region_for_arn(arn: str):
+    for model in SAGEMAKER_MODELS:
+        for region, arn in SAGEMAKER_MODELS[model].items():
+            if arn == arn:
+                return model, region
+    raise ValueError(f"Mdoel package arn {arn} not supported.")
 
-    def dim(self):
-        return text_embedding_model_info[self.value]["dim"]
 
-    def recommended_dims(self):
-        return text_embedding_model_info[self.value].get("recommended_dims") or [
-            self.dim()
-        ]
-
-    def max_length(self):
-        return text_embedding_model_info[self.value]["max_length"]
-
-    def pad_token(self) -> int:
-        return text_embedding_model_info[self.value]["pad_id"]
+def _get_sagemaker_role():
+    try:
+        return sagemaker.get_execution_role()
+    except ValueError:
+        raise ValueError(
+            "Unable to fetch sagemaker execution role. Please provide a role."
+        )
 
 
 def parse_sagemaker_response(response):
@@ -66,6 +49,81 @@ def parse_sagemaker_response(response):
     # Parse json header size length from the response
     resp = json.loads(response["Body"].read().decode())
     return np.array(resp["embeddings"], dtype=np.float16)
+
+
+def batch_transform(
+    s3_input_path: str,
+    s3_output_path: str,
+    region_name: Optional[str] = None,
+    model_name: str = "nomic-embed-text-v1.5",
+    arn: Optional[str] = None,
+    role: Optional[str] = None,
+    max_payload: Optional[int] = None,
+    instance_type: str = "ml.p3.2xlarge",
+    n_instances: int = 1,
+):
+    """
+    Batch transform a list of texts using a sagemaker model.
+
+    Args:
+        s3_input_path: S3 path to the input data. Input data should be a csv file without any column headers
+            with each line containing a single text.
+        s3_output_path: S3 path to save the output embeddings. Embeddings will be in order of the input data.
+        region_name: AWS region to use.
+        model_name: The model name to use.
+        arn: The model package arn to use.
+        role: The role to use.
+        max_payload: The maximum payload size in megabytes.
+        instance_type: The instance type to use.
+        n_instances: The number of instances to use.
+    Returns:
+        The job name.
+    """
+    if arn is None:
+        if region_name is None or model_name is None:
+            raise ValueError(
+                "region_name and model_name is required if arn is not provided."
+            )
+        if region_name not in _get_supported_regions(model_name):
+            raise ValueError(
+                f"Model {model_name} not supported in region {region_name}."
+            )
+        arn = SAGEMAKER_MODELS[model_name][region_name]
+    else:
+        model_name, region_name = _get_model_and_region_for_arn(arn)
+    if role is None:
+        logger.info("No role provided. Using default sagemaker role.")
+        role = _get_sagemaker_role()
+
+    sm_client = boto3.client("sagemaker", region_name=region_name)
+    sm_session = sagemaker.Session(
+        boto_session=boto3.Session(region_name=region_name),
+        sagemaker_client=sm_client,
+    )
+    model = sagemaker.ModelPackage(
+        name=arn.split("/")[-1],
+        role=role,
+        model_data=None,
+        sagemaker_session=sm_session,  # makes sure the right region is used
+        model_package_arn=arn,
+    )
+    embedder = model.transformer(
+        instance_count=n_instances,
+        instance_type=instance_type,
+        output_path=s3_output_path,
+        strategy="MultiRecord",
+        assemble_with="Line",
+        max_payload=max_payload,
+    )
+    embedder.transform(
+        data=s3_input_path,
+        content_type="text/csv",
+        split_type="Line",
+    )
+    job_name = None
+    if embedder.latest_transform_job is not None:
+        job_name = embedder.latest_transform_job.name
+    return job_name
 
 
 def embed_texts(
