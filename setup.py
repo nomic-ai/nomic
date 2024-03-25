@@ -47,7 +47,8 @@ setup(
             "cairosvg"
         ],
         'aws': [
-            'boto3'
+            'boto3',
+            'sagemaker'
         ],
         'all': [
             "click",
@@ -62,7 +63,8 @@ setup(
             'pyarrow',
             'pillow',
             'pyjwt',
-            'boto3'
+            'boto3',
+            'sagemaker'
         ]
     },
     entry_points={
