@@ -1096,20 +1096,20 @@ class AtlasDataset(AtlasClass):
         else:
             embedding_model = NomicEmbedOptions()
 
-        # for large datasets, alter the default projection configurations.
-        if self.total_datums >= 1_000_000:
-            if (
-                projection.n_epochs == DEFAULT_PROJECTION_EPOCHS
-                and projection.n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS
-            ):
-                projection.n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
-                projection.n_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
-
         colorable_fields = []
 
         for field in self.dataset_fields:
             if field not in [self.id_field, indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
+
+        if projection.n_neighbors > projection.index_n_neighbors:
+            raise ValueError("`n_neighbors` cannot be greater than `index_n_neighbors`")
+        
+        if projection.index_n_neighbors > DEFAULT_LARGE_PROJECTION_N_NEIGHBORS:
+            raise ValueError(f"`index_n_neighbors` must be lower than {DEFAULT_LARGE_PROJECTION_N_NEIGHBORS}")
+        
+        if projection.rho < 0.0 or projection.rho > 1.0:
+            raise ValueError("`rho` must be in [0,1]")
 
         if self.modality == 'embedding':
             if topic_model.community_description_target_field is None:
@@ -1132,6 +1132,9 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
+                        'index_n_neighbors': projection.index_n_neighbors,
+                        'rho': projection.rho,
+                        'model': projection.model,
                     }
                 ),
                 'topic_model_hyperparameters': json.dumps(
@@ -1194,6 +1197,9 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
+                        'index_n_neighbors': projection.index_n_neighbors,
+                        'rho': projection.rho,
+                        'model': projection.model,
                     }
                 ),
                 'topic_model_hyperparameters': json.dumps(
