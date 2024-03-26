@@ -96,7 +96,7 @@ def test_date_metadata():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
     data = [
-        {'my_date': datetime(2022, 1, i%30), 'my_random_date': gen_random_datetime()}
+        {'my_date': datetime(2022, 1, i%28), 'my_random_date': gen_random_datetime()}
         for i in range(1, len(embeddings) + 1)
     ]
 
