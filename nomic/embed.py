@@ -61,7 +61,14 @@ def text_api_request(texts: List[str], model: str, task_type: str, dimensionalit
         raise Exception((response.status_code, response.text))
 
 
-def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = "search_document", dimensionality: int = None, long_text_mode: str = "truncate"):
+def text(
+    texts: List[str],
+    *,
+    model: str = "nomic-embed-text-v1",
+    task_type: str = "search_document",
+    dimensionality: int = None,
+    long_text_mode: str = "truncate",
+):
     """
     Generates embeddings for the given text.
 
@@ -104,7 +111,7 @@ def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = 
     return combined
 
 
-def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision-v1'):
+def images(images: Union[str, PIL.Image.Image], *, model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
 
