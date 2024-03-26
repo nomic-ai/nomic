@@ -31,7 +31,7 @@ def test_map_idless_embeddings():
 
 
 def test_map_embeddings_with_errors():
-    num_embeddings = 20
+    num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
 
     name = f'unittest-dataset-{random.randint(0,1000)}'
@@ -93,7 +93,7 @@ def test_map_text_errors():
 
 
 def test_date_metadata():
-    num_embeddings = 20
+    num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
     data = [
         {'my_date': datetime(2022, 1, i), 'my_random_date': gen_random_datetime()}
@@ -314,7 +314,7 @@ def test_weird_inputs():
 
 
 def test_map_embeddings():
-    num_embeddings = 20
+    num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4())} for i in range(len(embeddings))]
 
@@ -341,7 +341,7 @@ def test_map_embeddings():
     assert retrieved_embeddings.shape[0] == num_embeddings
     map = dataset.maps[0]
 
-    assert len(map.topics.df) == 20
+    assert len(map.topics.df) == 50
 
     assert isinstance(map.topics.hierarchy, dict)
 
