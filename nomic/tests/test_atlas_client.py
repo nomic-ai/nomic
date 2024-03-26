@@ -293,7 +293,7 @@ def test_weird_inputs():
     dataset = AtlasDataset(f"unittest-dataset-{random.randint(0,1000)}", unique_id_field='id')
 
     elements = []
-    for i in range(20):
+    for i in range(50):
         if i % 3 == 0 and i % 5 == 0:
             elements.append({'text': 'fizzbuzz', 'id': str(i)})
         elif i % 3 == 0:
