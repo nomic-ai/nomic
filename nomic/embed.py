@@ -72,6 +72,7 @@ def text_api_request(
 
 def text(
     texts: List[str],
+    *,
     model: str = "nomic-embed-text-v1",
     task_type: str = "search_document",
     dimensionality: int = None,
@@ -126,7 +127,7 @@ def text(
     return combined
 
 
-def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision-v1'):
+def images(images: Union[str, PIL.Image.Image], *, model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
 
