@@ -74,12 +74,12 @@ class NomicProjectOptions(BaseModel):
         n_epochs: How many dataset passes to train the projection model.
     '''
 
-    n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS
+    n_neighbors: int = None
     n_epochs: int = DEFAULT_PROJECTION_EPOCHS
     spread: float = DEFAULT_PROJECTION_SPREAD
-    index_n_neighbors: int = DEFAULT_INDEX_N_NEIGHBORS
+    index_n_neighbors: int = None
     model: str = DEFAULT_PROJECTION_MODEL
-    rho: float = DEFAULT_PROJECTION_RHO
+    rho: float = None
 
 
 class NomicTopicOptions(BaseModel):
