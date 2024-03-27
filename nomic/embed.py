@@ -116,7 +116,6 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
         An object containing your embeddings and request metadata
     """
 
-
     def run_inference(batch):
         response = requests.post(
             atlas_class.atlas_api_path + "/v1/embedding/image",
