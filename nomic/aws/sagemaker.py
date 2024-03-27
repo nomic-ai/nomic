@@ -24,7 +24,7 @@ def _get_model_and_region_for_arn(arn: str):
         for region, arn in SAGEMAKER_MODELS[model].items():
             if arn == arn:
                 return model, region
-    raise ValueError(f"Mdoel package arn {arn} not supported.")
+    raise ValueError(f"Model package arn {arn} not supported.")
 
 
 def _get_sagemaker_role():
@@ -38,10 +38,10 @@ def _get_sagemaker_role():
 
 def parse_sagemaker_response(response):
     """
-    Parse response from a sagemaker triton server and return the embedding as a numpy array.
+    Parse response from a sagemaker server and return the embedding as a numpy array.
 
     Args:
-        response: The response from the sagemaker triton server.
+        response: The response from the sagemaker server.
 
     Returns:
         np.float16 array of embeddings.
@@ -58,9 +58,11 @@ def batch_transform(
     model_name: str = "nomic-embed-text-v1.5",
     arn: Optional[str] = None,
     role: Optional[str] = None,
-    max_payload: Optional[int] = None,
+    max_payload: Optional[int] = 6,
     instance_type: str = "ml.p3.2xlarge",
     n_instances: int = 1,
+    wait: bool = True,
+    logs: bool = True,
 ):
     """
     Batch transform a list of texts using a sagemaker model.
@@ -72,10 +74,12 @@ def batch_transform(
         region_name: AWS region to use.
         model_name: The model name to use.
         arn: The model package arn to use.
-        role: The role to use.
+        role: Arn of the IAM role to use (must have permissions to S3 data as well).
         max_payload: The maximum payload size in megabytes.
         instance_type: The instance type to use.
         n_instances: The number of instances to use.
+        wait: Whether method should wait for job to finish.
+        logs: Whether to log the job status (only meaningful if wait is True).
     Returns:
         The job name.
     """
@@ -119,6 +123,8 @@ def batch_transform(
         data=s3_input_path,
         content_type="text/csv",
         split_type="Line",
+        wait=wait,
+        logs=logs,
     )
     job_name = None
     if embedder.latest_transform_job is not None:
@@ -148,7 +154,6 @@ def embed_texts(
     client = boto3.client("sagemaker-runtime", region_name=region_name)
     embeddings = []
 
-    embeddings = []
     for i in tqdm(range(0, len(texts), batch_size)):
         batch = json.dumps({"texts": texts[i : i + batch_size]})
         response = client.invoke_endpoint(
