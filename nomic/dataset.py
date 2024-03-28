@@ -1123,7 +1123,7 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
-                        'index_n_neighbors': projection.index_n_neighbors,
+                        'local_neighborhood_size': projection.local_neighborhood_size,
                         'rho': projection.rho,
                         'model': projection.model,
                     }
@@ -1188,7 +1188,7 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
-                        'index_n_neighbors': projection.index_n_neighbors,
+                        'local_neighborhood_size': projection.local_neighborhood_size,
                         'rho': projection.rho,
                         'model': projection.model,
                     }
