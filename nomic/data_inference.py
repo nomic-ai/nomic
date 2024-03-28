@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from .settings import (
     DEFAULT_DUPLICATE_THRESHOLD,
+    DEFAULT_PROJECTION_MODEL,
 )
 
 
@@ -72,7 +73,7 @@ class NomicProjectOptions(BaseModel):
     n_epochs: Optional[int] = None
     spread: Optional[float] = None
     local_neighborhood_size: Optional[int] = None
-    model: Optional[str] = None
+    model: str = DEFAULT_PROJECTION_MODEL
     rho: Optional[float] = None
 
 
