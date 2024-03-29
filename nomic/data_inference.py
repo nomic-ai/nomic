@@ -65,12 +65,12 @@ class NomicProjectOptions(BaseModel):
     Options for Nomic 2D Dimensionality Reduction Model
 
     Args:
-        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction. Default: `None`.
-        n_epochs: How many dataset passes to train the projection model. Default: `None`.
+        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction. Default: `None` (Auto-inferred).
+        n_epochs: How many dataset passes to train the projection model. Default: `None` (Auto-inferred).
         model: Sets which model to perform projection. Possible values: `nomic-project-v1` or `nomic-project-v2`. Default: `nomic-project-v1`. 
-        local_neighborhood_size: Only used when `model` is `nomic-project-v2`. Controls the size of the neighborhood used in one of the nomic-project-v2 steps. Min value: `max(n_neighbors, 1)`; max value: `128`. Default: `None`. 
-        spread: Determines how tight together points will be. It is recommended leaving this value as the default `None`.
-        rho: Only used when `model` is `nomic-project-v2`. Controls if points will be more scattered or tight inside clusters. Min value: `0`; max value: `1`. It is recommended leaving this value as the default `None`.
+        local_neighborhood_size: Only used when `model` is `nomic-project-v2`. Controls the size of the neighborhood used in one of the nomic-project-v2 steps. Min value: `max(n_neighbors, 1)`; max value: `128`. Default: `None` (Auto-inferred). 
+        spread: Determines how tight together points will be. It is recommended leaving this value as the default `None` (Auto-inferred).
+        rho: Only used when `model` is `nomic-project-v2`. Controls if points will be more scattered or tight inside clusters. Min value: `0`; max value: `1`. It is recommended leaving this value as the default `None` (Auto-inferred).
     '''
 
     n_neighbors: Optional[int] = None
