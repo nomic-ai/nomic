@@ -54,8 +54,7 @@ def parse_sagemaker_response(response):
 def batch_transform(
     s3_input_path: str,
     s3_output_path: str,
-    region_name: Optional[str] = None,
-    model_name: str = "nomic-embed-text-v1.5",
+    region_name: str,
     arn: Optional[str] = None,
     role: Optional[str] = None,
     max_payload: Optional[int] = 6,
@@ -72,7 +71,6 @@ def batch_transform(
             with each line containing a single text.
         s3_output_path: S3 path to save the output embeddings. Embeddings will be in order of the input data.
         region_name: AWS region to use.
-        model_name: The model name to use.
         arn: The model package arn to use.
         role: Arn of the IAM role to use (must have permissions to S3 data as well).
         max_payload: The maximum payload size in megabytes.
@@ -84,6 +82,7 @@ def batch_transform(
         The job name.
     """
     if arn is None:
+        raise ValueError("model package arn is currently required.")
         if region_name is None or model_name is None:
             raise ValueError(
                 "region_name and model_name is required if arn is not provided."
@@ -93,8 +92,7 @@ def batch_transform(
                 f"Model {model_name} not supported in region {region_name}."
             )
         arn = SAGEMAKER_MODELS[model_name][region_name]
-    else:
-        model_name, region_name = _get_model_and_region_for_arn(arn)
+
     if role is None:
         logger.info("No role provided. Using default sagemaker role.")
         role = _get_sagemaker_role()
