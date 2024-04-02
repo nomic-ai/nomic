@@ -1,7 +1,9 @@
 from nomic import embed
 from nomic import atlas
-from PIL import Image
+from tqdm import tqdm
 import numpy as np
+import base64
+from io import BytesIO
 
 from datasets import load_dataset
 
@@ -22,12 +24,16 @@ labels = [
 images = []
 datums = []
 
-for idx, image in enumerate(dataset):
+max_embeddings = 100_000
+
+for idx, image in enumerate(tqdm(dataset)):
     images.append(image['img'])
     datums.append({'id': str(idx),
-                   'label': labels[image['label']]})
-    #only map 1000 images for demo purposes
-    if idx >= 1000:
+                   'label': labels[image['label']],
+                  }
+                  )
+
+    if idx >= max_embeddings:
         break
 
 output = embed.images(images=images)
@@ -35,7 +41,7 @@ output = embed.images(images=images)
 embeddings = np.array(output['embeddings'])
 
 atlas.map_data(embeddings=embeddings,
-               identifier='CIFAR',
+               identifier=f'zach/cifar-nomic-embed-vision-v1-{len(embeddings)}-with-images',
                data=datums,
                id_field='id',
                topic_model=False)
