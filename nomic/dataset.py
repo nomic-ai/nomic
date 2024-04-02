@@ -950,7 +950,7 @@ class AtlasDataset(AtlasClass):
 
     @property
     def created_timestamp(self) -> datetime:
-        return datetime.strptime(self.meta['creation_timestamp'], '%d/%m/%YT%H:%M:%S.%f')
+        return datetime.strptime(self.meta['created_timestamp'], '%Y-%m-%dT%H:%M:%S.%f%z')
 
     @property
     def total_datums(self) -> int:
