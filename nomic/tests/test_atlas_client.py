@@ -68,6 +68,8 @@ def test_map_embeddings_with_errors():
             is_public=True,
         )
 
+        assert isinstance(dataset.created_timestamp, datetime)
+
     try:
         AtlasDataset(name).delete()
     except BaseException:
