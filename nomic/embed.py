@@ -177,7 +177,6 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
         for chunkstart in range(0, len(image_batch), chunksize):
             chunkend = min(len(image_batch), chunkstart + chunksize)
             chunk = image_batch[chunkstart:chunkend]
-            import pdb; pdb.set_trace()
             futures.append(executor.submit(image_api_request, chunk, model))
 
         for future in futures:
