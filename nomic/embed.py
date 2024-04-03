@@ -16,7 +16,7 @@ from .settings import *
 atlas_class = None
 
 MAX_TEXT_REQUEST_SIZE = 50
-MAX_IMAGE_REQUEST_SIZE = 50
+MAX_IMAGE_REQUEST_SIZE = 512
 MIN_EMBEDDING_DIMENSIONALITY = 64
 
 def is_backoff_status_code(code: int):
