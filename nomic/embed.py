@@ -151,7 +151,7 @@ def images(images: Iterable[Union[str, PIL.Image.Image]], model: str = 'nomic-em
     max_workers = 10
     chunksize = MAX_IMAGE_REQUEST_SIZE
     smallchunk = max(1, int(len(images) / max_workers))
-    # if there are fewer texts per worker than the max chunksize just split them evenly
+    # if there are fewer images per worker than the max chunksize just split them evenly
     chunksize = min(smallchunk, chunksize)
 
     image_batch = []
