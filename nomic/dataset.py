@@ -949,6 +949,10 @@ class AtlasDataset(AtlasClass):
         return self.meta['unique_id_field']
 
     @property
+    def created_timestamp(self) -> datetime:
+        return datetime.strptime(self.meta['created_timestamp'], '%Y-%m-%dT%H:%M:%S.%f%z')
+
+    @property
     def total_datums(self) -> int:
         '''The total number of data points in the dataset.'''
         return self.meta['total_datums_in_project']
