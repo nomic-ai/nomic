@@ -122,7 +122,8 @@ def text(
     task_type: str = "search_document",
     dimensionality: int | None = None,
     long_text_mode: str = "truncate",
-    inference_mode: str = "atlas",
+    inference_mode: str = "remote",
+    device: str | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -134,8 +135,13 @@ def text(
         task_type: The task type to use when embedding. One of `search_query`, `search_document`, `classification`, `clustering`.
         dimensionality: The embedding dimension, for use with Matryoshka-capable models. Defaults to full-size.
         long_text_mode: How to handle texts longer than the model can accept. One of `mean` or `truncate`.
-        inference_mode: How to generate embeddings. One of `atlas`, `local` (Embed4All), or `dynamic` (automatic).
-            Defaults to `atlas`.
+        inference_mode: How to generate embeddings. One of `remote`, `local` (Embed4All), or `dynamic` (automatic).
+            Defaults to `remote`.
+        device: The device to use for local embeddings. Defaults to CPU, or Metal on Apple Silicon. It can be set to:
+            - "gpu": Use the best available GPU.
+            - "amd", "nvidia": Use the best available GPU from the specified vendor.
+			- A specific deviceName from the output of `vulkaninfo --summary`
+            Alternatively, a specific GPU name can also be provided,
         kwargs: Remaining arguments are passed to the Embed4All contructor.
 
     Returns:
@@ -145,7 +151,7 @@ def text(
         raise TypeError("'texts' parameter must be list[str], not str")
 
     modes = {
-        "atlas": False,
+        "remote": False,
         "local": True,
         "dynamic": _should_use_embed4all(),
     }
@@ -155,7 +161,7 @@ def text(
     except KeyError:
         raise ValueError(f"Unknown inference mode: {inference_mode!r}") from None
 
-    if inference_mode == "atlas":
+    if inference_mode == "remote":
         if kwargs:
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
     elif Embed4All is None:
