@@ -24,14 +24,19 @@ labels = [
 images = []
 datums = []
 
-max_embeddings = 100_000
+max_embeddings = 200_000
 
 for idx, image in enumerate(tqdm(dataset)):
     images.append(image['img'])
+    buffered = BytesIO()
+    image['img'].save(buffered, format="PNG")
+
+    b64img = base64.b64encode(buffered.getvalue()).decode('utf-8')
     datums.append({'id': str(idx),
                    'label': labels[image['label']],
+                  "img": f'<img src="data:image/jpeg;base64,{b64img}" style="min-width:150px"/>'
                   }
-                  )
+                )
 
     if idx >= max_embeddings:
         break
@@ -41,8 +46,7 @@ output = embed.images(images=images)
 embeddings = np.array(output['embeddings'])
 
 atlas.map_data(embeddings=embeddings,
-               identifier=f'zach/cifar-nomic-embed-vision-v1-{len(embeddings)}-with-images',
+               identifier=f'cifar',
                data=datums,
                id_field='id',
                topic_model=False)
-
