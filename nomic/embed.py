@@ -4,7 +4,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Iterable
 
 import PIL
 import PIL.Image
@@ -157,7 +157,7 @@ def images(images: Iterable[Union[str, PIL.Image.Image]], model: str = 'nomic-em
     image_batch = []
     for image in images:
         if isinstance(image, str) and os.path.exists(image):
-                img = PIL.Image.open(image)
+                img = resize_pil(PIL.Image.open(image))
                 buffered = BytesIO()
                 img.save(buffered, format="JPEG")
                 image_batch.append(("images", buffered.getvalue()))
