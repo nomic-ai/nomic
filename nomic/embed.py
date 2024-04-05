@@ -140,8 +140,7 @@ def text(
         device: The device to use for local embeddings. Defaults to CPU, or Metal on Apple Silicon. It can be set to:
             - "gpu": Use the best available GPU.
             - "amd", "nvidia": Use the best available GPU from the specified vendor.
-			- A specific deviceName from the output of `vulkaninfo --summary`
-            Alternatively, a specific GPU name can also be provided,
+			- A specific device name from the output of `GPT4All.list_gpus()`
         kwargs: Remaining arguments are passed to the Embed4All contructor.
 
     Returns:
