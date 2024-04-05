@@ -132,7 +132,7 @@ def resize_pil(img):
     return img
 
 
-def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision-v1'):
+def images(images: Iterable[Union[str, PIL.Image.Image]], model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
 
