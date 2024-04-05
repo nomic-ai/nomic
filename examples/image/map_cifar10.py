@@ -46,7 +46,7 @@ output = embed.images(images=images)
 embeddings = np.array(output['embeddings'])
 
 atlas.map_data(embeddings=embeddings,
-               identifier=f'cifar',
+               identifier='cifar',
                data=datums,
                id_field='id',
                topic_model=False)
