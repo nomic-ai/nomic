@@ -33,7 +33,7 @@ setup(
     ],
     extras_require={
         "local": [
-            "gpt4all>=2.3.3,<3",
+            "gpt4all>=2.4.0,<3",
         ],
         'dev': [
             "nomic[local]",
