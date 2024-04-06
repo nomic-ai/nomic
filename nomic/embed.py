@@ -76,11 +76,6 @@ def text_api_request(texts: List[str], model: str, task_type: str, dimensionalit
         raise Exception((response.status_code, response.text))
 
 
-def _should_use_embed4all() -> bool:
-    # TODO(cebtenzzre): implement
-    return True
-
-
 @overload
 def text(
     texts: list[str],
@@ -99,7 +94,7 @@ def text(
     task_type: str = ...,
     dimensionality: int | None = ...,
     long_text_mode: str = ...,
-    inference_mode: Literal["local", "dynamic"],
+    inference_mode: Literal["local"],
     **kwargs: Any,
 ) -> dict[str, Any]: ...
 @overload
@@ -135,8 +130,7 @@ def text(
         task_type: The task type to use when embedding. One of `search_query`, `search_document`, `classification`, `clustering`.
         dimensionality: The embedding dimension, for use with Matryoshka-capable models. Defaults to full-size.
         long_text_mode: How to handle texts longer than the model can accept. One of `mean` or `truncate`.
-        inference_mode: How to generate embeddings. One of `remote`, `local` (Embed4All), or `dynamic` (automatic).
-            Defaults to `remote`.
+        inference_mode: How to generate embeddings. One of `remote` or `local` (Embed4All). Defaults to `remote`.
         device: The device to use for local embeddings. Defaults to CPU, or Metal on Apple Silicon. It can be set to:
             - "gpu": Use the best available GPU.
             - "amd", "nvidia": Use the best available GPU from the specified vendor.
@@ -152,7 +146,6 @@ def text(
     modes = {
         "remote": False,
         "local": True,
-        "dynamic": _should_use_embed4all(),
     }
 
     try:
