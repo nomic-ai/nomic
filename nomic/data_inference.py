@@ -5,9 +5,6 @@ from pydantic import BaseModel, Field
 
 from .settings import (
     DEFAULT_DUPLICATE_THRESHOLD,
-    DEFAULT_PROJECTION_EPOCHS,
-    DEFAULT_PROJECTION_N_NEIGHBORS,
-    DEFAULT_PROJECTION_SPREAD,
 )
 
 
@@ -67,13 +64,20 @@ class NomicProjectOptions(BaseModel):
     Options for Nomic 2D Dimensionality Reduction Model
 
     Args:
-        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction.
-        n_epochs: How many dataset passes to train the projection model.
+        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction. Default: `None` (Auto-inferred).
+        n_epochs: How many dataset passes to train the projection model. Default: `None` (Auto-inferred).
+        model: The model to use when generating the 2D projected embedding space layout. Possible values: `None` or `nomic-project-v1` or `nomic-project-v2`. Default: `None`.
+        local_neighborhood_size: Only used when model is `nomic-project-v2`. Controls the size of the neighborhood used in the local structure optimizing step of `nomic-project-v2` algorithm. Min value: `max(n_neighbors, 1)`; max value: `128`. Default: `None` (Auto-inferred).
+        spread: Determines how tight together points appear. Larger values result a more spread out point layout. Min value: `0`. It is recommended leaving this value as the default `None` (Auto-inferred).
+        rho: Only used when model is nomic-project-v2. Controls the spread in the local structure optimizing step of `nomic-project-v2`. Min value: `0`; max value: `1`. It is recommended to leave this value as the default `None` (Auto-inferred).
     '''
 
-    n_neighbors: int = DEFAULT_PROJECTION_N_NEIGHBORS
-    n_epochs: int = DEFAULT_PROJECTION_EPOCHS
-    spread: float = DEFAULT_PROJECTION_SPREAD
+    n_neighbors: Optional[int] = None
+    n_epochs: Optional[int] = None
+    spread: Optional[float] = None
+    local_neighborhood_size: Optional[int] = None
+    model: Optional[str] = None
+    rho: Optional[float] = None
 
 
 class NomicTopicOptions(BaseModel):

@@ -430,6 +430,7 @@ class AtlasProjection:
         self._tags = None
         self._tile_data = None
         self._data = None
+        self._schema = None
 
     @property
     def map_link(self):
@@ -560,6 +561,32 @@ class AtlasProjection:
             self._data = AtlasMapData(self)
         return self._data
 
+    @property
+    def schema(self):
+        """Projection arrow schema"""
+        if self.dataset.is_locked:
+            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access data.')
+        if self._schema is None:
+            response = requests.get(
+                self.dataset.atlas_api_path + f"/v1/project/projection/{self.projection_id}/schema",
+                headers=self.dataset.header,
+            )
+            if response.status_code != 200:
+                raise Exception(response.text)
+
+            content = response.content
+            self._schema = ipc.read_schema(io.BytesIO(content))
+        return self._schema
+
+    def _registered_sidecars(self) -> List[Tuple[str, str]]:
+        "Returns [(field_name, sidecar_name), ...]"
+        sidecars = []
+        for field in self.schema:
+            sidecar_name = json.loads(field.metadata.get(b'sidecar_name', b'""'))
+            if sidecar_name:
+                sidecars.append((field.name, sidecar_name))
+        return sidecars
+
     def _fetch_tiles(self, overwrite: bool = True):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
@@ -579,6 +606,7 @@ class AtlasProjection:
             sidecars = set([v for k, v in json.loads(root.schema.metadata[b'sidecars']).items()])
         except KeyError:
             sidecars = set([])
+        sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
         for path in self._tiles_in_order():
             tb = pa.feather.read_table(path, memory_map=True)
             for sidecar_file in sidecars:
@@ -638,6 +666,7 @@ class AtlasProjection:
         root = f'{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/'
         all_quads = []
         sidecars = None
+        registered_sidecars = set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
         while len(quads) > 0:
             rawquad = quads.pop(0)
             quad = rawquad + ".feather"
@@ -671,7 +700,7 @@ class AtlasProjection:
             elif sidecars is None:
                 sidecars = set()
             if not "." in rawquad:
-                for sidecar in sidecars:
+                for sidecar in sidecars | registered_sidecars:
                     # The sidecar loses the feather suffix because it's supposed to be raw.
                     quads.append(quad.replace(".feather", f'.{sidecar}'))
             if not schema.metadata or b'children' not in schema.metadata:
@@ -920,6 +949,10 @@ class AtlasDataset(AtlasClass):
         return self.meta['unique_id_field']
 
     @property
+    def created_timestamp(self) -> datetime:
+        return datetime.strptime(self.meta['created_timestamp'], '%Y-%m-%dT%H:%M:%S.%f%z')
+
+    @property
     def total_datums(self) -> int:
         '''The total number of data points in the dataset.'''
         return self.meta['total_datums_in_project']
@@ -1096,15 +1129,6 @@ class AtlasDataset(AtlasClass):
         else:
             embedding_model = NomicEmbedOptions()
 
-        # for large datasets, alter the default projection configurations.
-        if self.total_datums >= 1_000_000:
-            if (
-                projection.n_epochs == DEFAULT_PROJECTION_EPOCHS
-                and projection.n_neighbors == DEFAULT_PROJECTION_N_NEIGHBORS
-            ):
-                projection.n_neighbors = DEFAULT_LARGE_PROJECTION_N_NEIGHBORS
-                projection.n_epochs = DEFAULT_LARGE_PROJECTION_EPOCHS
-
         colorable_fields = []
 
         for field in self.dataset_fields:
@@ -1132,6 +1156,9 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
+                        'local_neighborhood_size': projection.local_neighborhood_size,
+                        'rho': projection.rho,
+                        'model': projection.model,
                     }
                 ),
                 'topic_model_hyperparameters': json.dumps(
@@ -1194,6 +1221,9 @@ class AtlasDataset(AtlasClass):
                         'n_neighbors': projection.n_neighbors,
                         'n_epochs': projection.n_epochs,
                         'spread': projection.spread,
+                        'local_neighborhood_size': projection.local_neighborhood_size,
+                        'rho': projection.rho,
+                        'model': projection.model,
                     }
                 ),
                 'topic_model_hyperparameters': json.dumps(

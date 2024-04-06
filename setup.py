@@ -6,7 +6,7 @@ description = 'The official Nomic python client.'
     
 setup(
     name='nomic',
-    version='3.0.15',
+    version='3.0.21',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
@@ -29,7 +29,7 @@ setup(
         'tqdm',
         'pyarrow',
         'pillow',
-        'pyjwt'
+        'pyjwt',
     ],
     extras_require={
         "local": [
@@ -49,8 +49,27 @@ setup(
             "mkdocs-jupyter",
             "pillow",
             "cairosvg"
+        ],
+        'aws': [
+            'boto3',
+            'sagemaker'
+        ],
+        'all': [
+            "click",
+            "jsonlines",
+            "loguru",
+            'rich',
+            'requests',
+            'numpy',
+            'pandas',
+            'pydantic',
+            'tqdm',
+            'pyarrow',
+            'pillow',
+            'pyjwt',
+            'boto3',
+            'sagemaker'
         ]
-
     },
     entry_points={
         'console_scripts': ['nomic=nomic.cli:cli'],
