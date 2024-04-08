@@ -84,7 +84,7 @@ def text(
     task_type: str = ...,
     dimensionality: int | None = ...,
     long_text_mode: str = ...,
-    inference_mode: Literal["atlas"] = ...,
+    inference_mode: Literal["remote"] = ...,
 ) -> dict[str, Any]: ...
 @overload
 def text(
