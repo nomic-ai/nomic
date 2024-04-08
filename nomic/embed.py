@@ -166,7 +166,7 @@ def text(
         )
 
     if use_embed4all:
-        return _text_embed4all(texts, model, task_type, dimensionality, long_text_mode, **kwargs)
+        return _text_embed4all(texts, model, task_type, dimensionality, long_text_mode, device=device, **kwargs)
 
     return _text_atlas(texts, model, task_type, dimensionality, long_text_mode)
 
