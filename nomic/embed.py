@@ -95,6 +95,7 @@ def text(
     dimensionality: int | None = ...,
     long_text_mode: str = ...,
     inference_mode: Literal["local"],
+    device: str | None = ...,
     **kwargs: Any,
 ) -> dict[str, Any]: ...
 @overload
@@ -106,6 +107,7 @@ def text(
     dimensionality: int | None = ...,
     long_text_mode: str = ...,
     inference_mode: str,
+    device: str | None = ...,
     **kwargs: Any,
 ) -> dict[str, Any]: ...
 
@@ -154,6 +156,8 @@ def text(
         raise ValueError(f"Unknown inference mode: {inference_mode!r}") from None
 
     if inference_mode == "remote":
+        if device is not None:
+            raise TypeError(f"device argument cannot be used with inference_mode='remote'")
         if kwargs:
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
     elif Embed4All is None:
