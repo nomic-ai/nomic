@@ -817,7 +817,11 @@ class AtlasMapData:
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             for big_sidecar in additional_sidecars:
-                fname = base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode("utf-8")
+                fname = (
+                    base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode("utf-8")
+                    if big_sidecar != 'datum_id'
+                    else big_sidecar
+                )
                 carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
@@ -835,6 +839,7 @@ class AtlasMapData:
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         sidecars = fields
+        registered_sidecars = self.projection._registered_sidecars()
         if sidecars is None:
             sidecars = [
                 field
@@ -844,18 +849,21 @@ class AtlasMapData:
         else:
             for field in sidecars:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
+        encoded_sidecars = [base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8") for sidecar in sidecars]
+        if any(sidecar == 'datum_id' for (field, sidecar) in registered_sidecars):
+            sidecars.append('datum_id')
+            encoded_sidecars.append('datum_id')
 
         for quad in tqdm(all_quads):
-            for sidecar in sidecars:
+            for encoded_colname in encoded_sidecars:
                 quad_str = os.path.join(*[str(q) for q in quad])
-                encoded_colname = base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8")
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / Path(filename)
 
                 if not os.path.exists(path):
                     # WARNING: Potentially large data request here
                     download_feather(root + filename, path, headers=self.dataset.header)
-        
+
         return sidecars
 
     @property
