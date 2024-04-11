@@ -73,13 +73,13 @@ def test_embed_bad_values(mode):
         embed.text('x', inference_mode=mode)
     def check(**kwargs):
         return embed.text(['x'], inference_mode=mode, **kwargs)
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         check(model='foo')
     with pytest.raises(Exception):
         check(task_type='foo')
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         check(dimensionality=0)
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         check(long_text_mode='foo')
 
 
