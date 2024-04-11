@@ -29,6 +29,14 @@ def test_embed_empty_text():
         embed.text([''], inference_mode='local')
 
 
+def test_embed_empty_list():
+    """embedding an empty list returns an empty result"""
+    result = embed.text([], inference_mode='local')
+    assert result['usage'] == {}
+    assert result['model'] == DEFAULT_MODEL
+    assert result['embeddings'] == []
+
+
 @parametrize('task', ['search_query', 'search_document', 'classification', 'clustering'])
 def test_embed_local_task(task):
     _test_local(task_type=task)

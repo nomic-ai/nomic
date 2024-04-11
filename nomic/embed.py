@@ -232,6 +232,10 @@ def _text_embed4all(
     if any(text == "" for text in texts):
         raise NotImplementedError("Embedding an empty text is not implemented")
 
+    if not texts:
+        # special-case this since Embed4All doesn't allow it
+        return {"embeddings": [], "usage": {}, "model": model}
+
     if _embed4all is None or _embed4all.gpt4all.config["filename"] != g4a_model or _embed4all_kwargs != kwargs:
         using_gpu = kwargs.get("device") not in (None, "cpu")
         if using_gpu and _embed4all_has_init_gpu:
