@@ -20,6 +20,7 @@ def _test_local(text='x', n_tokens=1, dimensionality=None, **kwargs):
 #@parametrize('text,n_tokens', [('The quick brown fox jumps over the lazy dog.', 10), ('', 0)])
 @parametrize('text,n_tokens', [('The quick brown fox jumps over the lazy dog.', 10)])
 def test_embed_local(text, n_tokens):
+    """local inference works"""
     _test_local(text, n_tokens)
 
 
@@ -39,10 +40,12 @@ def test_embed_empty_list():
 
 @parametrize('task', ['search_query', 'search_document', 'classification', 'clustering'])
 def test_embed_local_task(task):
+    """all supported task types can be used"""
     _test_local(task_type=task)
 
 
 def text_embed_local_dimensionality():
+    """dimensionality argument can be used with nomic-embed-text v1 and v1.5"""
     _test_local(model='nomic-embed-text-v1.5', dimensionality=64)
     _test_local(dimensionality=768)  # can be used with v1 if set to n_embd
     with pytest.warns(UserWarning):
@@ -57,13 +60,14 @@ def text_embed_non_matroyshka():
 
 
 def test_embed_bad_mode():
+    """invalid inference mode is not accepted"""
     with pytest.raises(ValueError):
         embed.text(['x'], inference_mode='foo')
 
 
 @parametrize('mode', ['local', 'remote'])
 def test_embed_bad_values(mode):
-    """do not accept invalid argument values"""
+    """invalid argument values are not accepted"""
     with pytest.raises(TypeError):
         # text argument must be a list, not str
         embed.text('x', inference_mode=mode)
@@ -78,7 +82,7 @@ def test_embed_bad_values(mode):
 
 
 def test_embed_remote_kwargs():
-    """do not accept local kwargs in remote mode"""
+    """local kwargs are not accepted in remote mode"""
     with pytest.raises(TypeError):
         embed.text('x', device='cpu')
     with pytest.raises(TypeError):
