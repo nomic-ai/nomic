@@ -242,9 +242,6 @@ def _text_embed4all(
     except KeyError:
         raise ValueError(f"Unsupported model for local embeddings: {model!r}") from None
 
-    if any(text == "" for text in texts):
-        raise NotImplementedError("Embedding an empty text is not implemented")
-
     if not texts:
         # special-case this since Embed4All doesn't allow it
         return {"embeddings": [], "usage": {}, "model": model, "inference_mode": "local"}
