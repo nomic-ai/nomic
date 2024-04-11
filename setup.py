@@ -33,7 +33,7 @@ setup(
     ],
     extras_require={
         'local': [
-            'gpt4all>=2.4.0,<3',
+            'gpt4all>=2.5.0,<3',
         ],
         'aws': [
             'boto3',
