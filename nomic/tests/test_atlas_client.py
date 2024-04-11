@@ -197,6 +197,7 @@ def test_data():
         {'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0, 'text': str(i)}
         for i in range(len(embeddings))
     ]
+    all_columns = data[0].keys()
 
     dataset = atlas.map_data(
         embeddings=embeddings,
@@ -210,7 +211,9 @@ def test_data():
     with dataset.wait_for_dataset_lock():
         df = dataset.maps[0].data.df
         assert len(df) > 0
-        assert "text" in df.columns
+        # all uploaded columns, including the id column, should be in the downloaded data
+        for column in all_columns:
+            assert column in df.columns
         dataset.delete()
 
 
