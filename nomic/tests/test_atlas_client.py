@@ -22,11 +22,17 @@ def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
     return start + (end - start) * random.random()
 
 
+def gen_temp_identifier() -> str:
+    now = datetime.now().isoformat(timespec='seconds')
+    rand = random.randint(0, 10000)
+    return f'{now}-{rand}'
+
+
 def test_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
 
-    dataset = atlas.map_data(identifier=f"unittest-dataset-{random.randint(0,1000)}", embeddings=embeddings)
+    dataset = atlas.map_data(identifier=f"unittest-dataset-{gen_temp_identifier()}", embeddings=embeddings)
     AtlasDataset(dataset.identifier).delete()
 
 
@@ -34,7 +40,7 @@ def test_map_embeddings_with_errors():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
 
-    name = f'unittest-dataset-{random.randint(0,1000)}'
+    name = f'unittest-dataset-{gen_temp_identifier()}'
     # test nested dictionaries
     with pytest.raises(Exception):
         data = [{'key': {'nested_key': 'nested_value'}} for i in range(len(embeddings))]
@@ -45,7 +51,7 @@ def test_map_embeddings_with_errors():
     except BaseException:
         pass
 
-    name = f'unittest-dataset-{random.randint(0, 100)}'
+    name = f'unittest-dataset-{gen_temp_identifier()}'
     # test underscore
     with pytest.raises(Exception):
         data = [{'__hello': {'hello'}} for i in range(len(embeddings))]
@@ -56,7 +62,7 @@ def test_map_embeddings_with_errors():
     except BaseException:
         pass
 
-    name = f'unittest-dataset-{random.randint(0, 100)}'
+    name = f'unittest-dataset-{gen_temp_identifier()}'
     # test to long ids
     with pytest.raises(Exception):
         data = [{'id': str(uuid.uuid4()) + 'a'} for i in range(len(embeddings))]
@@ -78,7 +84,7 @@ def test_map_embeddings_with_errors():
 
 def test_map_text_errors():
     # no indexed field
-    name = f'unittest-dataset-{random.randint(0, 100)}'
+    name = f'unittest-dataset-{gen_temp_identifier()}'
     with pytest.raises(Exception):
         dataset = atlas.map_data(
             data=[{'key': 'a'}],
@@ -103,7 +109,7 @@ def test_date_metadata():
     ]
 
     dataset = atlas.map_data(
-        embeddings=embeddings, identifier=f"unittest-dataset-{random.randint(0,1000)}", data=data, is_public=True
+        embeddings=embeddings, identifier=f"unittest-dataset-{gen_temp_identifier()}", data=data, is_public=True
     )
 
     assert dataset.id
@@ -115,7 +121,7 @@ def test_date_metadata():
         data[1]['my_date'] = data[1]['my_date'] + 'asdf'
         dataset = atlas.map_data(
             embeddings=embeddings,
-            identifier=f"unittest-dataset-{random.randint(0,1000)}",
+            identifier=f"unittest-dataset-{gen_temp_identifier()}",
             id_field='id',
             data=data,
             is_public=True,
@@ -130,7 +136,7 @@ def test_dataset_with_updates():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        identifier='test_map_embedding_progressive',
+        identifier=f'test_map_embedding_progressive-{gen_temp_identifier()}',
         id_field='id',
         data=data,
         is_public=True,
@@ -162,7 +168,7 @@ def test_topics():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        identifier=f"unittest-dataset-{random.randint(0,1000)}",
+        identifier=f"unittest-dataset-{gen_temp_identifier()}",
         id_field='id',
         data=data,
         is_public=True,
@@ -200,7 +206,7 @@ def test_data():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        identifier=f"unittest-dataset-{random.randint(0,1000)}",
+        identifier=f"unittest-dataset-{gen_temp_identifier()}",
         id_field='id',
         data=data,
         is_public=True,
@@ -270,7 +276,7 @@ def test_flawed_ids():
     """
     Check that null and empty strings do not block an index build.
     """
-    p = AtlasDataset(f"unittest-dataset-{random.randint(0,1000)}", unique_id_field='id')
+    p = AtlasDataset(f"unittest-dataset-{gen_temp_identifier()}", unique_id_field='id')
 
     elements = []
     for i in range(10):
@@ -292,7 +298,7 @@ def test_weird_inputs():
     """
     Check that null and empty strings do not block an index build.
     """
-    dataset = AtlasDataset(f"unittest-dataset-{random.randint(0,1000)}", unique_id_field='id')
+    dataset = AtlasDataset(f"unittest-dataset-{gen_temp_identifier()}", unique_id_field='id')
 
     elements = []
     for i in range(20):
@@ -322,7 +328,7 @@ def test_map_embeddings():
 
     dataset = atlas.map_data(
         embeddings=embeddings,
-        identifier=f"unittest-dataset-{random.randint(0,1000)}",
+        identifier=f"unittest-dataset-{gen_temp_identifier()}",
         id_field='id',
         data=data,
         is_public=True,
@@ -367,7 +373,7 @@ def test_map_text_pandas():
         }
     )
 
-    dataset = atlas.map_data(identifier='UNITTEST_pandas_text', indexed_field="color", data=data, is_public=True)
+    dataset = atlas.map_data(identifier=f'UNITTEST_pandas_text-{gen_temp_identifier()}', indexed_field="color", data=data, is_public=True)
 
     assert dataset.total_datums == 50
 
@@ -385,7 +391,7 @@ def test_map_text_arrow():
     )
 
     dataset = atlas.map_data(
-        identifier='UNITTEST_arrow_text',
+        identifier=f'UNITTEST_arrow_text-{gen_temp_identifier()}',
         id_field='id',
         indexed_field="color",
         data=data,
