@@ -32,7 +32,7 @@ def parse_sagemaker_response(response):
     """
     # Parse json header size length from the response
     resp = json.loads(response["Body"].read().decode())
-    return np.array(resp["embeddings"], dtype=np.float16)
+    return resp["embeddings"]
 
 
 def preprocess_texts(texts: List[str], task_type: str = "search_document"):
@@ -139,10 +139,10 @@ def embed_texts(
         texts: List of texts to be embedded.
         sagemaker_endpoint: The sagemaker endpoint to use.
         region_name: AWS region sagemaker endpoint is in.
-        batch_size: Size of each batch.
+        batch_size: Size of each batch. Default is 32.
 
     Returns:
-        Dictionary with "embeddings" (np.float16 array of embeddings), "model" (sagemaker endpoint used to generate embeddings).
+        Dictionary with "embeddings" (python 2d list of floats), "model" (sagemaker endpoint used to generate embeddings).
     """
 
     if len(texts) == 0:
@@ -159,10 +159,10 @@ def embed_texts(
         response = client.invoke_endpoint(
             EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json"
         )
-        embeddings.append(parse_sagemaker_response(response))
+        embeddings.extend(parse_sagemaker_response(response))
 
     return {
-        "embeddings": np.vstack(embeddings),
+        "embeddings": embeddings,
         "model": sagemaker_endpoint,
         "usage": {},
     }
