@@ -224,7 +224,6 @@ def _text_atlas(
 
 _embed4all: Embed4All | None = None
 _embed4all_kwargs: dict[str, Any] | None = None
-_embed4all_has_init_gpu = False
 
 
 def _text_embed4all(
@@ -236,7 +235,7 @@ def _text_embed4all(
     dynamic_mode: bool,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    global _embed4all, _embed4all_kwargs, _embed4all_has_init_gpu
+    global _embed4all, _embed4all_kwargs
 
     try:
         g4a_model = _EMBED4ALL_MODELS[model]
@@ -251,15 +250,10 @@ def _text_embed4all(
         return {"embeddings": [], "usage": {}, "model": model, "inference_mode": "local"}
 
     if _embed4all is None or _embed4all.gpt4all.config["filename"] != g4a_model or _embed4all_kwargs != kwargs:
-        using_gpu = kwargs.get("device") not in (None, "cpu")
-        if using_gpu and _embed4all_has_init_gpu:
-            raise NotImplementedError("GPU context can only be initialized once")
-
+        if _embed4all is not None:
+            _embed4all.close()
         _embed4all = Embed4All(g4a_model, **kwargs)
         _embed4all_kwargs = kwargs
-
-        if using_gpu:
-            _embed4all_has_init_gpu = True
 
     def cancel_cb(batch_sizes: list[int], backend: str) -> bool:
         # TODO(jared): make this more accurate
