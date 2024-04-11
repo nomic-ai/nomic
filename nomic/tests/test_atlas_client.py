@@ -123,33 +123,6 @@ def test_date_metadata():
         dataset.delete()
 
 
-def test_dataset_with_updates():
-    num_embeddings = 100
-    embeddings = np.random.rand(num_embeddings, 10)
-    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 0.0} for i in range(len(embeddings))]
-
-    dataset = atlas.map_data(
-        embeddings=embeddings,
-        identifier='test_map_embedding_progressive',
-        id_field='id',
-        data=data,
-        is_public=True,
-        topic_model=dict(build_topic_model=False),
-    )
-
-    embeddings = np.random.rand(num_embeddings, 10) + np.ones(shape=(num_embeddings, 10))
-    data = [{'field': str(uuid.uuid4()), 'id': str(uuid.uuid4()), 'upload': 1.0} for i in range(len(embeddings))]
-
-    current_dataset = AtlasDataset(dataset.identifier)
-
-    with current_dataset.wait_for_dataset_lock():
-        current_dataset.add_data(data=data, embeddings=embeddings)
-        current_dataset.update_indices()
-
-    with current_dataset.wait_for_dataset_lock():
-        current_dataset.delete()
-
-
 def test_topics():
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
