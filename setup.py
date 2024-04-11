@@ -32,11 +32,18 @@ setup(
         'pyjwt',
     ],
     extras_require={
-        "local": [
-            "gpt4all>=2.4.0,<3",
+        'local': [
+            'gpt4all>=2.4.0,<3',
+        ],
+        'aws': [
+            'boto3',
+            'sagemaker'
+        ],
+        'all': [
+            'nomic[local,aws]',
         ],
         'dev': [
-            "nomic[local]",
+            "nomic[all]",
             'black',
             'coverage',
             "pylint",
@@ -50,26 +57,6 @@ setup(
             "pillow",
             "cairosvg"
         ],
-        'aws': [
-            'boto3',
-            'sagemaker'
-        ],
-        'all': [
-            "click",
-            "jsonlines",
-            "loguru",
-            'rich',
-            'requests',
-            'numpy',
-            'pandas',
-            'pydantic',
-            'tqdm',
-            'pyarrow',
-            'pillow',
-            'pyjwt',
-            'boto3',
-            'sagemaker'
-        ]
     },
     entry_points={
         'console_scripts': ['nomic=nomic.cli:cli'],
