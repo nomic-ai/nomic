@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union, overload
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, overload
 
 import PIL
 import PIL.Image
