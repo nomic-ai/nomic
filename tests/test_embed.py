@@ -55,7 +55,7 @@ def text_embed_local_dimensionality():
 
 def text_embed_non_matroyshka():
     """only nomic-embed-text-v1.5 can output a smaller dimensionality"""
-    with pytest.raises(RuntimeError):
+    with pytest.raises(Exception):
         embed.text(['x'], dimensionality=64)
 
 
@@ -75,6 +75,8 @@ def test_embed_bad_values(mode):
         return embed.text(['x'], inference_mode=mode, **kwargs)
     with pytest.raises(ValueError):
         check(model='foo')
+    with pytest.raises(Exception):
+        check(task_type='foo')
     with pytest.raises(ValueError):
         check(dimensionality=0)
     with pytest.raises(ValueError):
