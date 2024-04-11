@@ -5,13 +5,13 @@ PYTHON:=python3
 
 all: venv
 	source env/bin/activate; python -m pip install --upgrade pip
-	source env/bin/activate; pip install --use-deprecated=legacy-resolver -e .
+	source env/bin/activate; pip install -e .
 
 venv:
 	if [ ! -d $(ROOT_DIR)/env ]; then $(PYTHON) -m venv $(ROOT_DIR)/env; fi
 
 dev: all
-	source env/bin/activate; pip install --use-deprecated=legacy-resolver -e ".[dev, aws]"
+	source env/bin/activate; pip install -e ".[dev]"
 
 black:
 	source env/bin/activate; black -l 120 -S --target-version py36 nomic
