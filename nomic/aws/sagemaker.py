@@ -31,9 +31,7 @@ def _get_sagemaker_role():
     try:
         return sagemaker.get_execution_role()
     except ValueError:
-        raise ValueError(
-            "Unable to fetch sagemaker execution role. Please provide a role."
-        )
+        raise ValueError("Unable to fetch sagemaker execution role. Please provide a role.")
 
 
 def parse_sagemaker_response(response):
@@ -84,13 +82,9 @@ def batch_transform(
     if arn is None:
         raise ValueError("model package arn is currently required.")
         if region_name is None or model_name is None:
-            raise ValueError(
-                "region_name and model_name is required if arn is not provided."
-            )
+            raise ValueError("region_name and model_name is required if arn is not provided.")
         if region_name not in _get_supported_regions(model_name):
-            raise ValueError(
-                f"Model {model_name} not supported in region {region_name}."
-            )
+            raise ValueError(f"Model {model_name} not supported in region {region_name}.")
         arn = SAGEMAKER_MODELS[model_name][region_name]
 
     if role is None:
@@ -130,9 +124,7 @@ def batch_transform(
     return job_name
 
 
-def embed_texts(
-    texts: List[str], sagemaker_endpoint: str, region_name: str, batch_size=32
-):
+def embed_texts(texts: List[str], sagemaker_endpoint: str, region_name: str, batch_size=32):
     """
     Embed a list of texts using a sagemaker model endpoint.
 
@@ -154,8 +146,6 @@ def embed_texts(
 
     for i in tqdm(range(0, len(texts), batch_size)):
         batch = json.dumps({"texts": texts[i : i + batch_size]})
-        response = client.invoke_endpoint(
-            EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json"
-        )
+        response = client.invoke_endpoint(EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json")
         embeddings.append(parse_sagemaker_response(response))
     return np.vstack(embeddings)

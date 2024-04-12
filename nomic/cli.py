@@ -63,7 +63,6 @@ def login(token, tenant='production', domain=None):
     if not nomic_base_path.exists():
         nomic_base_path.mkdir()
 
-
     expires = None
     refresh_token = None
 
@@ -85,7 +84,7 @@ def login(token, tenant='production', domain=None):
             'refresh_token': refresh_token,
             'token': bearer_token,
             'tenant': tenant,
-            'expires': expires
+            'expires': expires,
         }
 
         if tenant == 'enterprise':
@@ -141,7 +140,6 @@ def switch(tenant):
 @click.argument('command', nargs=1, default='')
 @click.argument('params', nargs=-1)
 def cli(command, params, domain=None):
-
     if command == 'login':
         if len(params) == 0:
             login(token=None, tenant='production')

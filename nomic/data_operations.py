@@ -36,12 +36,16 @@ class AtlasMapDuplicates:
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
         try:
-            duplicate_fields = [field for field in projection._fetch_tiles().column_names if "_duplicate_class" in field]
+            duplicate_fields = [
+                field for field in projection._fetch_tiles().column_names if "_duplicate_class" in field
+            ]
             cluster_fields = [field for field in projection._fetch_tiles().column_names if "_cluster" in field]
             assert len(duplicate_fields) > 0, "Duplicate detection has not yet been run on this map."
             self.duplicate_field = duplicate_fields[0]
             self.cluster_field = cluster_fields[0]
-            self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, self.duplicate_field, self.cluster_field])
+            self._tb: pa.Table = projection._fetch_tiles().select(
+                [self.id_field, self.duplicate_field, self.cluster_field]
+            )
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Duplicate detection has not yet been run on this map.")
         self.duplicate_field = self.duplicate_field.lstrip("_")
@@ -75,7 +79,9 @@ class AtlasMapDuplicates:
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})\n"
-        duplicate_count = len(self.tb[self.id_field].filter(pc.equal(self.tb[self.duplicate_field], 'deletion candidate')))
+        duplicate_count = len(
+            self.tb[self.id_field].filter(pc.equal(self.tb[self.duplicate_field], 'deletion candidate'))
+        )
         cluster_count = len(self.tb[self.cluster_field].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
         return repr + self.df.__repr__()
@@ -453,7 +459,7 @@ class AtlasMapEmbeddings:
         route = self.projection.dataset.atlas_api_path + '/v1/project/data/get/embedding/paged'
         last = None
 
-        with tqdm(total=self.dataset.total_datums//limit) as pbar:
+        with tqdm(total=self.dataset.total_datums // limit) as pbar:
             while True:
                 params = {'projection_id': self.projection.id, "last_file": last, "page_size": limit}
                 r = requests.post(route, headers=self.projection.dataset.header, json=params)
@@ -554,7 +560,6 @@ class AtlasMapEmbeddings:
 
         raise DeprecationWarning("Deprecated as of June 2023. Iterate `map.embeddings.latent`.")
 
-
     def _download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
         Deprecated in favor of `map.embeddings.latent`.
@@ -569,7 +574,6 @@ class AtlasMapEmbeddings:
 
         '''
         raise DeprecationWarning("Deprecated as of June 2023. Use `map.embeddings.latent`.")
-
 
     def __repr__(self) -> str:
         return str(self.df)
@@ -590,7 +594,7 @@ class AtlasMapTags:
         self.auto_cleanup = auto_cleanup
 
     @property
-    def df(self, overwrite: Optional[bool]=False) -> pd.DataFrame:
+    def df(self, overwrite: Optional[bool] = False) -> pd.DataFrame:
         '''
         Pandas DataFrame mapping each data point to its tags.
         '''
@@ -623,7 +627,7 @@ class AtlasMapTags:
                 tb = tb.append_column(tag["tag_name"], bitmask)
             tbs.append(tb)
         return pa.concat_tables(tbs).to_pandas()
-            
+
     def get_tags(self) -> Dict[str, List[str]]:
         '''
         Retrieves back all tags made in the web browser for a specific map.
@@ -632,23 +636,26 @@ class AtlasMapTags:
         Returns:
             A list of tags a user has created for projection.
         '''
-        tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
-                     headers=self.dataset.header,
-                     params={'project_id': self.dataset.id, 
-                             'projection_id': self.projection.id, 
-                             'include_dsl_rule': False}).json()
+        tags = requests.get(
+            self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
+            headers=self.dataset.header,
+            params={'project_id': self.dataset.id, 'projection_id': self.projection.id, 'include_dsl_rule': False},
+        ).json()
         keep_tags = []
         for tag in tags:
-            is_complete = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
+            is_complete = requests.get(
+                self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
                 headers=self.dataset.header,
-                params={'project_id': self.dataset.id, 
-                      'tag_id': tag["tag_id"], 
-                }).json()['is_complete']
+                params={
+                    'project_id': self.dataset.id,
+                    'tag_id': tag["tag_id"],
+                },
+            ).json()['is_complete']
             if is_complete:
                 keep_tags.append(tag)
         return keep_tags
-    
-    def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool]=False):
+
+    def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool] = False):
         '''
         Returns the datum ids in a given tag.
 
@@ -687,7 +694,7 @@ class AtlasMapTags:
             if tag["tag_name"] == name:
                 return tag
         raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
-    
+
     def _download_tag(self, tag_name: str, overwrite: Optional[bool] = False):
         """
         Downloads the feather tree for large sidecar columns.
@@ -715,12 +722,12 @@ class AtlasMapTags:
                     download_success = True
                 except pa.ArrowInvalid:
                     path.unlink(missing_ok=True)
-            
+
             if not download_success:
                 raise Exception(f"Failed to download tag {tag_name}.")
             ordered_tag_paths.append(path)
         return ordered_tag_paths
-    
+
     def _remove_outdated_tag_files(self, tag_definition_ids: List[str]):
         '''
         Attempts to remove outdated tag files based on tag definition ids.
@@ -855,7 +862,7 @@ class AtlasMapData:
                 if not os.path.exists(path):
                     # WARNING: Potentially large data request here
                     download_feather(root + filename, path, headers=self.dataset.header)
-        
+
         return sidecars
 
     @property

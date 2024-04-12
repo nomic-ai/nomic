@@ -19,6 +19,7 @@ atlas_class = None
 MAX_TEXT_REQUEST_SIZE = 50
 MIN_EMBEDDING_DIMENSIONALITY = 64
 
+
 def is_backoff_status_code(code: int):
     if code == 429 or code >= 500:
         # server error, do backoff
@@ -45,13 +46,21 @@ def request_backoff(
             return response
 
 
-def text_api_request(texts: List[str], model: str, task_type: str, dimensionality: int = None, long_text_mode: str = "truncate"):
+def text_api_request(
+    texts: List[str], model: str, task_type: str, dimensionality: int = None, long_text_mode: str = "truncate"
+):
     global atlas_class
     response = request_backoff(
         lambda: requests.post(
             atlas_class.atlas_api_path + "/v1/embedding/text",
             headers=atlas_class.header,
-            json={"texts": texts, "model": model, "task_type": task_type, "dimensionality": dimensionality, "long_text_mode": long_text_mode},
+            json={
+                "texts": texts,
+                "model": model,
+                "task_type": task_type,
+                "dimensionality": dimensionality,
+                "long_text_mode": long_text_mode,
+            },
         )
     )
 
@@ -61,7 +70,13 @@ def text_api_request(texts: List[str], model: str, task_type: str, dimensionalit
         raise Exception((response.status_code, response.text))
 
 
-def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = "search_document", dimensionality: int = None, long_text_mode: str = "truncate"):
+def text(
+    texts: List[str],
+    model: str = "nomic-embed-text-v1",
+    task_type: str = "search_document",
+    dimensionality: int = None,
+    long_text_mode: str = "truncate",
+):
     """
     Generates embeddings for the given text.
 
@@ -74,10 +89,17 @@ def text(texts: List[str], model: str = "nomic-embed-text-v1", task_type: str = 
         An object containing your embeddings and request metadata
     """
     global atlas_class
-    assert task_type in ["search_query", "search_document", "classification", "clustering"], f"Invalid task type: {task_type}"
+    assert task_type in [
+        "search_query",
+        "search_document",
+        "classification",
+        "clustering",
+    ], f"Invalid task type: {task_type}"
 
     if dimensionality and dimensionality < MIN_EMBEDDING_DIMENSIONALITY:
-        logging.warning(f"Dimensionality {dimensionality} is less than the suggested of {MIN_EMBEDDING_DIMENSIONALITY}. Performance may be degraded.")
+        logging.warning(
+            f"Dimensionality {dimensionality} is less than the suggested of {MIN_EMBEDDING_DIMENSIONALITY}. Performance may be degraded."
+        )
 
     if atlas_class is None:
         atlas_class = AtlasClass()
@@ -132,17 +154,17 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
 
     def resize_pil(img):
         width, height = img.size
-        #if image is too large, downsample before sending over the wire
+        # if image is too large, downsample before sending over the wire
         max_width = 512
         max_height = 512
         if max_width > 512 or max_height > 512:
-            downsize_factor = max(width/max_width, height/max_height)
-            img.resize((width/downsize_factor, height/downsize_factor))
+            downsize_factor = max(width / max_width, height / max_height)
+            img.resize((width / downsize_factor, height / downsize_factor))
         return img
 
     def send_request(i):
         image_batch = []
-        shard = images[i:i+IMAGE_EMBEDDING_BATCH_SIZE]
+        shard = images[i : i + IMAGE_EMBEDDING_BATCH_SIZE]
         # process images into base64 encoded strings (for now)
         for image in shard:
             # TODO implement check for bytes.
@@ -163,7 +185,6 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
         response = run_inference(batch=image_batch)
         print(response['usage'])
         return (i, response)
-
 
     # naive batching, we should parallelize this across threads like we do with uploads.
     responses = []

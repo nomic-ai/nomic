@@ -438,7 +438,7 @@ class AtlasProjection:
         Retrieves a map link.
         '''
         return f"{self.dataset.web_path}/data/{self.dataset.meta['organization_slug']}/{self.dataset.meta['slug']}/map"
-        #return f"{self.project.web_path}/data/{self.project.meta['organization_slug']}/{self.project.meta['slug']}/map"
+        # return f"{self.project.web_path}/data/{self.project.meta['organization_slug']}/{self.project.meta['slug']}/map"
 
     @property
     def _status(self):
@@ -529,7 +529,9 @@ class AtlasProjection:
     def topics(self):
         """Topic state"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access topics.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access topics.'
+            )
         if self._topics is None:
             self._topics = AtlasMapTopics(self)
         return self._topics
@@ -538,7 +540,9 @@ class AtlasProjection:
     def embeddings(self):
         """Embedding state"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access embeddings.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access embeddings.'
+            )
         if self._embeddings is None:
             self._embeddings = AtlasMapEmbeddings(self)
         return self._embeddings
@@ -547,7 +551,9 @@ class AtlasProjection:
     def tags(self):
         """Tag state"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access tags.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access tags.'
+            )
         if self._tags is None:
             self._tags = AtlasMapTags(self)
         return self._tags
@@ -556,7 +562,9 @@ class AtlasProjection:
     def data(self):
         """Metadata state"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access data.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access data.'
+            )
         if self._data is None:
             self._data = AtlasMapData(self)
         return self._data
@@ -565,7 +573,9 @@ class AtlasProjection:
     def schema(self):
         """Projection arrow schema"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access data.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access data.'
+            )
         if self._schema is None:
             response = requests.get(
                 self.dataset.atlas_api_path + f"/v1/project/projection/{self.projection_id}/schema",
@@ -690,7 +700,7 @@ class AtlasProjection:
                     download_success = True
                 except pa.ArrowInvalid:
                     path.unlink(missing_ok=True)
-            
+
             if not download_success:
                 raise Exception(f"Failed to download tiles. Aborting...")
 
@@ -754,7 +764,7 @@ class AtlasDataStream(AtlasClass):
         endpoint = f"/v1/data/{self.name}"
         response = requests.get(
             self.atlas_api_path + endpoint,
-            headers = self.header,
+            headers=self.header,
         )
         if response.status_code == 200:
             return response.json()

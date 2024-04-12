@@ -237,6 +237,7 @@ def get_object_size_in_bytes(obj):
 
     return sz
 
+
 # Helpful function for downloading feather files
 # Best for small feather files
 def download_feather(url: str, path: str, headers: Optional[dict] = None):
