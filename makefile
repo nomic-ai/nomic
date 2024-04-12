@@ -46,7 +46,7 @@ ci_venv:
 	source ci_venv/bin/activate; pip install -r ci_venv_requirements.txt
 
 black_ci: ci_venv
-	source ci_venv/bin/activate; black --check --diff -l 120 -S --target-version py36 .
+	source ci_venv/bin/activate; black --check --diff -l 120 -S --target-version py36 nomic
 
 isort_ci: ci_venv
-	source ci_venv/bin/activate; isort --check --diff --skip env --skip ci_venv --profile black --ignore-whitespace --atomic -w 120 .
+	source ci_venv/bin/activate; isort --check --diff --skip env --skip ci_venv --profile black --ignore-whitespace --atomic -w 120 nomic
