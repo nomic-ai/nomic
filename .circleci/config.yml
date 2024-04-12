@@ -19,11 +19,11 @@ commands:
     test:
       steps:
         - run:
-           name: Run Isort
-           command: make isort_ci | cat
-       - run:
-           name: Run Black
-           command: make black_ci | cat
+            name: Run Isort
+            command: make isort_ci | cat
+        - run:
+            name: Run Black
+            command: make black_ci | cat
         - run:
             name: Create Atlas Client Environment
             command: make dev
