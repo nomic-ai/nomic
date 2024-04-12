@@ -15,19 +15,11 @@ def _test_local(text='x', n_tokens=1, dimensionality=None, **kwargs):
     assert len(embedding) == dimensionality or 768  # n_embd
 
 
-# TODO(jared): Empty string fails to embed due to tokenization issues.
-#              Should be fixed by llama.cpp PR #6498
-#@parametrize('text,n_tokens', [('The quick brown fox jumps over the lazy dog.', 10), ('', 0)])
-@parametrize('text,n_tokens', [('The quick brown fox jumps over the lazy dog.', 10)])
+# empty string counts as 23 tokens because it embeds md5('nomic empty') instead
+@parametrize('text,n_tokens', [('The quick brown fox jumps over the lazy dog.', 10), ('', 23)])
 def test_embed_local(text, n_tokens):
     """local inference works"""
     _test_local(text, n_tokens)
-
-
-def test_embed_empty_text():
-    """embedding an empty string locally is not implemented"""
-    with pytest.raises(NotImplementedError):
-        embed.text([''], inference_mode='local')
 
 
 def test_embed_empty_list():

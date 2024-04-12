@@ -6,11 +6,11 @@ description = 'The official Nomic python client.'
     
 setup(
     name='nomic',
-    version='3.0.22',
+    version='3.0.23',
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
-    packages=find_packages(),
+    packages=find_packages(include=['nomic', 'nomic.*']),
     author_email="support@nomic.ai",
     author="nomic.ai",
     classifiers=[
@@ -33,7 +33,7 @@ setup(
     ],
     extras_require={
         'local': [
-            'gpt4all>=2.4.0,<3',
+            'gpt4all>=2.5.0,<3',
         ],
         'aws': [
             'boto3',
