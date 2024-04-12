@@ -10,7 +10,7 @@ setup(
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
-    packages=find_packages(),
+    packages=find_packages(include=['nomic', 'nomic.*']),
     author_email="support@nomic.ai",
     author="nomic.ai",
     classifiers=[
