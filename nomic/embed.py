@@ -16,7 +16,7 @@ from .dataset import AtlasClass
 from .settings import *
 
 try:
-    from gpt4all import Embed4All
+    from gpt4all import CancellationError, Embed4All
 except ImportError:
     if not TYPE_CHECKING:
         Embed4All = None
@@ -94,7 +94,7 @@ def text(
     task_type: str = ...,
     dimensionality: int | None = ...,
     long_text_mode: str = ...,
-    inference_mode: Literal["local"],
+    inference_mode: Literal["local", "dynamic"],
     device: str | None = ...,
     **kwargs: Any,
 ) -> dict[str, Any]: ...
@@ -132,7 +132,8 @@ def text(
         task_type: The task type to use when embedding. One of `search_query`, `search_document`, `classification`, `clustering`.
         dimensionality: The embedding dimension, for use with Matryoshka-capable models. Defaults to full-size.
         long_text_mode: How to handle texts longer than the model can accept. One of `mean` or `truncate`.
-        inference_mode: How to generate embeddings. One of `remote` or `local` (Embed4All). Defaults to `remote`.
+        inference_mode: How to generate embeddings. One of `remote`, `local` (Embed4All), or `dynamic` (automatic).
+            Defaults to `remote`.
         device: The device to use for local embeddings. Defaults to CPU, or Metal on Apple Silicon. It can be set to:
             - "gpu": Use the best available GPU.
             - "amd", "nvidia": Use the best available GPU from the specified vendor.
@@ -145,14 +146,14 @@ def text(
     if isinstance(texts, str):
         raise TypeError("'texts' parameter must be list[str], not str")
 
-    modes = {
-        "remote": False,
-        "local": True,
-    }
-
-    try:
-        use_embed4all = modes[inference_mode]
-    except KeyError:
+    use_embed4all = dynamic_mode = False
+    if inference_mode == "remote":
+        pass
+    elif inference_mode == "local":
+        use_embed4all = True
+    elif inference_mode == "dynamic":
+        use_embed4all = dynamic_mode = True
+    else:
         raise ValueError(f"Unknown inference mode: {inference_mode!r}") from None
 
     if inference_mode == "remote":
@@ -166,7 +167,19 @@ def text(
         )
 
     if use_embed4all:
-        return _text_embed4all(texts, model, task_type, dimensionality, long_text_mode, device=device, **kwargs)
+        try:
+            return _text_embed4all(
+                texts,
+                model,
+                task_type,
+                dimensionality,
+                long_text_mode,
+                dynamic_mode,
+                device=device,
+                **kwargs,
+            )
+        except CancellationError:
+            pass  # dynamic mode chose to use Atlas, fall through
 
     return _text_atlas(texts, model, task_type, dimensionality, long_text_mode)
 
@@ -192,7 +205,7 @@ def _text_atlas(
     # if there are fewer texts per worker than the max chunksize just split them evenly
     chunksize = min(smallchunk, chunksize)
 
-    combined = {'embeddings': [], 'usage': {}, 'model': model}
+    combined = {'embeddings': [], 'usage': {}, 'model': model, 'inference_mode': 'remote'}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         for chunkstart in range(0, len(texts), chunksize):
@@ -220,6 +233,7 @@ def _text_embed4all(
     task_type: str,
     dimensionality: int | None,
     long_text_mode: str,
+    dynamic_mode: bool,
     **kwargs: Any,
 ) -> dict[str, Any]:
     global _embed4all, _embed4all_kwargs, _embed4all_has_init_gpu
@@ -234,7 +248,7 @@ def _text_embed4all(
 
     if not texts:
         # special-case this since Embed4All doesn't allow it
-        return {"embeddings": [], "usage": {}, "model": model}
+        return {"embeddings": [], "usage": {}, "model": model, "inference_mode": "local"}
 
     if _embed4all is None or _embed4all.gpt4all.config["filename"] != g4a_model or _embed4all_kwargs != kwargs:
         using_gpu = kwargs.get("device") not in (None, "cpu")
@@ -247,6 +261,12 @@ def _text_embed4all(
         if using_gpu:
             _embed4all_has_init_gpu = True
 
+    def cancel_cb(batch_sizes: list[int], backend: str) -> bool:
+        # TODO(jared): make this more accurate
+        n_tokens = sum(batch_sizes)
+        limits = {"cpu": 16, "kompute": 32, "metal": 1024}
+        return n_tokens > limits[backend]
+
     output = _embed4all.embed(
         texts,
         prefix=task_type,
@@ -254,10 +274,11 @@ def _text_embed4all(
         long_text_mode=long_text_mode,
         return_dict=True,
         atlas=True,
+        cancel_cb=cancel_cb if dynamic_mode else None,
     )
     ntok = output["n_prompt_tokens"]
     usage = {"prompt_tokens": ntok, "total_tokens": ntok}
-    return {"embeddings": output["embeddings"], "usage": usage, "model": model}
+    return {"embeddings": output["embeddings"], "usage": usage, "model": model, "inference_mode": "local"}
 
 
 def free_embedding_model() -> None:
