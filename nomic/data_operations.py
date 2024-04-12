@@ -9,7 +9,7 @@ from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Iterable, Optional, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas

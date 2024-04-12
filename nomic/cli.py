@@ -1,10 +1,10 @@
 import json
-import jwt
 import os
 import time
 from pathlib import Path
 
 import click
+import jwt
 import requests
 from rich.console import Console
 

@@ -4,12 +4,10 @@ import random
 import sys
 from io import BytesIO
 from typing import Optional
-
-import requests
-import pyarrow as pa
 from uuid import UUID
 
 import pyarrow as pa
+import requests
 
 nouns = [
     'newton',

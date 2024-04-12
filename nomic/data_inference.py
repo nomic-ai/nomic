@@ -3,10 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 import pyarrow as pa
 from pydantic import BaseModel, Field
 
-from .settings import (
-    DEFAULT_DUPLICATE_THRESHOLD,
-    DEFAULT_PROJECTION_MODEL,
-)
+from .settings import DEFAULT_DUPLICATE_THRESHOLD, DEFAULT_PROJECTION_MODEL
 
 
 def from_list(values: Dict[str, Any], schema=None) -> pa.Table:

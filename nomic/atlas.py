@@ -13,7 +13,7 @@ from pandas import DataFrame
 from tqdm import tqdm
 
 from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicProjectOptions, NomicTopicOptions
-from .dataset import AtlasDataStream, AtlasDataset
+from .dataset import AtlasDataset, AtlasDataStream
 from .settings import *
 from .utils import arrow_iterator, b64int, get_random_name
 
