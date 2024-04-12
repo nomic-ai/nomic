@@ -40,3 +40,13 @@ test:
 clean:
 	rm -rf {.pytest_cache,env,nomic.egg-info}
 	find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
+	
+ci_venv:
+	if [ ! -d $(ROOT_DIR)/ci_venv ]; then $(PYTHON) -m venv $(ROOT_DIR)/ci_venv; fi
+	source ci_venv/bin/activate; pip install -r ci_venv_requirements.txt
+
+black_ci: ci_venv
+	source ci_venv/bin/activate; black --check --diff -l 120 -S --target-version py36 .
+
+isort_ci: ci_venv
+	source ci_venv/bin/activate; isort --check --diff --skip env --skip ci_venv --profile black --ignore-whitespace --atomic -w 120 .

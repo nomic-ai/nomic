@@ -19,18 +19,17 @@ commands:
     test:
       steps:
         - run:
+           name: Run Isort
+           command: make isort_ci | cat
+       - run:
+           name: Run Black
+           command: make black_ci | cat
+        - run:
             name: Create Atlas Client Environment
             command: make dev
         - run:
             name: Authenticate with Nomic
             command: source env/bin/activate && nomic login staging $NOMIC_API_KEY
-
-#        - run:
-#            name: Run Isort
-#            command: make isort_ci | cat
-#        - run:
-#            name: Run Black
-#            command: make black_ci | cat
         - run:
             name: Run Unit Tests
             command: make test | cat
