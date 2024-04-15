@@ -40,7 +40,7 @@ echo $NODE_VERSION
 echo $MIN_NODE_VERSION
 # vercomp $MIN_NODE_VERSION $NODE_VERSION
 echo "Node version ${NODE_VERSION} too old, min expected is ${MIN_NODE_VERSION}, run:"
-${SUDO} npm upgrade -g pyright
+${SUDO} npm upgrade -g nodejs
 NODE_VERSION=`node -v | cut -d'v' -f2`
 echo "Installed version ${NODE_VERSION}"
 
