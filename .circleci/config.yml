@@ -53,7 +53,7 @@ commands:
 jobs:
   build_test:
     machine:
-      image: ubuntu-2004:202010-01 # recommended linux image
+      image: circleci/python:latest #ubuntu-2004:202010-01 # recommended linux image
     resource_class: large
     steps:
       - prep
