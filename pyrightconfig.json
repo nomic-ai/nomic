@@ -1,0 +1,15 @@
+{
+    "include": [
+        "nomic",
+    ],
+  
+    "exclude": [
+        "**/__pycache__",
+    ],
+  
+    "ignore": [
+    ],
+  
+    "defineConstant": {
+    },
+}
