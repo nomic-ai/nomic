@@ -5,14 +5,8 @@ commands:
       steps:
         - checkout
         - run:
-            name: Update
-            command: sudo apt update
-        - run:
-            name: Install NPM
-            command: sudo apt install nodejs npm
-        - run:
             name: Install python3 and pip3
-            command: sudo apt-get update && sudo apt-get -y install python3 python3-pip && sudo npm install && sudo npm install pyright
+            command: sudo apt-get update && sudo apt-get -y install python3 python3-pip
         - run:
             name: Install AWS CLI
             command: sudo pip3 install awscli --upgrade        
