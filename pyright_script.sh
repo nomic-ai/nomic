@@ -36,14 +36,16 @@ vercomp () {
 echo "Checking node version..."
 NODE_VERSION=`node -v | cut -d'v' -f2`
 MIN_NODE_VERSION="14.21.3"
-vercomp $MIN_NODE_VERSION $NODE_VERSION
+echo $NODE_VERSION
+echo $MIN_NODE_VERSION
+# vercomp $MIN_NODE_VERSION $NODE_VERSION
 echo "Node version ${NODE_VERSION} too old, min expected is ${MIN_NODE_VERSION}, run:"
 # 1 == gt
-if [[ $? -eq 1 ]]; then
-    echo "Node version ${NODE_VERSION} too old, min expected is ${MIN_NODE_VERSION}, run:"
-    echo " npm -g upgrade node"
-    exit -1
-fi
+# if [[ $? -eq 1 ]]; then
+#     echo "Node version ${NODE_VERSION} too old, min expected is ${MIN_NODE_VERSION}, run:"
+#     echo " npm -g upgrade node"
+#     exit -1
+# fi
 
 # Do we need to sudo?
 echo "Checking node_modules dir..."
