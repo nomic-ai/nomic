@@ -35,7 +35,7 @@ commands:
             command: make black_ci | cat
         - run:
             name: Run Pyright
-            command: make pyright_ci | cat
+            command: pyright
         - run:
             name: Create Atlas Client Environment
             command: make dev
