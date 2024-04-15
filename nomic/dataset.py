@@ -10,6 +10,7 @@ import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime
+from math import isnan
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -1369,6 +1370,12 @@ class AtlasDataset(AtlasClass):
             embeddings: A numpy array of embeddings: each row corresponds to a row in the table. Use if you already have embeddings for your datapoints.
             pbar: (Optional). A tqdm progress bar to update.
         """
+
+        # More often than not, NaNs in this list indicate that someone is uploading from pandas, which uses NaN for null.
+        # Since we can't plot a NaN anyway, we replace it with nulls.
+        if (isinstance(data, list)):
+            data = swap_nans_for_nones(data)
+
         if embeddings is not None or (isinstance(data, pa.Table) and "_embeddings" in data.column_names):
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         else:
@@ -1631,3 +1638,7 @@ class AtlasDataset(AtlasClass):
         )
 
         logger.info(f"Updating maps in dataset `{self.identifier}`")
+
+
+def swap_nans_for_nones(items : List[Dict]):
+    return [{k : (v if not isnan(v) else None) for k, v in item.items() if not isnan} for item in items]
