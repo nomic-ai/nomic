@@ -55,7 +55,7 @@ jobs:
     # machine:
     #   image: ubuntu-2004:202010-01 # recommended linux image
     docker:
-      - image: circleci/python:latest
+      - image: circleci/python:3.8
     resource_class: large
     steps:
       - prep
