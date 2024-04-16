@@ -1,10 +1,10 @@
 {
     "include": [
+        "nomic",
     ],
   
     "exclude": [
         "**/__pycache__",
-        "nomic",
         "examples",
         "docs",
         "build",
