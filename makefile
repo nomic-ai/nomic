@@ -20,6 +20,8 @@ black:
 isort:
 	source env/bin/activate; isort  --ignore-whitespace --atomic -w 120 nomic
 
+pyright:
+	source env/bin/activate; pyright nomic/ -p . 
 
 documentation:
 	source env/bin/activate; rm -rf /.site && mkdocs build
