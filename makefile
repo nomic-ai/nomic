@@ -52,4 +52,4 @@ isort_ci: ci_venv
 	source ci_venv/bin/activate; isort --check --diff --skip env --skip ci_venv --profile black --ignore-whitespace --atomic -w 120 nomic
 
 pyright_ci: ci_venv
-	source ci_venv/bin/activate; pyright -p . --outputjson > pyright_output.json
+	source ci_venv/bin/activate; pyright -p .
