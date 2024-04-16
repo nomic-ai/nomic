@@ -5,6 +5,9 @@
     "exclude": [
         "**/__pycache__",
         "nomic",
+        "examples",
+        "docs",
+        "build",
     ],
   
     "ignore": [
