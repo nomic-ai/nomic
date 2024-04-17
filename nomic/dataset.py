@@ -141,6 +141,8 @@ class AtlasClass(object):
         for organization in user['organizations']:
             if organization['user_id'] == user['sub'] and organization['access_role'] == 'OWNER':
                 return organization
+            
+        return {}
 
     def _delete_project_by_id(self, project_id):
         response = requests.post(
@@ -316,7 +318,7 @@ class AtlasClass(object):
                         f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version."
                     )
                     reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
-                if pc.any(pc.equal(pc.binary_length(reformatted[field.name]), 0)):
+                if pc.any(pc.equal(pa.compute.binary_length(reformatted[field.name]), 0)):
                     mask = pc.equal(pc.binary_length(reformatted[field.name]), 0).combine_chunks()
                     assert pa.types.is_boolean(mask.type)
                     reformatted[field.name] = pc.replace_with_mask(reformatted[field.name], mask, "null")
@@ -1031,7 +1033,7 @@ class AtlasDataset(AtlasClass):
                 has_logged = True
             time.sleep(5)
 
-    def get_map(self, name: str = None, atlas_index_id: str = None, projection_id: str = None) -> AtlasProjection:
+    def get_map(self, name: Optional[str] = None, atlas_index_id: Optional[str] = None, projection_id: Optional[str] = None) -> AtlasProjection:
         '''
         Retrieves a map.
 
@@ -1078,14 +1080,14 @@ class AtlasDataset(AtlasClass):
 
     def create_index(
         self,
-        name: str = None,
-        indexed_field: str = None,
-        modality: str = None,
+        name: Optional[str] = None,
+        indexed_field: Optional[str] = None,
+        modality: Optional[str] = None,
         projection: Union[bool, Dict, NomicProjectOptions] = True,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
-        reuse_embeddings_from_index: str = None,
+        reuse_embeddings_from_index: Optional[str] = None,
     ) -> AtlasProjection:
         '''
         Creates an index in the specified dataset.
@@ -1144,7 +1146,8 @@ class AtlasDataset(AtlasClass):
         for field in self.dataset_fields:
             if field not in [self.id_field, indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
-
+        
+        build_template = {}
         if self.modality == 'embedding':
             if topic_model.community_description_target_field is None:
                 logger.warning(
@@ -1272,19 +1275,20 @@ class AtlasDataset(AtlasClass):
         index_id = job['index_id']
 
         try:
-            projection = self.get_map(atlas_index_id=index_id)
+            atlas_projection = self.get_map(atlas_index_id=index_id)
         except ValueError:
             # give some delay
             time.sleep(5)
             try:
-                projection = self.get_map(atlas_index_id=index_id)
+                atlas_projection = self.get_map(atlas_index_id=index_id)
             except ValueError:
-                projection = None
+                atlas_projection = None
 
-        if projection is None:
+        if atlas_projection is None:
             logger.warning("Could not find a map being built for this dataset.")
-        logger.info(f"Created map `{projection.name}` in dataset `{self.identifier}`: {projection.map_link}")
-        return projection
+        else:
+            logger.info(f"Created map `{atlas_projection.name}` in dataset `{self.identifier}`: {atlas_projection.map_link}")
+        return atlas_projection
 
     def __repr__(self):
         m = self.meta
@@ -1371,7 +1375,7 @@ class AtlasDataset(AtlasClass):
         else:
             raise Exception(response.text)
 
-    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: np.array = None, pbar=None):
+    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: np.ndarray = None, pbar=None):
         """
         Adds data of varying modality to an Atlas dataset.
         Args:
@@ -1390,7 +1394,7 @@ class AtlasDataset(AtlasClass):
         data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the dataset schema.
         pbar: (Optional). A tqdm progress bar to display progress.
         """
-        if DataFrame is not None and isinstance(data, DataFrame):
+        if isinstance(data, DataFrame):
             data = pa.Table.from_pandas(data)
         elif isinstance(data, list):
             data = pa.Table.from_pylist(data)
@@ -1398,7 +1402,7 @@ class AtlasDataset(AtlasClass):
             raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
         self._add_data(data, pbar=pbar)
 
-    def _add_embeddings(self, data: Union[DataFrame, List[Dict], pa.Table, None], embeddings: np.array, pbar=None):
+    def _add_embeddings(self, data: Union[DataFrame, List[Dict], pa.Table], embeddings: np.ndarray, pbar=None):
         """
         Add data, with associated embeddings, to the dataset.
 
@@ -1419,7 +1423,7 @@ class AtlasDataset(AtlasClass):
 
         tb: pa.Table
 
-        if DataFrame is not None and isinstance(data, DataFrame):
+        if isinstance(data, DataFrame):
             tb = pa.Table.from_pandas(data)
         elif isinstance(data, list):
             tb = pa.Table.from_pylist(data)
@@ -1576,7 +1580,7 @@ class AtlasDataset(AtlasClass):
             else:
                 logger.info("Upload succeeded.")
 
-    def update_maps(self, data: List[Dict], embeddings: Optional[np.array] = None, num_workers: int = 10):
+    def update_maps(self, data: List[Dict], embeddings: Optional[np.ndarray] = None, num_workers: int = 10):
         '''
         Utility method to update a project's maps by adding the given data.
 

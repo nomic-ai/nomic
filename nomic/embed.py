@@ -5,7 +5,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import List, Union
+from typing import List, Union, Optional
 
 import PIL
 import PIL.Image
@@ -34,20 +34,21 @@ def request_backoff(
     max_retries=5,
     backoff_if=is_backoff_status_code,
 ):
-    for attempt in range(max_retries + 1):
-        response = callable()
+    response = callable()
+    for attempt in range(max_retries+1):
         if attempt == max_retries:
             return response
         if backoff_if(response.status_code):
             delay = init_backoff * (ratio**attempt)
             logging.info(f"server error, backing off for {int(delay)}s")
             time.sleep(delay)
+            response = callable()
         else:
-            return response
-
+            break
+    return response
 
 def text_api_request(
-    texts: List[str], model: str, task_type: str, dimensionality: int = None, long_text_mode: str = "truncate"
+    texts: List[str], model: str, task_type: str, dimensionality: Optional[int] = None, long_text_mode: str = "truncate"
 ):
     global atlas_class
     response = request_backoff(
@@ -74,7 +75,7 @@ def text(
     texts: List[str],
     model: str = "nomic-embed-text-v1",
     task_type: str = "search_document",
-    dimensionality: int = None,
+    dimensionality: Optional[int] = None,
     long_text_mode: str = "truncate",
 ):
     """
@@ -126,7 +127,7 @@ def text(
     return combined
 
 
-def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision-v1'):
+def images(images: Union[List[str], List[PIL.Image.Image]], model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
 
@@ -137,6 +138,9 @@ def images(images: Union[str, PIL.Image.Image], model: str = 'nomic-embed-vision
     Returns:
         An object containing your embeddings and request metadata
     """
+    global atlas_class
+    if atlas_class is None:
+        atlas_class = AtlasClass()
 
     def run_inference(batch):
         response = requests.post(

@@ -21,8 +21,11 @@ from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from tqdm import tqdm
 
+from nomic.dataset import AtlasProjection
+
 from .settings import EMBEDDING_PAGINATION_LIMIT
 from .utils import download_feather
+
 
 
 class AtlasMapDuplicates:
@@ -74,13 +77,13 @@ class AtlasMapDuplicates:
         Returns:
             The ids for all data points which are semantic duplicates and are candidates for being deleted from the dataset. If you remove these data points from your dataset, your dataset will be semantically deduplicated.
         """
-        dupes = self.tb[self.id_field].filter(pc.equal(self.tb[self.duplicate_field], 'deletion candidate'))
+        dupes = self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})\n"
         duplicate_count = len(
-            self.tb[self.id_field].filter(pc.equal(self.tb[self.duplicate_field], 'deletion candidate'))
+            self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))
         )
         cluster_count = len(self.tb[self.cluster_field].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
@@ -92,7 +95,7 @@ class AtlasMapTopics:
     Atlas Topics State
     """
 
-    def __init__(self, projection: "AtlasProjection"):
+    def __init__(self, projection: AtlasProjection):
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
@@ -283,7 +286,7 @@ class AtlasMapTopics:
                 topic_densities[topic] += row[self.id_field + '_count']
         return topic_densities
 
-    def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
+    def vector_search_topics(self, queries: np.ndarray, k: int = 32, depth: int = 3) -> Dict:
         '''
         Given an embedding, returns a normalized distribution over topics.
 
@@ -418,7 +421,7 @@ class AtlasMapEmbeddings:
         return self.df
 
     @property
-    def latent(self) -> np.array:
+    def latent(self) -> np.ndarray:
         """
         High dimensional embeddings.
 
@@ -447,7 +450,7 @@ class AtlasMapEmbeddings:
             for file in sortable:
                 tb = feather.read_table(file, memory_map=True)
                 dims = tb['_embeddings'].type.list_size
-                all_embeddings.append(pc.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))
+                all_embeddings.append(pa.compute.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))
         return np.vstack(all_embeddings)
 
     def _download_latent(self):
@@ -476,7 +479,7 @@ class AtlasMapEmbeddings:
                 last = tilename
                 pbar.update(1)
 
-    def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
+    def vector_search(self, queries: np.ndarray = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
         '''
         Performs semantic vector search over data points on your map.
         If ids is specified, receive back the most similar data ids in latent vector space to your input ids.
@@ -510,8 +513,6 @@ class AtlasMapEmbeddings:
                 raise Exception("`queries` must be an instance of np.array.")
             if queries.shape[0] > max_queries:
                 raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
-
-        if queries is not None:
             if queries.ndim != 2:
                 raise ValueError(
                     'Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).'
@@ -520,7 +521,6 @@ class AtlasMapEmbeddings:
             bytesio = io.BytesIO()
             np.save(bytesio, queries)
 
-        if queries is not None:
             response = requests.post(
                 self.projection.dataset.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
                 headers=self.projection.dataset.header,
@@ -796,13 +796,12 @@ class AtlasMapData:
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        self._tb = None
         self.fields = fields
         try:
             # Run fetch_tiles first to guarantee existence of quad feather files
             self._basic_data: pa.Table = self.projection._fetch_tiles()
             sidecars = self._download_data(fields=fields)
-            self._read_prefetched_tiles_with_sidecars(sidecars)
+            self._tb = self._read_prefetched_tiles_with_sidecars(sidecars)
 
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Failed to fetch tiles for this map")
@@ -829,9 +828,9 @@ class AtlasMapData:
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
-        self._tb = pa.concat_tables(tbs)
+        _tb = pa.concat_tables(tbs)
 
-        return self._tb
+        return _tb
 
     def _download_data(self, fields=None):
         """

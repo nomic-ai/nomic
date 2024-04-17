@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 import torch
@@ -15,7 +15,8 @@ class AtlasLightningContainer:
         self.embeddings = []
         self.metadata = defaultdict(list)
 
-    def log(self, embeddings: torch.Tensor, metadata: Dict[str, List] = {}):
+    def log(self, embeddings: torch.Tensor, metadata: Union[Dict[str, List], Dict[str, torch.Tensor], Dict[str, np.ndarray], 
+                                                            Dict[str, int], Dict[str, float], Dict[str, str]] = {}):
         '''Log a batch of embeddings and corresponding metadata for each embedding.'''
         assert isinstance(embeddings, torch.Tensor), 'You must log a torch Tensor'
 
@@ -23,12 +24,13 @@ class AtlasLightningContainer:
         if len(embeddings.shape) != 2:
             raise ValueError("Your logged embedding tensor must have shape (N,d)")
 
+        metadata_copy = defaultdict(list)
         # sanity check the inputs
         for key in metadata:
             if isinstance(metadata[key], torch.Tensor):
-                metadata[key] = metadata[key].flatten().cpu().tolist()
+                metadata_copy[key] = metadata[key].flatten().cpu().tolist()
             elif isinstance(metadata[key], np.ndarray):
-                metadata[key] = metadata[key].flatten().tolist()
+                metadata_copy[key] = metadata[key].flatten().tolist()
             else:
                 if not isinstance(metadata[key], list):
                     if (
@@ -36,16 +38,16 @@ class AtlasLightningContainer:
                         or isinstance(metadata[key], int)
                         or isinstance(metadata[key], str)
                     ):
-                        metadata[key] = [metadata[key]]
+                        metadata_copy[key] = [metadata[key]]
 
-            if embeddings.shape[0] != len(metadata[key]):
+            if embeddings.shape[0] != len(metadata_copy[key]):
                 raise ValueError(
-                    f"Your metadata has invalid shape. You have {embeddings.shape[0]} embeddings but len(metadata['{key}']) = {len(metadata[key])}"
+                    f"Your metadata has invalid shape. You have {embeddings.shape[0]} embeddings but len(metadata['{key}']) = {len(metadata_copy[key])}"
                 )
 
         self.embeddings.append(embeddings)
         for key in metadata:
-            self.metadata[key] = self.metadata[key] + metadata[key]
+            self.metadata[key] = self.metadata[key] + metadata_copy[key]
 
     def clear(self):
         '''Clears all embeddings and metadata from the final produced map.'''
@@ -157,9 +159,9 @@ class AtlasEmbeddingExplorer(Callback):
                 data=metadata,
                 id_field='id',
                 is_public=self.is_public,
-                name=self.name,
+                identifier=self.name,
                 description=self.description,
-                build_topic_model=False,
+                topic_model=False,
             )
         except BaseException as e:
             logger.info(e)

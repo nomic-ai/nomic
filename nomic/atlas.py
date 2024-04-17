@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
 import pyarrow as pa
+from pyarrow import Table
 from loguru import logger
 from pandas import DataFrame
 from tqdm import tqdm
@@ -19,13 +20,13 @@ from .utils import arrow_iterator, b64int, get_random_name
 
 
 def map_data(
-    data: Union[DataFrame, List[Dict], pa.Table, None] = None,
-    embeddings: np.array = None,
-    identifier: str = None,
+    data: Optional[Union[DataFrame, List[Dict], pa.Table]] = None,
+    embeddings: Optional[np.ndarray] = None,
+    identifier: Optional[str] = None,
     description: str = "",
-    id_field: str = None,
+    id_field: Optional[str] = None,
     is_public: bool = True,
-    indexed_field: str = None,
+    indexed_field: Optional[str] = None,
     projection: Union[bool, Dict, NomicProjectOptions] = True,
     topic_model: Union[bool, Dict, NomicTopicOptions] = True,
     duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
@@ -46,8 +47,8 @@ def map_data(
         embedding_model: Options to adjust the embedding model used to embed your dataset.
     :return:
     """
+    modality = 'embedding'
     if embeddings is not None:
-        modality = 'embedding'
         assert isinstance(embeddings, np.ndarray), 'You must pass in a numpy array'
         if embeddings.size == 0:
             raise Exception("Your embeddings cannot be empty")
@@ -71,11 +72,12 @@ def map_data(
 
     # no metadata was specified
     added_id_field = False
-    if data is None:
+    
+    if embeddings is not None:
         data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
         added_id_field = True
 
-    if id_field == ATLAS_DEFAULT_ID_FIELD:
+    if id_field == ATLAS_DEFAULT_ID_FIELD and data is not None:
         if isinstance(data, list) and id_field not in data[0]:
             added_id_field = True
             for i in range(len(data)):
@@ -122,7 +124,7 @@ def map_data(
 
     logger.info(f"`{dataset.identifier}`: Data upload succeeded to dataset`")
 
-    projection = dataset.create_index(
+    dataset.create_index(
         name=index_name,
         indexed_field=indexed_field,
         modality=modality,
@@ -137,15 +139,15 @@ def map_data(
 
 
 def map_embeddings(
-    embeddings: np.array,
-    data: List[Dict] = None,
-    id_field: str = None,
-    name: str = None,
-    description: str = None,
+    embeddings: np.ndarray,
+    data: Optional[List[Dict]] = None,
+    id_field: Optional[str] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
     is_public: bool = True,
     colorable_fields: list = [],
     build_topic_model: bool = True,
-    topic_label_field: str = None,
+    topic_label_field: Optional[str] = None,
     num_workers: None = None,
     reset_project_if_exists: bool = False,
     add_datums_if_exists: bool = False,
@@ -185,9 +187,9 @@ def map_embeddings(
 def map_text(
     data: Union[Iterable[Dict], DataFrame],
     indexed_field: str,
-    id_field: str = None,
-    name: str = None,
-    description: str = None,
+    id_field: Optional[str] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
     build_topic_model: bool = True,
     is_public: bool = True,
     colorable_fields: list = [],

@@ -8,6 +8,7 @@ from uuid import UUID
 
 import pyarrow as pa
 import requests
+from pathlib import Path
 
 nouns = [
     'newton',
@@ -240,7 +241,7 @@ def get_object_size_in_bytes(obj):
 
 # Helpful function for downloading feather files
 # Best for small feather files
-def download_feather(url: str, path: str, headers: Optional[dict] = None):
+def download_feather(url: str, path: Path, headers: Optional[dict] = None):
     data = requests.get(url, headers=headers)
     readable = BytesIO(data.content)
     readable.seek(0)
