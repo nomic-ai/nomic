@@ -1090,7 +1090,7 @@ class AtlasDataset(AtlasClass):
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
         reuse_embeddings_from_index: Optional[str] = None,
-    ) -> AtlasProjection:
+    ) -> Union[AtlasProjection, None]:
         '''
         Creates an index in the specified dataset.
 
@@ -1385,8 +1385,12 @@ class AtlasDataset(AtlasClass):
             embeddings: A numpy array of embeddings: each row corresponds to a row in the table. Use if you already have embeddings for your datapoints.
             pbar: (Optional). A tqdm progress bar to update.
         """
-        if embeddings is not None or (isinstance(data, pa.Table) and "_embeddings" in data.column_names):
+        if embeddings is not None:
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
+        elif isinstance(data, pa.Table):
+            if "_embeddings" in data.column_names:
+                embeddings = np.array(data.column('_embeddings').to_pylist())
+                self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         else:
             self._add_text(data=data, pbar=pbar)
 

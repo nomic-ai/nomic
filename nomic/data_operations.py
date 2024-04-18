@@ -808,7 +808,7 @@ class AtlasMapData:
         except pa.lib.ArrowInvalid as e:
             raise ValueError("Failed to fetch tiles for this map")
 
-    def _read_prefetched_tiles_with_sidecars(self, additional_sidecars=None):
+    def _read_prefetched_tiles_with_sidecars(self, additional_sidecars):
         tbs = []
         root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))
         try:

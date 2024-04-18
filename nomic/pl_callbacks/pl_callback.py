@@ -28,18 +28,19 @@ class AtlasLightningContainer:
         metadata_copy = defaultdict(list)
         # sanity check the inputs
         for key in metadata:
-            if isinstance(metadata[key], torch.Tensor):
-                metadata_copy[key] = metadata[key].flatten().cpu().tolist()
-            elif isinstance(metadata[key], np.ndarray):
-                metadata_copy[key] = metadata[key].flatten().tolist()
+            metadata_value = metadata[key]
+            if isinstance(metadata_value, torch.Tensor):
+                metadata_copy[key] = metadata_value.flatten().cpu().tolist()
+            elif isinstance(metadata_value, np.ndarray):
+                metadata_copy[key] = metadata_value.flatten().tolist()
             else:
-                if not isinstance(metadata[key], list):
+                if not isinstance(metadata_value, list):
                     if (
-                        isinstance(metadata[key], float)
-                        or isinstance(metadata[key], int)
-                        or isinstance(metadata[key], str)
+                        isinstance(metadata_value, float)
+                        or isinstance(metadata_value, int)
+                        or isinstance(metadata_value, str)
                     ):
-                        metadata_copy[key] = [metadata[key]]
+                        metadata_copy[key] = [metadata_value]
 
             if embeddings.shape[0] != len(metadata_copy[key]):
                 raise ValueError(
@@ -62,7 +63,7 @@ class AtlasEmbeddingExplorer(Callback):
         max_points=-1,
         rebuild_time_delay=600,
         name=None,
-        description=None,
+        description="",
         is_public=True,
         overwrite_on_validation=False,
     ):
