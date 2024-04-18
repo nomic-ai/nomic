@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
+from collections.abc import Iterator
 
 import numpy as np
 import pandas as pd
@@ -620,17 +621,18 @@ class AtlasProjection:
             sidecars = set([])
         sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
         for path in self._tiles_in_order():
-            tb = pa.feather.read_table(path, memory_map=True)
-            for sidecar_file in sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
-                for col in carfile.column_names:
-                    tb = tb.append_column(col, carfile[col])
-            tbs.append(tb)
+            if isinstance(path, Path):
+                tb = pa.feather.read_table(path, memory_map=True)
+                for sidecar_file in sidecars:
+                    carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
+                    for col in carfile.column_names:
+                        tb = tb.append_column(col, carfile[col])
+                tbs.append(tb)
         self._tile_data = pa.concat_tables(tbs)
 
         return self._tile_data
 
-    def _tiles_in_order(self, coords_only=False):
+    def _tiles_in_order(self, coords_only=False) -> Iterator[Union[Tuple[int, int, int], Path]]:
         """
         Returns:
             A list of all tiles in the projection in a fixed order so that all
@@ -703,7 +705,7 @@ class AtlasProjection:
                 except pa.ArrowInvalid:
                     path.unlink(missing_ok=True)
 
-            if not download_success:
+            if not download_success or schema is None:
                 raise Exception(f"Failed to download tiles. Aborting...")
 
             if sidecars is None and b'sidecars' in schema.metadata:
@@ -810,11 +812,11 @@ class AtlasDataset(AtlasClass):
             self.meta = self._get_project_by_id(dataset_id)
             return
 
-        if not self.is_valid_dataset_identifier(identifier=identifier):
+        if not self.is_valid_dataset_identifier(identifier=str(identifier)):
             default_org_slug = self._get_current_users_main_organization()['slug']
             identifier = default_org_slug + '/' + identifier
 
-        dataset = self._get_dataset_by_slug_identifier(identifier=identifier)
+        dataset = self._get_dataset_by_slug_identifier(identifier=str(identifier))
 
         if dataset:  # dataset already exists
             logger.info(f"Loading existing dataset `{identifier}``.")
@@ -1375,7 +1377,7 @@ class AtlasDataset(AtlasClass):
         else:
             raise Exception(response.text)
 
-    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: np.ndarray = None, pbar=None):
+    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: Optional[np.ndarray] = None, pbar=None):
         """
         Adds data of varying modality to an Atlas dataset.
         Args:
@@ -1612,7 +1614,7 @@ class AtlasDataset(AtlasClass):
         logger.info("Uploading data to Nomic's neural database Atlas.")
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
-                if self.modality == 'embedding':
+                if self.modality == 'embedding' and embeddings is not None:
                     self._add_embeddings(
                         embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
                         data=data[i : i + MAX_MEMORY_CHUNK],

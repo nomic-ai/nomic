@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
 import pyarrow as pa
+import pyarrow
 from pyarrow import Table
 from loguru import logger
 from pandas import DataFrame

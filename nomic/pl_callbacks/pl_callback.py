@@ -5,6 +5,7 @@ from typing import Dict, List, Union
 import numpy as np
 import torch
 from loguru import logger
+import pytorch_lightning as pl
 from pytorch_lightning.callbacks import Callback
 
 from nomic import AtlasUser, atlas

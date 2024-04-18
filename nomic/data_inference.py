@@ -88,7 +88,7 @@ class NomicTopicOptions(BaseModel):
     '''
 
     build_topic_model: bool = True
-    community_description_target_field: Optional[str] = Field(None, alias='topic_label_field')
+    community_description_target_field: Optional[str] = Field(default=None, alias='topic_label_field')
     cluster_method: str = 'fast'
     enforce_topic_hierarchy: bool = False
 
