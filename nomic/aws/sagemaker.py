@@ -163,6 +163,6 @@ def embed_texts(
 
     return {
         "embeddings": embeddings,
-        "model": sagemaker_endpoint,
+        "model": "nomic-embed-text-v1.5",
         "usage": {},
     }
