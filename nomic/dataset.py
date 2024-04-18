@@ -304,7 +304,7 @@ class AtlasClass(object):
                 f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found."
             )
 
-        for field in project.schema:
+        for field in project._schema:
             if field.name in data.column_names:
                 # Allow loss of precision in dates and ints, etc.
                 reformatted[field.name] = data[field.name].cast(field.type, safe=False)
@@ -515,7 +515,7 @@ class AtlasProjection:
         if state != 'Completed':
             return f"""Atlas Projection {self.name}. Status {state}. <a target="_blank" href="{self.map_link}">view online</a>"""
         return f"""
-            <h3>Project: {self.slug}</h3>
+            <h3>Project: {self.dataset.slug}</h3>
             {self._embed_html()}
             """
 

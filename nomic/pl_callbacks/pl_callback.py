@@ -114,8 +114,9 @@ class AtlasEmbeddingExplorer(Callback):
         if seconds_since_last_build < self.rebuild_time_delay:
             logger.info(
                 f"Skipping regenerating embedding explorer for this validation epoch as its been {seconds_since_last_build} seconds since the last rebuild and `rebuild_time_delay={self.rebuild_time_delay}`"
-                f" See your previous validation embedding space at: {self.map.map_link}"
             )
+            if self.map is not None:
+                logger.info(f" See your previous validation embedding space at: {self.map.map_link}")
             return
         if not self.atlas.embeddings:
             logger.info(
