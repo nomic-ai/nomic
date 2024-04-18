@@ -139,6 +139,7 @@ def embed_texts(
         texts: List of texts to be embedded.
         sagemaker_endpoint: The sagemaker endpoint to use.
         region_name: AWS region sagemaker endpoint is in.
+        task_type: The task type to use when embedding.
         batch_size: Size of each batch. Default is 32.
 
     Returns:
