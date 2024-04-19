@@ -3,12 +3,12 @@ import gc
 import random
 import sys
 from io import BytesIO
+from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
 import pyarrow as pa
 import requests
-from pathlib import Path
 
 nouns = [
     'newton',

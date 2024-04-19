@@ -5,7 +5,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import List, Union, Optional
+from typing import List, Optional, Union
 
 import PIL
 import PIL.Image
@@ -14,7 +14,7 @@ import requests
 from .dataset import AtlasClass
 from .settings import *
 
-atlas_class : Optional[AtlasClass] = None
+atlas_class: Optional[AtlasClass] = None
 
 MAX_TEXT_REQUEST_SIZE = 50
 MIN_EMBEDDING_DIMENSIONALITY = 64
@@ -35,7 +35,7 @@ def request_backoff(
     backoff_if=is_backoff_status_code,
 ):
     response = callable()
-    for attempt in range(max_retries+1):
+    for attempt in range(max_retries + 1):
         if attempt == max_retries:
             return response
         if backoff_if(response.status_code):
@@ -47,14 +47,15 @@ def request_backoff(
             break
     return response
 
+
 def text_api_request(
     texts: List[str], model: str, task_type: str, dimensionality: Optional[int] = None, long_text_mode: str = "truncate"
 ):
     global atlas_class
-    
+
     assert atlas_class is not None
     text_api_url = atlas_class.atlas_api_path + "/v1/embedding/text"
-    text_api_header = atlas_class.header 
+    text_api_header = atlas_class.header
 
     response = request_backoff(
         lambda: requests.post(

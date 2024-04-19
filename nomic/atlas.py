@@ -7,11 +7,11 @@ import uuid
 from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
-import pyarrow as pa
 import pyarrow
-from pyarrow import Table
+import pyarrow as pa
 from loguru import logger
 from pandas import DataFrame
+from pyarrow import Table
 from tqdm import tqdm
 
 from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicProjectOptions, NomicTopicOptions
@@ -73,7 +73,7 @@ def map_data(
 
     # no metadata was specified
     added_id_field = False
-    
+
     if embeddings is not None:
         data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
         added_id_field = True

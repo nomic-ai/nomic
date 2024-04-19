@@ -27,7 +27,6 @@ from .settings import EMBEDDING_PAGINATION_LIMIT
 from .utils import download_feather
 
 
-
 class AtlasMapDuplicates:
     """
     Atlas Duplicate Clusters State. Atlas can automatically group embeddings that are sufficiently close into semantic clusters.
@@ -480,7 +479,9 @@ class AtlasMapEmbeddings:
                 last = tilename
                 pbar.update(1)
 
-    def vector_search(self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5) -> Tuple[List, List]:
+    def vector_search(
+        self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5
+    ) -> Tuple[List, List]:
         '''
         Performs semantic vector search over data points on your map.
         If ids is specified, receive back the most similar data ids in latent vector space to your input ids.
@@ -822,7 +823,9 @@ class AtlasMapData:
                     if col[0] == "_":
                         tb = tb.drop([col])
                 for sidecar_file in small_sidecars:
-                    carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
+                    carfile = pa.feather.read_table(
+                        path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
+                    )
                     for col in carfile.column_names:
                         tb = tb.append_column(col, carfile[col])
                 for big_sidecar in additional_sidecars:

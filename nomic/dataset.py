@@ -8,11 +8,11 @@ import pickle
 import time
 import uuid
 from collections import defaultdict
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
-from collections.abc import Iterator
 
 import numpy as np
 import pandas as pd
@@ -142,7 +142,7 @@ class AtlasClass(object):
         for organization in user['organizations']:
             if organization['user_id'] == user['sub'] and organization['access_role'] == 'OWNER':
                 return organization
-            
+
         return {}
 
     def _delete_project_by_id(self, project_id):
@@ -349,9 +349,9 @@ class AtlasClass(object):
                     continue
                 raise ValueError('Metadata fields cannot start with _')
         if pa.compute.max(pa.compute.utf8_length(data[project.id_field])).as_py() > 36:
-            first_match = data.filter(pa.compute.greater(pa.compute.utf8_length(data[project.id_field]), 36)).to_pylist()[0][
-                project.id_field
-            ]
+            first_match = data.filter(
+                pa.compute.greater(pa.compute.utf8_length(data[project.id_field]), 36)
+            ).to_pylist()[0][project.id_field]
             raise ValueError(
                 f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
             )
@@ -624,7 +624,9 @@ class AtlasProjection:
             if isinstance(path, Path):
                 tb = pa.feather.read_table(path, memory_map=True)
                 for sidecar_file in sidecars:
-                    carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
+                    carfile = pa.feather.read_table(
+                        path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
+                    )
                     for col in carfile.column_names:
                         tb = tb.append_column(col, carfile[col])
                 tbs.append(tb)
@@ -1035,7 +1037,9 @@ class AtlasDataset(AtlasClass):
                 has_logged = True
             time.sleep(5)
 
-    def get_map(self, name: Optional[str] = None, atlas_index_id: Optional[str] = None, projection_id: Optional[str] = None) -> AtlasProjection:
+    def get_map(
+        self, name: Optional[str] = None, atlas_index_id: Optional[str] = None, projection_id: Optional[str] = None
+    ) -> AtlasProjection:
         '''
         Retrieves a map.
 
@@ -1148,7 +1152,7 @@ class AtlasDataset(AtlasClass):
         for field in self.dataset_fields:
             if field not in [self.id_field, indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
-        
+
         build_template = {}
         if self.modality == 'embedding':
             if topic_model.community_description_target_field is None:
@@ -1289,7 +1293,9 @@ class AtlasDataset(AtlasClass):
         if atlas_projection is None:
             logger.warning("Could not find a map being built for this dataset.")
         else:
-            logger.info(f"Created map `{atlas_projection.name}` in dataset `{self.identifier}`: {atlas_projection.map_link}")
+            logger.info(
+                f"Created map `{atlas_projection.name}` in dataset `{self.identifier}`: {atlas_projection.map_link}"
+            )
         return atlas_projection
 
     def __repr__(self):

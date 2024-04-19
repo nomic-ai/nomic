@@ -3,9 +3,9 @@ from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 import numpy as np
+import pytorch_lightning as pl
 import torch
 from loguru import logger
-import pytorch_lightning as pl
 from pytorch_lightning.callbacks import Callback
 
 from nomic import AtlasUser, atlas
@@ -16,8 +16,18 @@ class AtlasLightningContainer:
         self.embeddings = []
         self.metadata = defaultdict(list)
 
-    def log(self, embeddings: torch.Tensor, metadata: Union[Dict[str, List], Dict[str, torch.Tensor], Dict[str, np.ndarray], 
-                                                            Dict[str, int], Dict[str, float], Dict[str, str]] = {}):
+    def log(
+        self,
+        embeddings: torch.Tensor,
+        metadata: Union[
+            Dict[str, List],
+            Dict[str, torch.Tensor],
+            Dict[str, np.ndarray],
+            Dict[str, int],
+            Dict[str, float],
+            Dict[str, str],
+        ] = {},
+    ):
         '''Log a batch of embeddings and corresponding metadata for each embedding.'''
         assert isinstance(embeddings, torch.Tensor), 'You must log a torch Tensor'
 
