@@ -319,10 +319,10 @@ class AtlasClass(object):
                         f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version."
                     )
                     reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
-                if pc.any(pc.equal(pa.compute.binary_length(reformatted[field.name]), 0)):
-                    mask = pc.equal(pc.binary_length(reformatted[field.name]), 0).combine_chunks()
+                if pa.compute.any(pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0)):
+                    mask = pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0).combine_chunks()
                     assert pa.types.is_boolean(mask.type)
-                    reformatted[field.name] = pc.replace_with_mask(reformatted[field.name], mask, "null")
+                    reformatted[field.name] = pa.compute.replace_with_mask(reformatted[field.name], mask, "null")
         for field in data.schema:
             if not field.name in reformatted:
                 if field.name == "_embeddings":
@@ -348,8 +348,8 @@ class AtlasClass(object):
                 if key == '_embeddings':
                     continue
                 raise ValueError('Metadata fields cannot start with _')
-        if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
-            first_match = data.filter(pc.greater(pc.utf8_length(data[project.id_field]), 36)).to_pylist()[0][
+        if pa.compute.max(pa.compute.utf8_length(data[project.id_field])).as_py() > 36:
+            first_match = data.filter(pa.compute.greater(pa.compute.utf8_length(data[project.id_field]), 36)).to_pylist()[0][
                 project.id_field
             ]
             raise ValueError(
