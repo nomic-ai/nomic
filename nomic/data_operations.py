@@ -33,7 +33,7 @@ class AtlasMapDuplicates:
     your data.
     """
 
-    def __init__(self, projection: "AtlasProjection"): # type: ignore
+    def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
         try:
@@ -93,7 +93,7 @@ class AtlasMapTopics:
     Atlas Topics State
     """
 
-    def __init__(self, projection: "AtlasProjection"): # type: ignore
+    def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
@@ -379,7 +379,7 @@ class AtlasMapEmbeddings:
 
     """
 
-    def __init__(self, projection: "AtlasProjection"): # type: ignore
+    def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, 'x', 'y'])
@@ -586,7 +586,7 @@ class AtlasMapTags:
     the associated pandas DataFrame.
     """
 
-    def __init__(self, projection: "AtlasProjection", auto_cleanup: Optional[bool] = False): # type: ignore
+    def __init__(self, projection: "AtlasProjection", auto_cleanup: Optional[bool] = False):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
@@ -794,7 +794,7 @@ class AtlasMapData:
     you uploaded with your project.
     """
 
-    def __init__(self, projection: "AtlasProjection", fields=None): # type: ignore
+    def __init__(self, projection: "AtlasProjection", fields=None):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
