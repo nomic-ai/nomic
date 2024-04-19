@@ -8,7 +8,7 @@ import pickle
 import time
 import uuid
 from collections import defaultdict
-from collections.abc import Iterator
+from typing import Iterator
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
