@@ -8,11 +8,10 @@ import pickle
 import time
 import uuid
 from collections import defaultdict
-from typing import Iterator
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
