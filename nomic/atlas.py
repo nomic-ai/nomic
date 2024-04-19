@@ -87,9 +87,9 @@ def map_data(
         elif isinstance(data, DataFrame) and id_field not in data.columns:
             data[id_field] = [b64int(i) for i in range(data.shape[0])]
             added_id_field = True
-        elif isinstance(data, pa.Table) and not id_field in data.column_names:
+        elif isinstance(data, pa.Table) and not id_field in data.column_names:  # type: ignore
             ids = pa.array([b64int(i) for i in range(len(data))])
-            data = data.append_column(id_field, ids)
+            data = data.append_column(id_field, ids)  # type: ignore
             added_id_field = True
         elif id_field not in data[0]:
             raise ValueError("map_data data must be a list of dicts, a pandas dataframe, or a pyarrow table")

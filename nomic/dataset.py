@@ -1394,8 +1394,8 @@ class AtlasDataset(AtlasClass):
         if embeddings is not None:
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         elif isinstance(data, pa.Table):
-            if "_embeddings" in data.column_names:
-                embeddings = np.array(data.column('_embeddings').to_pylist())
+            if "_embeddings" in data.column_names:  # type: ignore
+                embeddings = np.array(data.column('_embeddings').to_pylist())  # type: ignore
                 self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         else:
             self._add_text(data=data, pbar=pbar)
