@@ -7,7 +7,6 @@ import uuid
 from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
-import pyarrow
 import pyarrow as pa
 from loguru import logger
 from pandas import DataFrame
@@ -21,7 +20,7 @@ from .utils import arrow_iterator, b64int, get_random_name
 
 
 def map_data(
-    data: Optional[Union[DataFrame, List[Dict], pa.Table]] = None,
+    data: Optional[Union[DataFrame, List[Dict], Table]] = None,
     embeddings: Optional[np.ndarray] = None,
     identifier: Optional[str] = None,
     description: str = "",

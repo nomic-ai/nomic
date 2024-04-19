@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -67,6 +67,13 @@ class AtlasLightningContainer:
         self.metadata = defaultdict(list)
 
 
+class AtlasLightningModule(pl.LightningModule):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.atlas: Optional[AtlasLightningContainer] = None
+
+
 class AtlasEmbeddingExplorer(Callback):
     def __init__(
         self,
@@ -98,14 +105,14 @@ class AtlasEmbeddingExplorer(Callback):
         self.rebuild_time_delay = rebuild_time_delay
         self.last_rebuild_timestamp = datetime.min
 
-    def on_train_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule"):
+    def on_train_start(self, trainer: "pl.Trainer", pl_module: pl.LightningModule):
         '''Verify that atlas is configured and set up variables'''
         AtlasUser()  # verify logged in.
-        pl_module.atlas = self.atlas
+        AtlasLightningModule(pl_module).atlas = self.atlas
 
     def on_sanity_check_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         AtlasUser()  # verify logged in.
-        pl_module.atlas = AtlasLightningContainer()
+        AtlasLightningModule(pl_module).atlas = AtlasLightningContainer()
 
     def on_train_epoch_start(self, *args, **kwargs):
         self.atlas.clear()
