@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import Any, List, Literal, Optional, Sequence, Tuple, Union, overload
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, overload
 
 import PIL
 import PIL.Image
@@ -15,14 +15,13 @@ import requests
 from .dataset import AtlasClass
 from .settings import *
 
-embed4all_installed = True
-
 try:
     from gpt4all import CancellationError, Embed4All
 except ImportError:
-    embed4all_installed = False
+    if not TYPE_CHECKING:
+        Embed4All = None
 
-atlas_class: Optional[AtlasClass] = None
+atlas_class = None
 
 MAX_TEXT_REQUEST_SIZE = 50
 MAX_IMAGE_REQUEST_SIZE = 512
@@ -49,33 +48,26 @@ def request_backoff(
     max_retries=5,
     backoff_if=is_backoff_status_code,
 ):
-    response = callable()
     for attempt in range(max_retries + 1):
+        response = callable()
         if attempt == max_retries:
             return response
         if backoff_if(response.status_code):
             delay = init_backoff * (ratio**attempt)
             logging.info(f"server error, backing off for {int(delay)}s")
             time.sleep(delay)
-            response = callable()
         else:
-            break
-    return response
+            return response
 
 
 def text_api_request(
-    texts: List[str], model: str, task_type: str, dimensionality: Optional[int] = None, long_text_mode: str = "truncate"
+    texts: List[str], model: str, task_type: str, dimensionality: int = None, long_text_mode: str = "truncate"
 ):
     global atlas_class
-
-    assert atlas_class is not None
-    text_api_url = atlas_class.atlas_api_path + "/v1/embedding/text"
-    text_api_header = atlas_class.header
-
     response = request_backoff(
         lambda: requests.post(
-            text_api_url,
-            headers=text_api_header,
+            atlas_class.atlas_api_path + "/v1/embedding/text",
+            headers=atlas_class.header,
             json={
                 "texts": texts,
                 "model": model,
@@ -102,8 +94,6 @@ def text(
     long_text_mode: str = ...,
     inference_mode: Literal["remote"] = ...,
 ) -> dict[str, Any]: ...
-
-
 @overload
 def text(
     texts: list[str],
@@ -116,8 +106,6 @@ def text(
     device: str | None = ...,
     **kwargs: Any,
 ) -> dict[str, Any]: ...
-
-
 @overload
 def text(
     texts: list[str],
@@ -181,7 +169,7 @@ def text(
             raise TypeError(f"device argument cannot be used with inference_mode='remote'")
         if kwargs:
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
-    elif embed4all_installed is None:
+    elif Embed4All is None:
         raise RuntimeError(
             f"The 'gpt4all' package is required for local inference. Suggestion: `pip install \"nomic[local]\"`",
         )
@@ -198,7 +186,7 @@ def text(
                 device=device,
                 **kwargs,
             )
-        except CancellationError:  # type: ignore
+        except CancellationError:
             pass  # dynamic mode chose to use Atlas, fall through
 
     return _text_atlas(texts, model, task_type, dimensionality, long_text_mode)
@@ -249,15 +237,15 @@ def _text_atlas(
     return combined
 
 
-_embed4all: Optional[Embed4All] = None
-_embed4all_kwargs: Optional[dict[str, Any]] = None
+_embed4all: Embed4All | None = None
+_embed4all_kwargs: dict[str, Any] | None = None
 
 
 def _text_embed4all(
     texts: list[str],
     model: str,
     task_type: str,
-    dimensionality: Optional[int],
+    dimensionality: int | None,
     long_text_mode: str,
     dynamic_mode: bool,
     **kwargs: Any,
@@ -276,7 +264,7 @@ def _text_embed4all(
     if _embed4all is None or _embed4all.gpt4all.config["filename"] != g4a_model or _embed4all_kwargs != kwargs:
         if _embed4all is not None:
             _embed4all.close()
-        _embed4all = Embed4All(g4a_model, **kwargs)  # type: ignore
+        _embed4all = Embed4All(g4a_model, **kwargs)
         _embed4all_kwargs = kwargs
 
     def cancel_cb(batch_sizes: list[int], backend: str) -> bool:
@@ -309,15 +297,10 @@ def free_embedding_model() -> None:
 
 def image_api_request(images: List[Tuple[str, bytes]], model: str = 'nomic-embed-vision-v1'):
     global atlas_class
-
-    assert atlas_class is not None
-    atlas_url = atlas_class.atlas_api_path
-    atlas_header = atlas_class.header
-
     response = request_backoff(
         lambda: requests.post(
-            atlas_url + "/v1/embedding/image",
-            headers=atlas_header,
+            atlas_class.atlas_api_path + "/v1/embedding/image",
+            headers=atlas_class.header,
             data={"model": model},
             files=images,
         )
@@ -340,7 +323,7 @@ def resize_pil(img):
     return img
 
 
-def images(images: Sequence[Union[str, PIL.Image.Image]], model: str = 'nomic-embed-vision-v1'):
+def images(images: Iterable[Union[str, PIL.Image.Image]], model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
 
@@ -368,7 +351,6 @@ def images(images: Sequence[Union[str, PIL.Image.Image]], model: str = 'nomic-em
             img = resize_pil(PIL.Image.open(image))
             buffered = BytesIO()
             img.save(buffered, format="JPEG")
-
             image_batch.append(("images", buffered.getvalue()))
 
         elif isinstance(image, PIL.Image.Image):

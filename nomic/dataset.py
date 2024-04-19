@@ -34,13 +34,7 @@ from .data_inference import (
     NomicTopicOptions,
     convert_pyarrow_schema_for_atlas,
 )
-from .data_operations import (
-    AtlasMapData,
-    AtlasMapDuplicates,
-    AtlasMapEmbeddings,
-    AtlasMapTags,
-    AtlasMapTopics,
-)
+from .data_operations import AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
 from .settings import *
 from .utils import assert_valid_project_id, get_object_size_in_bytes
 
@@ -113,9 +107,7 @@ class AtlasClass(object):
         )
         response = validate_api_http_response(response)
         if not response.status_code == 200:
-            raise ValueError(
-                "Your authorization token is no longer valid. Run `nomic login` to obtain a new one."
-            )
+            raise ValueError("Your authorization token is no longer valid. Run `nomic login` to obtain a new one.")
 
         return response.json()
 
@@ -130,9 +122,7 @@ class AtlasClass(object):
 
         for field in colorable_fields:
             if field not in data_sample:
-                raise Exception(
-                    f"Cannot color by field `{field}` as it is not present in the metadata."
-                )
+                raise Exception(f"Cannot color by field `{field}` as it is not present in the metadata.")
 
     def _get_current_users_main_organization(self):
         """
@@ -149,10 +139,7 @@ class AtlasClass(object):
                     return organization
 
         for organization in user["organizations"]:
-            if (
-                organization["user_id"] == user["sub"]
-                and organization["access_role"] == "OWNER"
-            ):
+            if organization["user_id"] == user["sub"] and organization["access_role"] == "OWNER":
                 return organization
 
         return {}
@@ -182,9 +169,7 @@ class AtlasClass(object):
         )
 
         if response.status_code != 200:
-            raise Exception(
-                f"Could not access dataset with id {project_id}: {response.text}"
-            )
+            raise Exception(f"Could not access dataset with id {project_id}: {response.text}")
 
         return response.json()
 
@@ -270,9 +255,7 @@ class AtlasClass(object):
 
         return response.json()
 
-    def _validate_and_correct_arrow_upload(
-        self, data: pa.Table, project: "AtlasDataset"
-    ) -> pa.Table:
+    def _validate_and_correct_arrow_upload(self, data: pa.Table, project: "AtlasDataset") -> pa.Table:
         """
         Private method. validates upload data against the dataset arrow schema, and associated other checks.
 
@@ -304,8 +287,7 @@ class AtlasClass(object):
         for col in data.column_names:
             if col.lower() in seen:
                 raise ValueError(
-                    f"Two different fields have the same lowercased name, `{col}`"
-                    ": you must use unique column names."
+                    f"Two different fields have the same lowercased name, `{col}`" ": you must use unique column names."
                 )
             seen.add(col.lower())
 
@@ -337,41 +319,27 @@ class AtlasClass(object):
                     logger.warning(
                         f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version."
                     )
-                    reformatted[field.name] = pc.fill_null(
-                        reformatted[field.name], "null"
-                    )
+                    reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
                 if pc.any(pc.equal(pc.binary_length(reformatted[field.name]), 0)):
-                    mask = pc.equal(
-                        pc.binary_length(reformatted[field.name]), 0
-                    ).combine_chunks()
+                    mask = pc.equal(pc.binary_length(reformatted[field.name]), 0).combine_chunks()
                     assert pa.types.is_boolean(mask.type)
-                    reformatted[field.name] = pc.replace_with_mask(
-                        reformatted[field.name], mask, "null"
-                    )
+                    reformatted[field.name] = pc.replace_with_mask(reformatted[field.name], mask, "null")
         for field in data.schema:
             if not field.name in reformatted:
                 if field.name == "_embeddings":
                     reformatted["_embeddings"] = data["_embeddings"]
                 else:
-                    logger.warning(
-                        f"Field {field.name} present in data, but not found in table schema. Ignoring."
-                    )
+                    logger.warning(f"Field {field.name} present in data, but not found in table schema. Ignoring.")
         data = pa.Table.from_pydict(reformatted, schema=project.schema)
 
         if project.meta["insert_update_delete_lock"]:
-            raise Exception(
-                "Project is currently indexing and cannot ingest new datums. Try again later."
-            )
+            raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
         # The following two conditions should never occur given the above, but just in case...
-        assert (
-            project.id_field in data.column_names
-        ), f"Upload does not contain your specified id_field"
+        assert project.id_field in data.column_names, f"Upload does not contain your specified id_field"
 
         if not pa.types.is_string(data[project.id_field].type):
-            logger.warning(
-                f"id_field is not a string. Converting to string from {data[project.id_field].type}"
-            )
+            logger.warning(f"id_field is not a string. Converting to string from {data[project.id_field].type}")
             data = data.drop([project.id_field]).append_column(
                 project.id_field, data[project.id_field].cast(pa.string())
             )
@@ -382,17 +350,15 @@ class AtlasClass(object):
                     continue
                 raise ValueError("Metadata fields cannot start with _")
         if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
-            first_match = data.filter(
-                pc.greater(pc.utf8_length(data[project.id_field]), 36)
-            ).to_pylist()[0][project.id_field]
+            first_match = data.filter(pc.greater(pc.utf8_length(data[project.id_field]), 36)).to_pylist()[0][
+                project.id_field
+            ]
             raise ValueError(
                 f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
             )
         return data
 
-    def _get_organization(
-        self, organization_slug=None, organization_id=None
-    ) -> Tuple[str, str]:
+    def _get_organization(self, organization_slug=None, organization_id=None) -> Tuple[str, str]:
         """
         Gets an organization by either its name or id.
 
@@ -406,16 +372,12 @@ class AtlasClass(object):
         """
 
         if organization_slug is None:
-            if (
-                organization_id is None
-            ):  # default to current users organization (the one with their name)
+            if organization_id is None:  # default to current users organization (the one with their name)
                 organization = self._get_current_users_main_organization()
                 organization_slug = organization["slug"]
                 organization_id = organization["organization_id"]
             else:
-                raise NotImplementedError(
-                    "Getting organization by a specific ID is not yet implemented."
-                )
+                raise NotImplementedError("Getting organization by a specific ID is not yet implemented.")
 
         else:
             try:
@@ -438,9 +400,7 @@ class AtlasIndex:
     the points in the index that you can browse online.
     """
 
-    def __init__(
-        self, atlas_index_id, name, indexed_field, projections, dataset: AtlasDataset
-    ):
+    def __init__(self, atlas_index_id, name, indexed_field, projections, dataset: AtlasDataset):
         """Initializes an Atlas index. Atlas indices organize data and store views of the data as maps."""
         self.id = atlas_index_id
         self.name = name
@@ -508,8 +468,7 @@ class AtlasProjection:
     @property
     def _status(self):
         response = requests.get(
-            self.dataset.atlas_api_path
-            + f"/v1/project/index/job/progress/{self.atlas_index_id}",
+            self.dataset.atlas_api_path + f"/v1/project/index/job/progress/{self.atlas_index_id}",
             headers=self.dataset.header,
         )
         if response.status_code != 200:
@@ -586,9 +545,7 @@ class AtlasProjection:
     def duplicates(self):
         """Duplicate detection state"""
         if self.dataset.is_locked:
-            raise Exception(
-                "Dataset is locked! Please wait until the dataset is unlocked to access duplicates."
-            )
+            raise Exception("Dataset is locked! Please wait until the dataset is unlocked to access duplicates.")
         if self._duplicates is None:
             self._duplicates = AtlasMapDuplicates(self)
         return self._duplicates
@@ -646,8 +603,7 @@ class AtlasProjection:
             )
         if self._schema is None:
             response = requests.get(
-                self.dataset.atlas_api_path
-                + f"/v1/project/projection/{self.projection_id}/schema",
+                self.dataset.atlas_api_path + f"/v1/project/projection/{self.projection_id}/schema",
                 headers=self.dataset.header,
             )
             if response.status_code != 200:
@@ -680,24 +636,16 @@ class AtlasProjection:
             return self._tile_data
         self._download_large_feather(overwrite=overwrite)
         tbs = []
-        root = feather.read_table(
-            self.tile_destination / "0/0/0.feather", memory_map=True
-        )
+        root = feather.read_table(self.tile_destination / "0/0/0.feather", memory_map=True)
         try:
-            sidecars = set(
-                [v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()]
-            )
+            sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
         except KeyError:
             sidecars = set([])
-        sidecars |= set(
-            sidecar_name for (_, sidecar_name) in self._registered_sidecars()
-        )
+        sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
         for path in self._tiles_in_order():
             tb = pa.feather.read_table(path, memory_map=True)
             for sidecar_file in sidecars:
-                carfile = pa.feather.read_table(
-                    path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
-                )
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -728,9 +676,7 @@ class AtlasProjection:
         # Pop off the front, extend the back (breadth first traversal)
         while len(paths) > 0:
             z, x, y = paths.pop(0)
-            path = Path(self.tile_destination, str(z), str(x), str(y)).with_suffix(
-                ".feather"
-            )
+            path = Path(self.tile_destination, str(z), str(x), str(y)).with_suffix(".feather")
             if path.exists():
                 if coords_only:
                     yield (z, x, y)
@@ -742,9 +688,7 @@ class AtlasProjection:
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
 
-    def _download_large_feather(
-        self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True
-    ):
+    def _download_large_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
         """
         Downloads the feather tree.
         Args:
@@ -759,9 +703,7 @@ class AtlasProjection:
         root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/"
         all_quads = []
         sidecars = None
-        registered_sidecars = set(
-            sidecar_name for (_, sidecar_name) in self._registered_sidecars()
-        )
+        registered_sidecars = set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
         while len(quads) > 0:
             rawquad = quads.pop(0)
             quad = rawquad + ".feather"
@@ -791,9 +733,7 @@ class AtlasProjection:
 
             if sidecars is None and b"sidecars" in schema.metadata:
                 # Grab just the filenames
-                sidecars = set(
-                    [v for k, v in json.loads(schema.metadata.get(b"sidecars")).items()]
-                )
+                sidecars = set([v for k, v in json.loads(schema.metadata.get(b"sidecars")).items()])
             elif sidecars is None:
                 sidecars = set()
             if not "." in rawquad:
@@ -847,9 +787,7 @@ class AtlasDataStream(AtlasClass):
     def __init__(self, name: Optional[str] = "contrastors"):
         super().__init__()
         if name != "contrastors":
-            raise NotImplementedError(
-                "Only contrastors datastream is currently supported"
-            )
+            raise NotImplementedError("Only contrastors datastream is currently supported")
         self.name = name
 
     # TODO: add support for other datastreams
@@ -888,9 +826,7 @@ class AtlasDataset(AtlasClass):
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
         * **dataset_id** - An alternative way to load a dataset is by passing the dataset_id directly. This only works if a dataset exists.
         """
-        assert (
-            identifier is not None or dataset_id is not None
-        ), "You must pass a dataset identifier"
+        assert identifier is not None or dataset_id is not None, "You must pass a dataset identifier"
 
         super().__init__()
 
@@ -914,9 +850,7 @@ class AtlasDataset(AtlasClass):
             dataset_id = dataset["id"]
 
         if dataset_id is None:  # if there is no existing project, make a new one.
-            if (
-                unique_id_field is None
-            ):  # if not all parameters are specified, we weren't trying to make a project
+            if unique_id_field is None:  # if not all parameters are specified, we weren't trying to make a project
                 raise ValueError(f"Dataset `{identifier}` does not exist.")
 
             # if modality is None:
@@ -942,9 +876,7 @@ class AtlasDataset(AtlasClass):
         organization = self._get_current_users_main_organization()
         organization_slug = organization["slug"]
 
-        logger.info(
-            f"Deleting dataset `{self.slug}` from organization `{organization_slug}`"
-        )
+        logger.info(f"Deleting dataset `{self.slug}` from organization `{organization_slug}`")
 
         self._delete_project_by_id(project_id=self.id)
 
@@ -1065,9 +997,7 @@ class AtlasDataset(AtlasClass):
 
     @property
     def created_timestamp(self) -> datetime:
-        return datetime.strptime(
-            self.meta["created_timestamp"], "%Y-%m-%dT%H:%M:%S.%f%z"
-        )
+        return datetime.strptime(self.meta["created_timestamp"], "%Y-%m-%dT%H:%M:%S.%f%z")
 
     @property
     def total_datums(self) -> int:
@@ -1111,9 +1041,7 @@ class AtlasDataset(AtlasClass):
         if self._schema is not None:
             return self._schema
         if "schema" in self.meta and self.meta["schema"] is not None:
-            self._schema: pa.Schema = ipc.read_schema(
-                io.BytesIO(base64.b64decode(self.meta["schema"]))
-            )
+            self._schema: pa.Schema = ipc.read_schema(io.BytesIO(base64.b64decode(self.meta["schema"])))
             return self._schema
         return None
 
@@ -1140,9 +1068,7 @@ class AtlasDataset(AtlasClass):
                 has_logged = True
             time.sleep(5)
 
-    def get_map(
-        self, name: str = None, atlas_index_id: str = None, projection_id: str = None
-    ) -> AtlasProjection:
+    def get_map(self, name: str = None, atlas_index_id: str = None, projection_id: str = None) -> AtlasProjection:
         """
         Retrieves a map.
 
@@ -1161,22 +1087,16 @@ class AtlasDataset(AtlasClass):
             for index in indices:
                 if index.id == atlas_index_id:
                     if len(index.projections) == 0:
-                        raise ValueError(
-                            f"No map found under index with atlas_index_id='{atlas_index_id}'"
-                        )
+                        raise ValueError(f"No map found under index with atlas_index_id='{atlas_index_id}'")
                     return index.projections[0]
-            raise ValueError(
-                f"Could not find a map with atlas_index_id='{atlas_index_id}'"
-            )
+            raise ValueError(f"Could not find a map with atlas_index_id='{atlas_index_id}'")
 
         if projection_id is not None:
             for index in indices:
                 for projection in index.projections:
                     if projection.id == projection_id:
                         return projection
-            raise ValueError(
-                f"Could not find a map with projection_id='{atlas_index_id}'"
-            )
+            raise ValueError(f"Could not find a map with projection_id='{atlas_index_id}'")
 
         if len(indices) == 0:
             raise ValueError("You have no maps built in your project")
@@ -1259,9 +1179,7 @@ class AtlasDataset(AtlasClass):
         colorable_fields = []
 
         for field in self.dataset_fields:
-            if field not in [self.id_field, indexed_field] and not field.startswith(
-                "_"
-            ):
+            if field not in [self.id_field, indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
 
         if self.modality == "embedding":
@@ -1278,9 +1196,7 @@ class AtlasDataset(AtlasClass):
                 "colorable_fields": colorable_fields,
                 "model_hyperparameters": None,
                 "nearest_neighbor_index": "HNSWIndex",
-                "nearest_neighbor_index_hyperparameters": json.dumps(
-                    {"space": "l2", "ef_construction": 100, "M": 16}
-                ),
+                "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
                 "projection": "NomicProject",
                 "projection_hyperparameters": json.dumps(
                     {
@@ -1323,14 +1239,10 @@ class AtlasDataset(AtlasClass):
                     )
 
             if indexed_field is None:
-                raise Exception(
-                    "You did not specify a field to index. Specify an 'indexed_field'."
-                )
+                raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
             if indexed_field not in self.dataset_fields:
-                raise Exception(
-                    f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}"
-                )
+                raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
 
             build_template = {
                 "project_id": self.id,
@@ -1349,9 +1261,7 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
                 "nearest_neighbor_index": "HNSWIndex",
-                "nearest_neighbor_index_hyperparameters": json.dumps(
-                    {"space": "l2", "ef_construction": 100, "M": 16}
-                ),
+                "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
                 "projection": "NomicProject",
                 "projection_hyperparameters": json.dumps(
                     {
@@ -1385,9 +1295,7 @@ class AtlasDataset(AtlasClass):
             json=build_template,
         )
         if response.status_code != 200:
-            logger.info(
-                "Create dataset failed with code: {}".format(response.status_code)
-            )
+            logger.info("Create dataset failed with code: {}".format(response.status_code))
             logger.info("Additional info: {}".format(response.text))
             raise Exception(response.json()["detail"])
 
@@ -1412,9 +1320,7 @@ class AtlasDataset(AtlasClass):
 
         if atlas_projection is None:
             logger.warning("Could not find a map being built for this dataset.")
-        logger.info(
-            f"Created map `{projection.name}` in dataset `{self.identifier}`: {projection.map_link}"
-        )
+        logger.info(f"Created map `{projection.name}` in dataset `{self.identifier}`: {projection.map_link}")
         return projection
 
     def __repr__(self):
@@ -1448,13 +1354,7 @@ class AtlasDataset(AtlasClass):
         return html
 
     def __str__(self):
-        return "\n".join(
-            [
-                str(projection)
-                for index in self.indices
-                for projection in index.projections
-            ]
-        )
+        return "\n".join([str(projection) for index in self.indices for projection in index.projections])
 
     def get_data(self, ids: List[str]) -> List[Dict]:
         """
@@ -1471,9 +1371,7 @@ class AtlasDataset(AtlasClass):
         if not isinstance(ids, list):
             raise ValueError("You must specify a list of ids when getting data.")
         if isinstance(ids[0], list):
-            raise ValueError(
-                "You must specify a list of ids when getting data, not a nested list."
-            )
+            raise ValueError("You must specify a list of ids when getting data, not a nested list.")
         response = requests.post(
             self.atlas_api_path + "/v1/project/data/get",
             headers=self.header,
@@ -1523,9 +1421,7 @@ class AtlasDataset(AtlasClass):
             embeddings: A numpy array of embeddings: each row corresponds to a row in the table. Use if you already have embeddings for your datapoints.
             pbar: (Optional). A tqdm progress bar to update.
         """
-        if embeddings is not None or (
-            isinstance(data, pa.Table) and "_embeddings" in data.column_names
-        ):
+        if embeddings is not None or (isinstance(data, pa.Table) and "_embeddings" in data.column_names):
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         else:
             self._add_text(data=data, pbar=pbar)
@@ -1541,9 +1437,7 @@ class AtlasDataset(AtlasClass):
         elif isinstance(data, list):
             data = pa.Table.from_pylist(data)
         elif not isinstance(data, pa.Table):
-            raise ValueError(
-                "Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table."
-            )
+            raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
         self._add_data(data, pbar=pbar)
 
     def _add_embeddings(
@@ -1567,9 +1461,7 @@ class AtlasDataset(AtlasClass):
         """
         assert type(embeddings) == np.ndarray, "Embeddings must be a NumPy array."
         assert len(embeddings.shape) == 2, "Embeddings must be a 2D NumPy array."
-        assert (
-            len(data) == embeddings.shape[0]
-        ), "Data and embeddings must have the same number of rows."
+        assert len(data) == embeddings.shape[0], "Data and embeddings must have the same number of rows."
         assert len(data) > 0, "Data must have at least one row."
 
         tb: pa.Table
@@ -1595,9 +1487,7 @@ class AtlasDataset(AtlasClass):
         assert not np.isnan(embeddings).any(), "Embeddings must not contain NaN values."
         assert not np.isinf(embeddings).any(), "Embeddings must not contain Inf values."
 
-        pyarrow_embeddings = pa.FixedSizeListArray.from_arrays(
-            embeddings.reshape((-1)), embeddings.shape[1]
-        )
+        pyarrow_embeddings = pa.FixedSizeListArray.from_arrays(embeddings.reshape((-1)), embeddings.shape[1])
 
         data_with_embeddings = tb.append_column("_embeddings", pyarrow_embeddings)
 
@@ -1648,9 +1538,7 @@ class AtlasDataset(AtlasClass):
             data_shard = data.slice(i, shard_size)
             with io.BytesIO() as buffer:
                 data_shard = data_shard.replace_schema_metadata({"project_id": self.id})
-                feather.write_feather(
-                    data_shard, buffer, compression="zstd", compression_level=6
-                )
+                feather.write_feather(data_shard, buffer, compression="zstd", compression_level=6)
                 buffer.seek(0)
 
                 response = requests.post(
@@ -1669,26 +1557,18 @@ class AtlasDataset(AtlasClass):
         succeeded = 0
         errors_504 = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {
-                executor.submit(send_request, i): i
-                for i in range(0, len(data), shard_size)
-            }
+            futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
 
             while futures:
                 # check for status of the futures which are currently working
-                done, not_done = concurrent.futures.wait(
-                    futures, return_when=concurrent.futures.FIRST_COMPLETED
-                )
+                done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
                 # process any completed futures
                 for future in done:
                     response = future.result()
                     if response.status_code != 200:
                         try:
                             logger.error(f"Shard upload failed: {response.text}")
-                            if (
-                                "more datums exceeds your organization limit"
-                                in response.json()
-                            ):
+                            if "more datums exceeds your organization limit" in response.json():
                                 return False
                             if "Project transaction lock is held" in response.json():
                                 raise Exception(
@@ -1699,9 +1579,7 @@ class AtlasDataset(AtlasClass):
                         except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
                             if response.status_code == 413:
                                 # Possibly split in two and retry?
-                                logger.error(
-                                    "Shard upload failed: you are sending meta-data that is too large."
-                                )
+                                logger.error("Shard upload failed: you are sending meta-data that is too large.")
                                 pbar.update(1)
                                 response.close()
                                 failed += shard_size
@@ -1711,25 +1589,16 @@ class AtlasDataset(AtlasClass):
                                 logger.debug(
                                     f"{self.identifier}: Connection failed for records {start_point}-{start_point + shard_size}, retrying."
                                 )
-                                failure_fraction = errors_504 / (
-                                    failed + succeeded + errors_504
-                                )
-                                if (
-                                    failure_fraction > 0.5
-                                    and errors_504 > shard_size * 3
-                                ):
+                                failure_fraction = errors_504 / (failed + succeeded + errors_504)
+                                if failure_fraction > 0.5 and errors_504 > shard_size * 3:
                                     raise RuntimeError(
                                         f"{self.identifier}: Atlas is under high load and cannot ingest datums at this time. Please try again later."
                                     )
-                                new_submission = executor.submit(
-                                    send_request, start_point
-                                )
+                                new_submission = executor.submit(send_request, start_point)
                                 futures[new_submission] = start_point
                                 response.close()
                             else:
-                                logger.error(
-                                    f"{self.identifier}: Shard upload failed: {response}"
-                                )
+                                logger.error(f"{self.identifier}: Shard upload failed: {response}")
                                 failed += shard_size
                                 pbar.update(1)
                                 response.close()
@@ -1781,12 +1650,12 @@ class AtlasDataset(AtlasClass):
             raise ValueError(msg)
 
         if embeddings is not None and len(data) != embeddings.shape[0]:
-            msg = "Expected data and embeddings to be the same length but found lengths {} and {} respectively.".format()
+            msg = (
+                "Expected data and embeddings to be the same length but found lengths {} and {} respectively.".format()
+            )
             raise ValueError(msg)
 
-        shard_size = (
-            2000  # TODO someone removed shard size from params and didn't update
-        )
+        shard_size = 2000  # TODO someone removed shard size from params and didn't update
         # Add new data
         logger.info("Uploading data to Nomic's neural database Atlas.")
         with tqdm(total=len(data) // shard_size) as pbar:
