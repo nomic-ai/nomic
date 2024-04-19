@@ -94,7 +94,7 @@ class AtlasMapTopics:
     Atlas Topics State
     """
 
-    def __init__(self, projection: AtlasProjection):
+    def __init__(self, projection: "AtlasProjection"):
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
