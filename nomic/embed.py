@@ -14,7 +14,7 @@ import requests
 from .dataset import AtlasClass
 from .settings import *
 
-atlas_class = None
+atlas_class : Optional[AtlasClass] = None
 
 MAX_TEXT_REQUEST_SIZE = 50
 MIN_EMBEDDING_DIMENSIONALITY = 64
@@ -51,10 +51,15 @@ def text_api_request(
     texts: List[str], model: str, task_type: str, dimensionality: Optional[int] = None, long_text_mode: str = "truncate"
 ):
     global atlas_class
+    
+    assert atlas_class is not None
+    text_api_url = atlas_class.atlas_api_path + "/v1/embedding/text"
+    text_api_header = atlas_class.header 
+
     response = request_backoff(
         lambda: requests.post(
-            atlas_class.atlas_api_path + "/v1/embedding/text",
-            headers=atlas_class.header,
+            text_api_url,
+            headers=text_api_header,
             json={
                 "texts": texts,
                 "model": model,
@@ -143,6 +148,7 @@ def images(images: Union[List[str], List[PIL.Image.Image]], model: str = 'nomic-
         atlas_class = AtlasClass()
 
     def run_inference(batch):
+        assert atlas_class is not None
         response = requests.post(
             atlas_class.atlas_api_path + "/v1/embedding/image",
             headers=atlas_class.header,

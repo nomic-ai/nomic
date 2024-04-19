@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -88,7 +88,7 @@ class AtlasEmbeddingExplorer(Callback):
         self.rebuild_time_delay = rebuild_time_delay
         self.last_rebuild_timestamp = datetime.min
 
-    def on_train_start(self, trainer, pl_module):
+    def on_train_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule"):
         '''Verify that atlas is configured and set up variables'''
         AtlasUser()  # verify logged in.
         pl_module.atlas = self.atlas
