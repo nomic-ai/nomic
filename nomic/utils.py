@@ -197,9 +197,6 @@ def arrow_iterator(table: pa.Table):
 
 
 def b64int(i: int):
-    """
-        doc string
-    """
     ibytes = int.to_bytes(i, length=8, byteorder='big').lstrip(b'\x00')
     if ibytes == b'':
         ibytes = b'\x00'
