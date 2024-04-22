@@ -303,7 +303,9 @@ class AtlasClass(object):
                 f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found."
             )
 
-        for field in project._schema:
+        assert project.schema is not None, "Project schema not found."
+
+        for field in project.schema:
             if field.name in data.column_names:
                 # Allow loss of precision in dates and ints, etc.
                 reformatted[field.name] = data[field.name].cast(field.type, safe=False)
@@ -1260,6 +1262,11 @@ class AtlasDataset(AtlasClass):
                 ),
             }
 
+        print("*" * 100)
+        print("modality", self.modality, modality)
+        print(build_template)
+        print("*" * 100)
+
         response = requests.post(
             self.atlas_api_path + "/v1/project/index/create",
             headers=self.header,
@@ -1392,10 +1399,9 @@ class AtlasDataset(AtlasClass):
         """
         if embeddings is not None:
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
-        elif isinstance(data, pa.Table):
-            if "_embeddings" in data.column_names:  # type: ignore
-                embeddings = np.array(data.column('_embeddings').to_pylist())  # type: ignore
-                self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
+        elif isinstance(data, pa.Table) and "_embeddings" in data.column_names:  # type: ignore
+            embeddings = np.array(data.column('_embeddings').to_pylist())  # type: ignore
+            self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         else:
             self._add_text(data=data, pbar=pbar)
 

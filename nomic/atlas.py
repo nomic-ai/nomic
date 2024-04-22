@@ -73,7 +73,7 @@ def map_data(
     # no metadata was specified
     added_id_field = False
 
-    if embeddings is not None:
+    if data is None and embeddings is not None:
         data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
         added_id_field = True
 
