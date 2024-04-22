@@ -44,11 +44,11 @@ ci_venv:
 	if [ ! -d $(ROOT_DIR)/ci_venv ]; then $(PYTHON) -m venv $(ROOT_DIR)/ci_venv; fi
 	source ci_venv/bin/activate; pip install -r ci_venv_requirements.txt
 
-black_ci: dev
-	black --check --diff -l 120 -S --target-version py36 nomic
+black_ci:
+	source env/bin/activate; black --check --diff -l 120 -S --target-version py36 nomic
 
-isort_ci: dev
-	isort --check --diff --skip env --skip ci_venv --profile black --ignore-whitespace --atomic -w 120 nomic
+isort_ci:
+	source env/bin/activate; isort --check --diff --skip env --skip env --profile black --ignore-whitespace --atomic -w 120 nomic
 
-pyright_ci: dev
-	pyright nomic/ -p .
+pyright_ci:
+	source env/bin/activate; pyright nomic/ -p .
