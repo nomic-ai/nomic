@@ -10,22 +10,6 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# NOTE: Currently Sagemaker only supports nomic-embed-text-v1.5 model.
-
-SAGEMAKER_MODELS = {"nomic-embed-text-v1.5": {"us-east-2": "TODO: ARN"}}
-
-
-def _get_supported_regions(model: str):
-    return SAGEMAKER_MODELS[model].keys()
-
-
-def _get_model_and_region_for_arn(arn: str):
-    for model in SAGEMAKER_MODELS:
-        for region, arn in SAGEMAKER_MODELS[model].items():
-            if arn == arn:
-                return model, region
-    raise ValueError(f"Model package arn {arn} not supported.")
-
 
 def _get_sagemaker_role():
     try:
@@ -46,7 +30,27 @@ def parse_sagemaker_response(response):
     """
     # Parse json header size length from the response
     resp = json.loads(response["Body"].read().decode())
-    return np.array(resp["embeddings"], dtype=np.float16)
+    return resp["embeddings"]
+
+
+def preprocess_texts(texts: List[str], task_type: str = "search_document"):
+    """
+    Preprocess a list of texts for embedding using a sagemaker model.
+
+    Args:
+        texts: List of texts to be embedded.
+        task_type: The task type to use when embedding. One of `search_query`, `search_document`, `classification`, `clustering`
+
+    Returns:
+        List of texts formatted for sagemaker embedding.
+    """
+    assert task_type in [
+        "search_query",
+        "search_document",
+        "classification",
+        "clustering",
+    ], f"Invalid task type: {task_type}"
+    return [f"{task_type}: {text}" for text in texts]
 
 
 def batch_transform(
@@ -81,11 +85,6 @@ def batch_transform(
     """
     if arn is None:
         raise ValueError("model package arn is currently required.")
-        if region_name is None or model_name is None:
-            raise ValueError("region_name and model_name is required if arn is not provided.")
-        if region_name not in _get_supported_regions(model_name):
-            raise ValueError(f"Model {model_name} not supported in region {region_name}.")
-        arn = SAGEMAKER_MODELS[model_name][region_name]
 
     if role is None:
         logger.info("No role provided. Using default sagemaker role.")
@@ -124,7 +123,13 @@ def batch_transform(
     return job_name
 
 
-def embed_texts(texts: List[str], sagemaker_endpoint: str, region_name: str, batch_size=32):
+def embed_texts(
+    texts: List[str],
+    sagemaker_endpoint: str,
+    region_name: str,
+    task_type: str = "search_document",
+    batch_size: int = 32,
+):
     """
     Embed a list of texts using a sagemaker model endpoint.
 
@@ -132,20 +137,31 @@ def embed_texts(texts: List[str], sagemaker_endpoint: str, region_name: str, bat
         texts: List of texts to be embedded.
         sagemaker_endpoint: The sagemaker endpoint to use.
         region_name: AWS region sagemaker endpoint is in.
-        batch_size: Size of each batch.
+        task_type: The task type to use when embedding.
+        batch_size: Size of each batch. Default is 32.
 
     Returns:
-        np.float16 array of embeddings.
+        Dictionary with "embeddings" (python 2d list of floats), "model" (sagemaker endpoint used to generate embeddings).
     """
+
     if len(texts) == 0:
         logger.warning("No texts to embed.")
         return None
+
+    texts = preprocess_texts(texts, task_type)
 
     client = boto3.client("sagemaker-runtime", region_name=region_name)
     embeddings = []
 
     for i in tqdm(range(0, len(texts), batch_size)):
         batch = json.dumps({"texts": texts[i : i + batch_size]})
-        response = client.invoke_endpoint(EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json")
-        embeddings.append(parse_sagemaker_response(response))
-    return np.vstack(embeddings)
+        response = client.invoke_endpoint(
+            EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json"
+        )
+        embeddings.extend(parse_sagemaker_response(response))
+
+    return {
+        "embeddings": embeddings,
+        "model": "nomic-embed-text-v1.5",
+        "usage": {},
+    }

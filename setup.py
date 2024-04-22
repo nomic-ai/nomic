@@ -10,7 +10,7 @@ setup(
     url='https://github.com/nomic-ai/nomic',
     description=description,
     long_description=description,
-    packages=find_packages(),
+    packages=find_packages(include=['nomic', 'nomic.*']),
     author_email="support@nomic.ai",
     author="nomic.ai",
     classifiers=[
@@ -32,7 +32,18 @@ setup(
         'pyjwt',
     ],
     extras_require={
+        'local': [
+            'gpt4all>=2.5.0,<3',
+        ],
+        'aws': [
+            'boto3',
+            'sagemaker'
+        ],
+        'all': [
+            'nomic[local,aws]',
+        ],
         'dev': [
+            "nomic[all]",
             'black',
             'coverage',
             "pylint",
@@ -46,26 +57,6 @@ setup(
             "pillow",
             "cairosvg"
         ],
-        'aws': [
-            'boto3',
-            'sagemaker'
-        ],
-        'all': [
-            "click",
-            "jsonlines",
-            "loguru",
-            'rich',
-            'requests',
-            'numpy',
-            'pandas',
-            'pydantic',
-            'tqdm',
-            'pyarrow',
-            'pillow',
-            'pyjwt',
-            'boto3',
-            'sagemaker'
-        ]
     },
     entry_points={
         'console_scripts': ['nomic=nomic.cli:cli'],

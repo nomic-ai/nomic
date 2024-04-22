@@ -816,26 +816,27 @@ class AtlasMapData:
         except KeyError:
             small_sidecars = set([])
         for path in self.projection._tiles_in_order():
-            if isinstance(path, Path):
-                tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])
-                for col in tb.column_names:
-                    if col[0] == "_":
-                        tb = tb.drop([col])
-                for sidecar_file in small_sidecars:
-                    carfile = pa.feather.read_table(
-                        path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
-                    )
-                    for col in carfile.column_names:
-                        tb = tb.append_column(col, carfile[col])
-                for big_sidecar in additional_sidecars:
-                    fname = base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode("utf-8")
-                    carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
-                    for col in carfile.column_names:
-                        tb = tb.append_column(col, carfile[col])
-                tbs.append(tb)
-        _tb = pa.concat_tables(tbs)
+            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])
+            for col in tb.column_names:
+                if col[0] == "_":
+                    tb = tb.drop([col])
+            for sidecar_file in small_sidecars:
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            for big_sidecar in additional_sidecars:
+                fname = (
+                    base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode("utf-8")
+                    if big_sidecar != 'datum_id'
+                    else big_sidecar
+                )
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+        self._tb = pa.concat_tables(tbs)
 
-        return _tb
+        return self._tb
 
     def _download_data(self, fields=None):
         """
@@ -846,6 +847,7 @@ class AtlasMapData:
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         sidecars = fields
+        registered_sidecars = self.projection._registered_sidecars()
         if sidecars is None:
             sidecars = [
                 field
@@ -855,18 +857,20 @@ class AtlasMapData:
         else:
             for field in sidecars:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
+        encoded_sidecars = [base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8") for sidecar in sidecars]
+        if any(sidecar == 'datum_id' for (field, sidecar) in registered_sidecars):
+            sidecars.append('datum_id')
+            encoded_sidecars.append('datum_id')
 
         for quad in tqdm(all_quads):
-            if isinstance(quad, Tuple):
-                for sidecar in sidecars:
-                    quad_str = os.path.join(*[str(q) for q in quad])
-                    encoded_colname = base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8")
-                    filename = quad_str + "." + encoded_colname + ".feather"
-                    path = self.projection.tile_destination / Path(filename)
+            for encoded_colname in encoded_sidecars:
+                quad_str = os.path.join(*[str(q) for q in quad])
+                filename = quad_str + "." + encoded_colname + ".feather"
+                path = self.projection.tile_destination / Path(filename)
 
-                    if not os.path.exists(path):
-                        # WARNING: Potentially large data request here
-                        download_feather(root + filename, path, headers=self.dataset.header)
+                if not os.path.exists(path):
+                    # WARNING: Potentially large data request here
+                    download_feather(root + filename, path, headers=self.dataset.header)
 
         return sidecars
 
