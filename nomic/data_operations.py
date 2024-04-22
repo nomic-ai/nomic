@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
-import pandas
 import pandas as pd
 import pyarrow as pa
 import requests
@@ -47,7 +46,7 @@ class AtlasMapDuplicates:
             self._tb: pa.Table = projection._fetch_tiles().select(
                 [self.id_field, self.duplicate_field, self.cluster_field]
             )
-        except pa.lib.ArrowInvalid as e:
+        except pa.lib.ArrowInvalid as e:  # type: ignore
             raise ValueError("Duplicate detection has not yet been run on this map.")
         self.duplicate_field = self.duplicate_field.lstrip("_")
         self.cluster_field = self.cluster_field.lstrip("_")
@@ -75,13 +74,13 @@ class AtlasMapDuplicates:
         Returns:
             The ids for all data points which are semantic duplicates and are candidates for being deleted from the dataset. If you remove these data points from your dataset, your dataset will be semantically deduplicated.
         """
-        dupes = self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))
+        dupes = self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))  # type: ignore
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})\n"
         duplicate_count = len(
-            self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))
+            self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))  # type: ignore
         )
         cluster_count = len(self.tb[self.cluster_field].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
@@ -108,12 +107,11 @@ class AtlasMapTopics:
             # If using topic ids, fetch topic labels
             if 'int' in topic_fields[0]:
                 new_topic_fields = []
-                metadata = self.metadata
-                label_df = metadata[["topic_id", "depth", "topic_short_description"]]
+                label_df = self.metadata[["topic_id", "depth", "topic_short_description"]]
                 for d in range(1, self.depth + 1):
                     column = f"_topic_depth_{d}_int"
                     topic_ids_to_label = self._tb[column].to_pandas().rename('topic_id')
-                    topic_ids_to_label = label_df[label_df["depth"] == d].merge(
+                    topic_ids_to_label = pd.DataFrame(label_df[label_df["depth"] == d]).merge(
                         topic_ids_to_label, on='topic_id', how='right'
                     )
                     new_column = f"_topic_depth_{d}"
@@ -126,11 +124,11 @@ class AtlasMapTopics:
             renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
             self._tb = self._tb.select([self.id_field] + topic_fields).rename_columns([self.id_field] + renamed_fields)
 
-        except pa.lib.ArrowInvalid as e:
+        except pa.lib.ArrowInvalid as e:  # type: ignore
             raise ValueError("Topic modeling has not yet been run on this map.")
 
     @property
-    def df(self) -> pandas.DataFrame:
+    def df(self) -> pd.DataFrame:
         """
         A pandas DataFrame associating each datapoint on your map to their topics as each topic depth.
         """
@@ -146,7 +144,7 @@ class AtlasMapTopics:
         return self._tb
 
     @property
-    def metadata(self) -> pandas.DataFrame:
+    def metadata(self) -> pd.DataFrame:
         """
         Pandas DataFrame where each row gives metadata all map topics including:
 
@@ -449,7 +447,7 @@ class AtlasMapEmbeddings:
                 for file in sortable:
                     tb = feather.read_table(file, memory_map=True)
                     dims = tb['_embeddings'].type.list_size
-                    all_embeddings.append(pa.compute.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))
+                    all_embeddings.append(pa.compute.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
 
     def _download_latent(self):
@@ -805,23 +803,23 @@ class AtlasMapData:
             sidecars = self._download_data(fields=fields)
             self._tb = self._read_prefetched_tiles_with_sidecars(sidecars)
 
-        except pa.lib.ArrowInvalid as e:
+        except pa.lib.ArrowInvalid as e:  # type: ignore
             raise ValueError("Failed to fetch tiles for this map")
 
     def _read_prefetched_tiles_with_sidecars(self, additional_sidecars):
         tbs = []
-        root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))
+        root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))  # type: ignore
         try:
             small_sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
         except KeyError:
             small_sidecars = set([])
         for path in self.projection._tiles_in_order():
-            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])
+            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])  # type: ignore
             for col in tb.column_names:
                 if col[0] == "_":
                     tb = tb.drop([col])
             for sidecar_file in small_sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)  # type: ignore
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             for big_sidecar in additional_sidecars:
@@ -830,7 +828,7 @@ class AtlasMapData:
                     if big_sidecar != 'datum_id'
                     else big_sidecar
                 )
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)  # type: ignore
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -875,7 +873,7 @@ class AtlasMapData:
         return sidecars
 
     @property
-    def df(self) -> pandas.DataFrame:
+    def df(self) -> pd.DataFrame:
         """
         A pandas DataFrame associating each datapoint on your map to their metadata.
         Converting to pandas DataFrame may materialize a large amount of data into memory.

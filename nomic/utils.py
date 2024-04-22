@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
+import pyarrow
 import pyarrow as pa
 import requests
 
@@ -245,6 +246,6 @@ def download_feather(url: str, path: Path, headers: Optional[dict] = None):
     data = requests.get(url, headers=headers)
     readable = BytesIO(data.content)
     readable.seek(0)
-    tb = pa.feather.read_table(readable, memory_map=True)
+    tb = pa.feather.read_table(readable, memory_map=True)  # type: ignore
     path.parent.mkdir(parents=True, exist_ok=True)
-    pa.feather.write_feather(tb, path)
+    pa.feather.write_feather(tb, path)  # type: ignore

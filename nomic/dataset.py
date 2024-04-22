@@ -320,10 +320,10 @@ class AtlasClass(object):
                         f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version."
                     )
                     reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
-                if pa.compute.any(pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0)):
-                    mask = pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0).combine_chunks()
-                    assert pa.types.is_boolean(mask.type)
-                    reformatted[field.name] = pa.compute.replace_with_mask(reformatted[field.name], mask, "null")
+                if pa.compute.any(pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0)):  # type: ignore
+                    mask = pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0).combine_chunks()  # type: ignore
+                    assert pa.types.is_boolean(mask.type)  # type: ignore
+                    reformatted[field.name] = pa.compute.replace_with_mask(reformatted[field.name], mask, "null")  # type: ignore
         for field in data.schema:
             if not field.name in reformatted:
                 if field.name == "_embeddings":
@@ -349,9 +349,9 @@ class AtlasClass(object):
                 if key == '_embeddings':
                     continue
                 raise ValueError('Metadata fields cannot start with _')
-        if pa.compute.max(pa.compute.utf8_length(data[project.id_field])).as_py() > 36:
+        if pa.compute.max(pa.compute.utf8_length(data[project.id_field])).as_py() > 36:  # type: ignore
             first_match = data.filter(
-                pa.compute.greater(pa.compute.utf8_length(data[project.id_field]), 36)
+                pa.compute.greater(pa.compute.utf8_length(data[project.id_field]), 36)  # type: ignore
             ).to_pylist()[0][project.id_field]
             raise ValueError(
                 f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
@@ -623,9 +623,9 @@ class AtlasProjection:
         sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
         for path in self._tiles_in_order():
             if isinstance(path, Path):
-                tb = pa.feather.read_table(path, memory_map=True)
+                tb = pa.feather.read_table(path, memory_map=True)  # type: ignore
                 for sidecar_file in sidecars:
-                    carfile = pa.feather.read_table(
+                    carfile = pa.feather.read_table(  # type: ignore
                         path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
                     )
                     for col in carfile.column_names:

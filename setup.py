@@ -48,6 +48,7 @@ setup(
             'coverage',
             "pylint",
             "pytest",
+            "pyright",
             "myst-parser",
             "mkdocs-material",
             "mkautodoc",
@@ -55,7 +56,9 @@ setup(
             "mkdocstrings[python]",
             "mkdocs-jupyter",
             "pillow",
-            "cairosvg"
+            "cairosvg",
+            "pytorch-lightning",
+            "pandas",
         ],
     },
     entry_points={
