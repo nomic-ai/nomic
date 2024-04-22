@@ -3,13 +3,12 @@ import gc
 import random
 import sys
 from io import BytesIO
+from pathlib import Path
 from typing import Optional
-
-import requests
-import pyarrow as pa
 from uuid import UUID
 
 import pyarrow as pa
+import requests
 
 nouns = [
     'newton',
@@ -239,12 +238,13 @@ def get_object_size_in_bytes(obj):
 
     return sz
 
+
 # Helpful function for downloading feather files
 # Best for small feather files
-def download_feather(url: str, path: str, headers: Optional[dict] = None):
+def download_feather(url: str, path: Path, headers: Optional[dict] = None):
     data = requests.get(url, headers=headers)
     readable = BytesIO(data.content)
     readable.seek(0)
-    tb = pa.feather.read_table(readable, memory_map=True)
+    tb = pa.feather.read_table(readable, memory_map=True)  # type: ignore
     path.parent.mkdir(parents=True, exist_ok=True)
-    pa.feather.write_feather(tb, path)
+    pa.feather.write_feather(tb, path)  # type: ignore

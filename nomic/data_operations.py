@@ -9,10 +9,9 @@ from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Iterable, Optional, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
-import pandas
 import pandas as pd
 import pyarrow as pa
 import requests
@@ -20,6 +19,7 @@ from loguru import logger
 from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from tqdm import tqdm
+
 
 from .settings import EMBEDDING_PAGINATION_LIMIT
 from .utils import download_feather
@@ -32,17 +32,21 @@ class AtlasMapDuplicates:
     your data.
     """
 
-    def __init__(self, projection: "AtlasProjection"):
+    def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
         try:
-            duplicate_fields = [field for field in projection._fetch_tiles().column_names if "_duplicate_class" in field]
+            duplicate_fields = [
+                field for field in projection._fetch_tiles().column_names if "_duplicate_class" in field
+            ]
             cluster_fields = [field for field in projection._fetch_tiles().column_names if "_cluster" in field]
             assert len(duplicate_fields) > 0, "Duplicate detection has not yet been run on this map."
             self.duplicate_field = duplicate_fields[0]
             self.cluster_field = cluster_fields[0]
-            self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, self.duplicate_field, self.cluster_field])
-        except pa.lib.ArrowInvalid as e:
+            self._tb: pa.Table = projection._fetch_tiles().select(
+                [self.id_field, self.duplicate_field, self.cluster_field]
+            )
+        except pa.lib.ArrowInvalid as e:  # type: ignore
             raise ValueError("Duplicate detection has not yet been run on this map.")
         self.duplicate_field = self.duplicate_field.lstrip("_")
         self.cluster_field = self.cluster_field.lstrip("_")
@@ -70,12 +74,14 @@ class AtlasMapDuplicates:
         Returns:
             The ids for all data points which are semantic duplicates and are candidates for being deleted from the dataset. If you remove these data points from your dataset, your dataset will be semantically deduplicated.
         """
-        dupes = self.tb[self.id_field].filter(pc.equal(self.tb[self.duplicate_field], 'deletion candidate'))
+        dupes = self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))  # type: ignore
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})\n"
-        duplicate_count = len(self.tb[self.id_field].filter(pc.equal(self.tb[self.duplicate_field], 'deletion candidate')))
+        duplicate_count = len(
+            self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))  # type: ignore
+        )
         cluster_count = len(self.tb[self.cluster_field].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
         return repr + self.df.__repr__()
@@ -86,7 +92,7 @@ class AtlasMapTopics:
     Atlas Topics State
     """
 
-    def __init__(self, projection: "AtlasProjection"):
+    def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
@@ -101,12 +107,11 @@ class AtlasMapTopics:
             # If using topic ids, fetch topic labels
             if 'int' in topic_fields[0]:
                 new_topic_fields = []
-                metadata = self.metadata
-                label_df = metadata[["topic_id", "depth", "topic_short_description"]]
+                label_df = self.metadata[["topic_id", "depth", "topic_short_description"]]
                 for d in range(1, self.depth + 1):
                     column = f"_topic_depth_{d}_int"
                     topic_ids_to_label = self._tb[column].to_pandas().rename('topic_id')
-                    topic_ids_to_label = label_df[label_df["depth"] == d].merge(
+                    topic_ids_to_label = pd.DataFrame(label_df[label_df["depth"] == d]).merge(
                         topic_ids_to_label, on='topic_id', how='right'
                     )
                     new_column = f"_topic_depth_{d}"
@@ -119,11 +124,11 @@ class AtlasMapTopics:
             renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
             self._tb = self._tb.select([self.id_field] + topic_fields).rename_columns([self.id_field] + renamed_fields)
 
-        except pa.lib.ArrowInvalid as e:
+        except pa.lib.ArrowInvalid as e:  # type: ignore
             raise ValueError("Topic modeling has not yet been run on this map.")
 
     @property
-    def df(self) -> pandas.DataFrame:
+    def df(self) -> pd.DataFrame:
         """
         A pandas DataFrame associating each datapoint on your map to their topics as each topic depth.
         """
@@ -139,7 +144,7 @@ class AtlasMapTopics:
         return self._tb
 
     @property
-    def metadata(self) -> pandas.DataFrame:
+    def metadata(self) -> pd.DataFrame:
         """
         Pandas DataFrame where each row gives metadata all map topics including:
 
@@ -277,7 +282,7 @@ class AtlasMapTopics:
                 topic_densities[topic] += row[self.id_field + '_count']
         return topic_densities
 
-    def vector_search_topics(self, queries: np.array, k: int = 32, depth: int = 3) -> Dict:
+    def vector_search_topics(self, queries: np.ndarray, k: int = 32, depth: int = 3) -> Dict:
         '''
         Given an embedding, returns a normalized distribution over topics.
 
@@ -372,7 +377,7 @@ class AtlasMapEmbeddings:
 
     """
 
-    def __init__(self, projection: "AtlasProjection"):
+    def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
         self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, 'x', 'y'])
@@ -412,7 +417,7 @@ class AtlasMapEmbeddings:
         return self.df
 
     @property
-    def latent(self) -> np.array:
+    def latent(self) -> np.ndarray:
         """
         High dimensional embeddings.
 
@@ -428,20 +433,21 @@ class AtlasMapEmbeddings:
             self._download_latent()
         all_embeddings = []
 
-        for path in self.projection._tiles_in_order():
+        for path in self.projection._tiles_in_order(coords_only=False):
             # double with-suffix to remove '.embeddings.feather'
-            files = path.parent.glob(path.with_suffix("").stem + "-*.embeddings.feather")
-            # Should there be more than 10, we need to sort by int values, not string values
-            sortable = sorted(files, key=lambda x: int(x.with_suffix("").stem.split("-")[-1]))
-            if len(sortable) == 0:
-                raise FileNotFoundError(
-                    "Could not find any embeddings for tile {}".format(path)
-                    + " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'."
-                )
-            for file in sortable:
-                tb = feather.read_table(file, memory_map=True)
-                dims = tb['_embeddings'].type.list_size
-                all_embeddings.append(pc.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))
+            if isinstance(path, Path):
+                files = path.parent.glob(path.with_suffix("").stem + "-*.embeddings.feather")
+                # Should there be more than 10, we need to sort by int values, not string values
+                sortable = sorted(files, key=lambda x: int(x.with_suffix("").stem.split("-")[-1]))
+                if len(sortable) == 0:
+                    raise FileNotFoundError(
+                        "Could not find any embeddings for tile {}".format(path)
+                        + " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'."
+                    )
+                for file in sortable:
+                    tb = feather.read_table(file, memory_map=True)
+                    dims = tb['_embeddings'].type.list_size
+                    all_embeddings.append(pa.compute.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
 
     def _download_latent(self):
@@ -453,7 +459,7 @@ class AtlasMapEmbeddings:
         route = self.projection.dataset.atlas_api_path + '/v1/project/data/get/embedding/paged'
         last = None
 
-        with tqdm(total=self.dataset.total_datums//limit) as pbar:
+        with tqdm(total=self.dataset.total_datums // limit) as pbar:
             while True:
                 params = {'projection_id': self.projection.id, "last_file": last, "page_size": limit}
                 r = requests.post(route, headers=self.projection.dataset.header, json=params)
@@ -470,7 +476,9 @@ class AtlasMapEmbeddings:
                 last = tilename
                 pbar.update(1)
 
-    def vector_search(self, queries: np.array = None, ids: List[str] = None, k: int = 5) -> Dict[str, List]:
+    def vector_search(
+        self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5
+    ) -> Tuple[List, List]:
         '''
         Performs semantic vector search over data points on your map.
         If ids is specified, receive back the most similar data ids in latent vector space to your input ids.
@@ -504,8 +512,6 @@ class AtlasMapEmbeddings:
                 raise Exception("`queries` must be an instance of np.array.")
             if queries.shape[0] > max_queries:
                 raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
-
-        if queries is not None:
             if queries.ndim != 2:
                 raise ValueError(
                     'Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).'
@@ -514,7 +520,6 @@ class AtlasMapEmbeddings:
             bytesio = io.BytesIO()
             np.save(bytesio, queries)
 
-        if queries is not None:
             response = requests.post(
                 self.projection.dataset.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
                 headers=self.projection.dataset.header,
@@ -554,7 +559,6 @@ class AtlasMapEmbeddings:
 
         raise DeprecationWarning("Deprecated as of June 2023. Iterate `map.embeddings.latent`.")
 
-
     def _download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
         '''
         Deprecated in favor of `map.embeddings.latent`.
@@ -570,7 +574,6 @@ class AtlasMapEmbeddings:
         '''
         raise DeprecationWarning("Deprecated as of June 2023. Use `map.embeddings.latent`.")
 
-
     def __repr__(self) -> str:
         return str(self.df)
 
@@ -581,7 +584,7 @@ class AtlasMapTags:
     the associated pandas DataFrame.
     """
 
-    def __init__(self, projection: "AtlasProjection", auto_cleanup: Optional[bool] = False):
+    def __init__(self, projection: "AtlasProjection", auto_cleanup: Optional[bool] = False):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
@@ -590,7 +593,7 @@ class AtlasMapTags:
         self.auto_cleanup = auto_cleanup
 
     @property
-    def df(self, overwrite: Optional[bool]=False) -> pd.DataFrame:
+    def df(self, overwrite: Optional[bool] = False) -> pd.DataFrame:
         '''
         Pandas DataFrame mapping each data point to its tags.
         '''
@@ -603,28 +606,27 @@ class AtlasMapTags:
         tbs = []
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            datum_id_filename = quad_str + "." + "datum_id" + ".feather"
-            path = self.projection.tile_destination / Path(datum_id_filename)
-            tb = feather.read_table(path, memory_map=True)
-            for tag in tags:
-                tag_definition_id = tag["tag_definition_id"]
-                tag_filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-                path = self.projection.tile_destination / Path(tag_filename)
-                tag_tb = feather.read_table(path, memory_map=True)
-                bitmask = None
-                if "all_set" in tag_tb.column_names:
-                    if tag_tb["all_set"][0].as_py() == True:
-                        bitmask = pa.array([True] * len(tb), type=pa.bool_())
+            if isinstance(quad, Tuple):
+                quad_str = os.path.join(*[str(q) for q in quad])
+                datum_id_filename = quad_str + "." + "datum_id" + ".feather"
+                path = self.projection.tile_destination / Path(datum_id_filename)
+                tb = feather.read_table(path, memory_map=True)
+                for tag in tags:
+                    tag_definition_id = tag["tag_definition_id"]
+                    tag_filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
+                    path = self.projection.tile_destination / Path(tag_filename)
+                    tag_tb = feather.read_table(path, memory_map=True)
+                    bitmask = None
+                    if "all_set" in tag_tb.column_names:
+                        bool_v = tag_tb["all_set"][0].as_py() == True
+                        bitmask = pa.array([bool_v] * len(tb), type=pa.bool_())
                     else:
-                        bitmask = pa.array([False] * len(tb), type=pa.bool_())
-                else:
-                    bitmask = tag_tb["bitmask"]
-                tb = tb.append_column(tag["tag_name"], bitmask)
-            tbs.append(tb)
+                        bitmask = tag_tb["bitmask"]
+                    tb = tb.append_column(tag["tag_name"], bitmask)
+                tbs.append(tb)
         return pa.concat_tables(tbs).to_pandas()
-            
-    def get_tags(self) -> Dict[str, List[str]]:
+
+    def get_tags(self) -> List[Dict[str, str]]:
         '''
         Retrieves back all tags made in the web browser for a specific map.
         Each tag is a dictionary containing tag_name, tag_id, and metadata.
@@ -632,23 +634,26 @@ class AtlasMapTags:
         Returns:
             A list of tags a user has created for projection.
         '''
-        tags = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
-                     headers=self.dataset.header,
-                     params={'project_id': self.dataset.id, 
-                             'projection_id': self.projection.id, 
-                             'include_dsl_rule': False}).json()
+        tags = requests.get(
+            self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
+            headers=self.dataset.header,
+            params={'project_id': self.dataset.id, 'projection_id': self.projection.id, 'include_dsl_rule': False},
+        ).json()
         keep_tags = []
         for tag in tags:
-            is_complete = requests.get(self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
+            is_complete = requests.get(
+                self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
                 headers=self.dataset.header,
-                params={'project_id': self.dataset.id, 
-                      'tag_id': tag["tag_id"], 
-                }).json()['is_complete']
+                params={
+                    'project_id': self.dataset.id,
+                    'tag_id': tag["tag_id"],
+                },
+            ).json()['is_complete']
             if is_complete:
                 keep_tags.append(tag)
         return keep_tags
-    
-    def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool]=False):
+
+    def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool] = False):
         '''
         Returns the datum ids in a given tag.
 
@@ -687,7 +692,7 @@ class AtlasMapTags:
             if tag["tag_name"] == name:
                 return tag
         raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
-    
+
     def _download_tag(self, tag_name: str, overwrite: Optional[bool] = False):
         """
         Downloads the feather tree for large sidecar columns.
@@ -701,26 +706,27 @@ class AtlasMapTags:
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         ordered_tag_paths = []
         for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-            path = self.projection.tile_destination / Path(filename)
-            download_attempt = 0
-            download_success = False
-            while download_attempt < 3 and not download_success:
-                download_attempt += 1
-                if not path.exists() or overwrite:
-                    download_feather(root_url + filename, path, headers=self.dataset.header)
-                try:
-                    ipc.open_file(path).schema
-                    download_success = True
-                except pa.ArrowInvalid:
-                    path.unlink(missing_ok=True)
-            
-            if not download_success:
-                raise Exception(f"Failed to download tag {tag_name}.")
-            ordered_tag_paths.append(path)
+            if isinstance(quad, Tuple):
+                quad_str = os.path.join(*[str(q) for q in quad])
+                filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
+                path = self.projection.tile_destination / Path(filename)
+                download_attempt = 0
+                download_success = False
+                while download_attempt < 3 and not download_success:
+                    download_attempt += 1
+                    if not path.exists() or overwrite:
+                        download_feather(root_url + filename, path, headers=self.dataset.header)
+                    try:
+                        ipc.open_file(path).schema
+                        download_success = True
+                    except pa.ArrowInvalid:
+                        path.unlink(missing_ok=True)
+
+                if not download_success:
+                    raise Exception(f"Failed to download tag {tag_name}.")
+                ordered_tag_paths.append(path)
         return ordered_tag_paths
-    
+
     def _remove_outdated_tag_files(self, tag_definition_ids: List[str]):
         '''
         Attempts to remove outdated tag files based on tag definition ids.
@@ -732,22 +738,23 @@ class AtlasMapTags:
         # NOTE: This currently only gets triggered on `df` property
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            tile = self.projection.tile_destination / Path(quad_str)
-            tile_dir = tile.parent
-            if tile_dir.exists():
-                tagged_files = tile_dir.glob('*_tag*')
-                for file in tagged_files:
-                    tag_definition_id = file.name.split(".")[-2]
-                    if tag_definition_id in tag_definition_ids:
-                        try:
-                            file.unlink()
-                        except PermissionError:
-                            print("Permission denied: unable to delete outdated tag file. Skipping")
-                            return
-                        except Exception as e:
-                            print(f"Exception occurred when trying to delete outdated tag file: {e}. Skipping")
-                            return
+            if isinstance(quad, Tuple):
+                quad_str = os.path.join(*[str(q) for q in quad])
+                tile = self.projection.tile_destination / Path(quad_str)
+                tile_dir = tile.parent
+                if tile_dir.exists():
+                    tagged_files = tile_dir.glob('*_tag*')
+                    for file in tagged_files:
+                        tag_definition_id = file.name.split(".")[-2]
+                        if tag_definition_id in tag_definition_ids:
+                            try:
+                                file.unlink()
+                            except PermissionError:
+                                print("Permission denied: unable to delete outdated tag file. Skipping")
+                                return
+                            except Exception as e:
+                                print(f"Exception occurred when trying to delete outdated tag file: {e}. Skipping")
+                                return
 
     def add(self, ids: List[str], tags: List[str]):
         # '''
@@ -785,35 +792,34 @@ class AtlasMapData:
     you uploaded with your project.
     """
 
-    def __init__(self, projection: "AtlasProjection", fields=None):
+    def __init__(self, projection: "AtlasProjection", fields=None):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        self._tb = None
         self.fields = fields
         try:
             # Run fetch_tiles first to guarantee existence of quad feather files
             self._basic_data: pa.Table = self.projection._fetch_tiles()
             sidecars = self._download_data(fields=fields)
-            self._read_prefetched_tiles_with_sidecars(sidecars)
+            self._tb = self._read_prefetched_tiles_with_sidecars(sidecars)
 
-        except pa.lib.ArrowInvalid as e:
+        except pa.lib.ArrowInvalid as e:  # type: ignore
             raise ValueError("Failed to fetch tiles for this map")
 
-    def _read_prefetched_tiles_with_sidecars(self, additional_sidecars=None):
+    def _read_prefetched_tiles_with_sidecars(self, additional_sidecars):
         tbs = []
-        root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))
+        root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))  # type: ignore
         try:
             small_sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
         except KeyError:
             small_sidecars = set([])
         for path in self.projection._tiles_in_order():
-            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])
+            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])  # type: ignore
             for col in tb.column_names:
                 if col[0] == "_":
                     tb = tb.drop([col])
             for sidecar_file in small_sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)  # type: ignore
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             for big_sidecar in additional_sidecars:
@@ -822,7 +828,7 @@ class AtlasMapData:
                     if big_sidecar != 'datum_id'
                     else big_sidecar
                 )
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)  # type: ignore
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -867,7 +873,7 @@ class AtlasMapData:
         return sidecars
 
     @property
-    def df(self) -> pandas.DataFrame:
+    def df(self) -> pd.DataFrame:
         """
         A pandas DataFrame associating each datapoint on your map to their metadata.
         Converting to pandas DataFrame may materialize a large amount of data into memory.

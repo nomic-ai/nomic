@@ -3,9 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 import pyarrow as pa
 from pydantic import BaseModel, Field
 
-from .settings import (
-    DEFAULT_DUPLICATE_THRESHOLD,
-)
+from .settings import DEFAULT_DUPLICATE_THRESHOLD
 
 
 def from_list(values: Dict[str, Any], schema=None) -> pa.Table:
@@ -86,11 +84,11 @@ class NomicTopicOptions(BaseModel):
 
     Args:
         build_topic_model: If True, builds a topic model over your dataset's embeddings.
-        topic_label_field: The dataset field/column that Atlas will use to assign a human-readable description to each topic.
+        community_description_target_field: The dataset field/column that Atlas will use to assign a human-readable description to each topic.
     '''
 
     build_topic_model: bool = True
-    community_description_target_field: Optional[str] = Field(None, alias='topic_label_field')
+    community_description_target_field: Optional[str] = Field(default=None, alias='topic_label_field')
     cluster_method: str = 'fast'
     enforce_topic_hierarchy: bool = False
 

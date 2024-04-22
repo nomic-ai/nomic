@@ -20,6 +20,8 @@ black:
 isort:
 	source env/bin/activate; isort  --ignore-whitespace --atomic -w 120 nomic
 
+pyright:
+	source env/bin/activate; pyright nomic/ -p . 
 
 documentation:
 	source env/bin/activate; rm -rf /.site && mkdocs build
@@ -27,10 +29,7 @@ documentation:
 pypi:
 	source env/bin/activate; python setup.py sdist; twine upload dist/*; rm -rf dist/
 
-lint:
-	source env/bin/activate; pylint --rcfile .pylintrc nomic && echo ""
-	source env/bin/activate; black --check -l 120 -S --target-version py36 nomic && echo ""
-	source env/bin/activate; isort --verbose --ignore-whitespace --atomic -c -w 120 nomic
+lint: black isort pyright
 	@echo "Lint checks passed!"
 
 pretty: isort black
@@ -40,3 +39,16 @@ test:
 clean:
 	rm -rf {.pytest_cache,env,nomic.egg-info}
 	find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
+
+ci_venv:
+	if [ ! -d $(ROOT_DIR)/ci_venv ]; then $(PYTHON) -m venv $(ROOT_DIR)/ci_venv; fi
+	source ci_venv/bin/activate; pip install -r ci_venv_requirements.txt
+
+black_ci:
+	source env/bin/activate; black --check --diff -l 120 -S --target-version py36 nomic
+
+isort_ci:
+	source env/bin/activate; isort --check --diff --skip env --skip env --profile black --ignore-whitespace --atomic -w 120 nomic
+
+pyright_ci:
+	source env/bin/activate; pyright nomic/ -p .

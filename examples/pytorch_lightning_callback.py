@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from torchvision.datasets import MNIST
-from nomic.pl_callbacks import AtlasEmbeddingExplorer
+from nomic.pl_callbacks import AtlasEmbeddingExplorer, AtlasLightningModule
 import nomic
 
 PATH_DATASETS = os.environ.get("PATH_DATASETS", ".")
@@ -17,7 +17,7 @@ nomic.login('7xDPkYXSYDc1_ErdTPIcoAR9RNd8YDlkS3nVNXcVoIMZ6')
 
 
 
-class MNISTModel(LightningModule):
+class MNISTModel(AtlasLightningModule):
     def __init__(self):
         super().__init__()
         self.l1 = torch.nn.Linear(28 * 28, 10)

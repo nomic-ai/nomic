@@ -11,7 +11,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -141,6 +141,8 @@ class AtlasClass(object):
         for organization in user['organizations']:
             if organization['user_id'] == user['sub'] and organization['access_role'] == 'OWNER':
                 return organization
+
+        return {}
 
     def _delete_project_by_id(self, project_id):
         response = requests.post(
@@ -301,6 +303,8 @@ class AtlasClass(object):
                 f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found."
             )
 
+        assert project.schema is not None, "Project schema not found."
+
         for field in project.schema:
             if field.name in data.column_names:
                 # Allow loss of precision in dates and ints, etc.
@@ -316,10 +320,10 @@ class AtlasClass(object):
                         f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version."
                     )
                     reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
-                if pc.any(pc.equal(pc.binary_length(reformatted[field.name]), 0)):
-                    mask = pc.equal(pc.binary_length(reformatted[field.name]), 0).combine_chunks()
-                    assert pa.types.is_boolean(mask.type)
-                    reformatted[field.name] = pc.replace_with_mask(reformatted[field.name], mask, "null")
+                if pa.compute.any(pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0)):  # type: ignore
+                    mask = pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0).combine_chunks()  # type: ignore
+                    assert pa.types.is_boolean(mask.type)  # type: ignore
+                    reformatted[field.name] = pa.compute.replace_with_mask(reformatted[field.name], mask, "null")  # type: ignore
         for field in data.schema:
             if not field.name in reformatted:
                 if field.name == "_embeddings":
@@ -345,10 +349,10 @@ class AtlasClass(object):
                 if key == '_embeddings':
                     continue
                 raise ValueError('Metadata fields cannot start with _')
-        if pc.max(pc.utf8_length(data[project.id_field])).as_py() > 36:
-            first_match = data.filter(pc.greater(pc.utf8_length(data[project.id_field]), 36)).to_pylist()[0][
-                project.id_field
-            ]
+        if pa.compute.max(pa.compute.utf8_length(data[project.id_field])).as_py() > 36:  # type: ignore
+            first_match = data.filter(
+                pa.compute.greater(pa.compute.utf8_length(data[project.id_field]), 36)  # type: ignore
+            ).to_pylist()[0][project.id_field]
             raise ValueError(
                 f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
             )
@@ -438,7 +442,7 @@ class AtlasProjection:
         Retrieves a map link.
         '''
         return f"{self.dataset.web_path}/data/{self.dataset.meta['organization_slug']}/{self.dataset.meta['slug']}/map"
-        #return f"{self.project.web_path}/data/{self.project.meta['organization_slug']}/{self.project.meta['slug']}/map"
+        # return f"{self.project.web_path}/data/{self.project.meta['organization_slug']}/{self.project.meta['slug']}/map"
 
     @property
     def _status(self):
@@ -512,7 +516,7 @@ class AtlasProjection:
         if state != 'Completed':
             return f"""Atlas Projection {self.name}. Status {state}. <a target="_blank" href="{self.map_link}">view online</a>"""
         return f"""
-            <h3>Project: {self.slug}</h3>
+            <h3>Project: {self.dataset.slug}</h3>
             {self._embed_html()}
             """
 
@@ -529,7 +533,9 @@ class AtlasProjection:
     def topics(self):
         """Topic state"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access topics.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access topics.'
+            )
         if self._topics is None:
             self._topics = AtlasMapTopics(self)
         return self._topics
@@ -538,7 +544,9 @@ class AtlasProjection:
     def embeddings(self):
         """Embedding state"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access embeddings.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access embeddings.'
+            )
         if self._embeddings is None:
             self._embeddings = AtlasMapEmbeddings(self)
         return self._embeddings
@@ -547,7 +555,9 @@ class AtlasProjection:
     def tags(self):
         """Tag state"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access tags.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access tags.'
+            )
         if self._tags is None:
             self._tags = AtlasMapTags(self)
         return self._tags
@@ -556,7 +566,9 @@ class AtlasProjection:
     def data(self):
         """Metadata state"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access data.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access data.'
+            )
         if self._data is None:
             self._data = AtlasMapData(self)
         return self._data
@@ -565,7 +577,9 @@ class AtlasProjection:
     def schema(self):
         """Projection arrow schema"""
         if self.dataset.is_locked:
-            raise Exception('Dataset is locked for state access! Please wait until the dataset is unlocked to access data.')
+            raise Exception(
+                'Dataset is locked for state access! Please wait until the dataset is unlocked to access data.'
+            )
         if self._schema is None:
             response = requests.get(
                 self.dataset.atlas_api_path + f"/v1/project/projection/{self.projection_id}/schema",
@@ -608,17 +622,20 @@ class AtlasProjection:
             sidecars = set([])
         sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
         for path in self._tiles_in_order():
-            tb = pa.feather.read_table(path, memory_map=True)
-            for sidecar_file in sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)
-                for col in carfile.column_names:
-                    tb = tb.append_column(col, carfile[col])
-            tbs.append(tb)
+            if isinstance(path, Path):
+                tb = pa.feather.read_table(path, memory_map=True)  # type: ignore
+                for sidecar_file in sidecars:
+                    carfile = pa.feather.read_table(  # type: ignore
+                        path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
+                    )
+                    for col in carfile.column_names:
+                        tb = tb.append_column(col, carfile[col])
+                tbs.append(tb)
         self._tile_data = pa.concat_tables(tbs)
 
         return self._tile_data
 
-    def _tiles_in_order(self, coords_only=False):
+    def _tiles_in_order(self, coords_only=False) -> Iterator[Union[Tuple[int, int, int], Path]]:
         """
         Returns:
             A list of all tiles in the projection in a fixed order so that all
@@ -690,8 +707,8 @@ class AtlasProjection:
                     download_success = True
                 except pa.ArrowInvalid:
                     path.unlink(missing_ok=True)
-            
-            if not download_success:
+
+            if not download_success or schema is None:
                 raise Exception(f"Failed to download tiles. Aborting...")
 
             if sidecars is None and b'sidecars' in schema.metadata:
@@ -754,7 +771,7 @@ class AtlasDataStream(AtlasClass):
         endpoint = f"/v1/data/{self.name}"
         response = requests.get(
             self.atlas_api_path + endpoint,
-            headers = self.header,
+            headers=self.header,
         )
         if response.status_code == 200:
             return response.json()
@@ -798,11 +815,11 @@ class AtlasDataset(AtlasClass):
             self.meta = self._get_project_by_id(dataset_id)
             return
 
-        if not self.is_valid_dataset_identifier(identifier=identifier):
+        if not self.is_valid_dataset_identifier(identifier=str(identifier)):
             default_org_slug = self._get_current_users_main_organization()['slug']
             identifier = default_org_slug + '/' + identifier
 
-        dataset = self._get_dataset_by_slug_identifier(identifier=identifier)
+        dataset = self._get_dataset_by_slug_identifier(identifier=str(identifier))
 
         if dataset:  # dataset already exists
             logger.info(f"Loading existing dataset `{identifier}``.")
@@ -1021,7 +1038,9 @@ class AtlasDataset(AtlasClass):
                 has_logged = True
             time.sleep(5)
 
-    def get_map(self, name: str = None, atlas_index_id: str = None, projection_id: str = None) -> AtlasProjection:
+    def get_map(
+        self, name: Optional[str] = None, atlas_index_id: Optional[str] = None, projection_id: Optional[str] = None
+    ) -> AtlasProjection:
         '''
         Retrieves a map.
 
@@ -1068,15 +1087,15 @@ class AtlasDataset(AtlasClass):
 
     def create_index(
         self,
-        name: str = None,
-        indexed_field: str = None,
-        modality: str = None,
+        name: Optional[str] = None,
+        indexed_field: Optional[str] = None,
+        modality: Optional[str] = None,
         projection: Union[bool, Dict, NomicProjectOptions] = True,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
-        reuse_embeddings_from_index: str = None,
-    ) -> AtlasProjection:
+        reuse_embeddings_from_index: Optional[str] = None,
+    ) -> Union[AtlasProjection, None]:
         '''
         Creates an index in the specified dataset.
 
@@ -1135,6 +1154,7 @@ class AtlasDataset(AtlasClass):
             if field not in [self.id_field, indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
 
+        build_template = {}
         if self.modality == 'embedding':
             if topic_model.community_description_target_field is None:
                 logger.warning(
@@ -1262,19 +1282,22 @@ class AtlasDataset(AtlasClass):
         index_id = job['index_id']
 
         try:
-            projection = self.get_map(atlas_index_id=index_id)
+            atlas_projection = self.get_map(atlas_index_id=index_id)
         except ValueError:
             # give some delay
             time.sleep(5)
             try:
-                projection = self.get_map(atlas_index_id=index_id)
+                atlas_projection = self.get_map(atlas_index_id=index_id)
             except ValueError:
-                projection = None
+                atlas_projection = None
 
-        if projection is None:
+        if atlas_projection is None:
             logger.warning("Could not find a map being built for this dataset.")
-        logger.info(f"Created map `{projection.name}` in dataset `{self.identifier}`: {projection.map_link}")
-        return projection
+        else:
+            logger.info(
+                f"Created map `{atlas_projection.name}` in dataset `{self.identifier}`: {atlas_projection.map_link}"
+            )
+        return atlas_projection
 
     def __repr__(self):
         m = self.meta
@@ -1361,7 +1384,7 @@ class AtlasDataset(AtlasClass):
         else:
             raise Exception(response.text)
 
-    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: np.array = None, pbar=None):
+    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: Optional[np.ndarray] = None, pbar=None):
         """
         Adds data of varying modality to an Atlas dataset.
         Args:
@@ -1369,7 +1392,10 @@ class AtlasDataset(AtlasClass):
             embeddings: A numpy array of embeddings: each row corresponds to a row in the table. Use if you already have embeddings for your datapoints.
             pbar: (Optional). A tqdm progress bar to update.
         """
-        if embeddings is not None or (isinstance(data, pa.Table) and "_embeddings" in data.column_names):
+        if embeddings is not None:
+            self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
+        elif isinstance(data, pa.Table) and "_embeddings" in data.column_names:  # type: ignore
+            embeddings = np.array(data.column('_embeddings').to_pylist())  # type: ignore
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         else:
             self._add_text(data=data, pbar=pbar)
@@ -1380,7 +1406,7 @@ class AtlasDataset(AtlasClass):
         data: A pandas DataFrame, a list of python dictionaries, or a pyarrow Table matching the dataset schema.
         pbar: (Optional). A tqdm progress bar to display progress.
         """
-        if DataFrame is not None and isinstance(data, DataFrame):
+        if isinstance(data, DataFrame):
             data = pa.Table.from_pandas(data)
         elif isinstance(data, list):
             data = pa.Table.from_pylist(data)
@@ -1388,7 +1414,7 @@ class AtlasDataset(AtlasClass):
             raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
         self._add_data(data, pbar=pbar)
 
-    def _add_embeddings(self, data: Union[DataFrame, List[Dict], pa.Table, None], embeddings: np.array, pbar=None):
+    def _add_embeddings(self, data: Union[DataFrame, List[Dict], pa.Table], embeddings: np.ndarray, pbar=None):
         """
         Add data, with associated embeddings, to the dataset.
 
@@ -1409,7 +1435,7 @@ class AtlasDataset(AtlasClass):
 
         tb: pa.Table
 
-        if DataFrame is not None and isinstance(data, DataFrame):
+        if isinstance(data, DataFrame):
             tb = pa.Table.from_pandas(data)
         elif isinstance(data, list):
             tb = pa.Table.from_pylist(data)
@@ -1566,7 +1592,7 @@ class AtlasDataset(AtlasClass):
             else:
                 logger.info("Upload succeeded.")
 
-    def update_maps(self, data: List[Dict], embeddings: Optional[np.array] = None, num_workers: int = 10):
+    def update_maps(self, data: List[Dict], embeddings: Optional[np.ndarray] = None, num_workers: int = 10):
         '''
         Utility method to update a project's maps by adding the given data.
 
@@ -1598,7 +1624,7 @@ class AtlasDataset(AtlasClass):
         logger.info("Uploading data to Nomic's neural database Atlas.")
         with tqdm(total=len(data) // shard_size) as pbar:
             for i in range(0, len(data), MAX_MEMORY_CHUNK):
-                if self.modality == 'embedding':
+                if self.modality == 'embedding' and embeddings is not None:
                     self._add_embeddings(
                         embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
                         data=data[i : i + MAX_MEMORY_CHUNK],

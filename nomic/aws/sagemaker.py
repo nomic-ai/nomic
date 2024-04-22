@@ -15,9 +15,7 @@ def _get_sagemaker_role():
     try:
         return sagemaker.get_execution_role()
     except ValueError:
-        raise ValueError(
-            "Unable to fetch sagemaker execution role. Please provide a role."
-        )
+        raise ValueError("Unable to fetch sagemaker execution role. Please provide a role.")
 
 
 def parse_sagemaker_response(response):
@@ -157,9 +155,7 @@ def embed_texts(
 
     for i in tqdm(range(0, len(texts), batch_size)):
         batch = json.dumps({"texts": texts[i : i + batch_size]})
-        response = client.invoke_endpoint(
-            EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json"
-        )
+        response = client.invoke_endpoint(EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json")
         embeddings.extend(parse_sagemaker_response(response))
 
     return {

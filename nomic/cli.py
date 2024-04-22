@@ -1,10 +1,10 @@
 import json
-import jwt
 import os
 import time
 from pathlib import Path
 
 import click
+import jwt
 import requests
 from rich.console import Console
 
@@ -53,7 +53,7 @@ def login(token, tenant='production', domain=None):
         console.print("Authenticate with the Nomic API", style=style, justify="center")
         console.print(auth0_auth_endpoint, style=style, justify="center")
         console.print(
-            "Click the above link to retrieve your access token and then run `nomic login \[token]`",
+            "Click the above link to retrieve your access token and then run `nomic login [token]`",
             style=style,
             justify="center",
         )
@@ -62,7 +62,6 @@ def login(token, tenant='production', domain=None):
     # save credential
     if not nomic_base_path.exists():
         nomic_base_path.mkdir()
-
 
     expires = None
     refresh_token = None
@@ -85,7 +84,7 @@ def login(token, tenant='production', domain=None):
             'refresh_token': refresh_token,
             'token': bearer_token,
             'tenant': tenant,
-            'expires': expires
+            'expires': expires,
         }
 
         if tenant == 'enterprise':
@@ -141,7 +140,6 @@ def switch(tenant):
 @click.argument('command', nargs=1, default='')
 @click.argument('params', nargs=-1)
 def cli(command, params, domain=None):
-
     if command == 'login':
         if len(params) == 0:
             login(token=None, tenant='production')

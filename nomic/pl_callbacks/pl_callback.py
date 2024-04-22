@@ -1,8 +1,9 @@
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+import pytorch_lightning as pl
 import torch
 from loguru import logger
 from pytorch_lightning.callbacks import Callback
@@ -15,7 +16,18 @@ class AtlasLightningContainer:
         self.embeddings = []
         self.metadata = defaultdict(list)
 
-    def log(self, embeddings: torch.Tensor, metadata: Dict[str, List] = {}):
+    def log(
+        self,
+        embeddings: torch.Tensor,
+        metadata: Union[
+            Dict[str, List],
+            Dict[str, torch.Tensor],
+            Dict[str, np.ndarray],
+            Dict[str, int],
+            Dict[str, float],
+            Dict[str, str],
+        ] = {},
+    ):
         '''Log a batch of embeddings and corresponding metadata for each embedding.'''
         assert isinstance(embeddings, torch.Tensor), 'You must log a torch Tensor'
 
@@ -23,34 +35,43 @@ class AtlasLightningContainer:
         if len(embeddings.shape) != 2:
             raise ValueError("Your logged embedding tensor must have shape (N,d)")
 
+        metadata_copy = defaultdict(list)
         # sanity check the inputs
         for key in metadata:
-            if isinstance(metadata[key], torch.Tensor):
-                metadata[key] = metadata[key].flatten().cpu().tolist()
-            elif isinstance(metadata[key], np.ndarray):
-                metadata[key] = metadata[key].flatten().tolist()
+            metadata_value = metadata[key]
+            if isinstance(metadata_value, torch.Tensor):
+                metadata_copy[key] = metadata_value.flatten().cpu().tolist()
+            elif isinstance(metadata_value, np.ndarray):
+                metadata_copy[key] = metadata_value.flatten().tolist()
             else:
-                if not isinstance(metadata[key], list):
+                if not isinstance(metadata_value, list):
                     if (
-                        isinstance(metadata[key], float)
-                        or isinstance(metadata[key], int)
-                        or isinstance(metadata[key], str)
+                        isinstance(metadata_value, float)
+                        or isinstance(metadata_value, int)
+                        or isinstance(metadata_value, str)
                     ):
-                        metadata[key] = [metadata[key]]
+                        metadata_copy[key] = [metadata_value]
 
-            if embeddings.shape[0] != len(metadata[key]):
+            if embeddings.shape[0] != len(metadata_copy[key]):
                 raise ValueError(
-                    f"Your metadata has invalid shape. You have {embeddings.shape[0]} embeddings but len(metadata['{key}']) = {len(metadata[key])}"
+                    f"Your metadata has invalid shape. You have {embeddings.shape[0]} embeddings but len(metadata['{key}']) = {len(metadata_copy[key])}"
                 )
 
         self.embeddings.append(embeddings)
         for key in metadata:
-            self.metadata[key] = self.metadata[key] + metadata[key]
+            self.metadata[key] = self.metadata[key] + metadata_copy[key]
 
     def clear(self):
         '''Clears all embeddings and metadata from the final produced map.'''
         self.embeddings = []
         self.metadata = defaultdict(list)
+
+
+class AtlasLightningModule(pl.LightningModule):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.atlas: Optional[AtlasLightningContainer] = None
 
 
 class AtlasEmbeddingExplorer(Callback):
@@ -59,7 +80,7 @@ class AtlasEmbeddingExplorer(Callback):
         max_points=-1,
         rebuild_time_delay=600,
         name=None,
-        description=None,
+        description="",
         is_public=True,
         overwrite_on_validation=False,
     ):
@@ -84,14 +105,14 @@ class AtlasEmbeddingExplorer(Callback):
         self.rebuild_time_delay = rebuild_time_delay
         self.last_rebuild_timestamp = datetime.min
 
-    def on_train_start(self, trainer, pl_module):
+    def on_train_start(self, trainer: "pl.Trainer", pl_module: pl.LightningModule):
         '''Verify that atlas is configured and set up variables'''
         AtlasUser()  # verify logged in.
-        pl_module.atlas = self.atlas
+        AtlasLightningModule(pl_module).atlas = self.atlas
 
     def on_sanity_check_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         AtlasUser()  # verify logged in.
-        pl_module.atlas = AtlasLightningContainer()
+        AtlasLightningModule(pl_module).atlas = AtlasLightningContainer()
 
     def on_train_epoch_start(self, *args, **kwargs):
         self.atlas.clear()
@@ -110,8 +131,9 @@ class AtlasEmbeddingExplorer(Callback):
         if seconds_since_last_build < self.rebuild_time_delay:
             logger.info(
                 f"Skipping regenerating embedding explorer for this validation epoch as its been {seconds_since_last_build} seconds since the last rebuild and `rebuild_time_delay={self.rebuild_time_delay}`"
-                f" See your previous validation embedding space at: {self.map.map_link}"
             )
+            if self.map is not None:
+                logger.info(f" See your previous validation embedding space at: {self.map.map_link}")
             return
         if not self.atlas.embeddings:
             logger.info(
@@ -157,9 +179,9 @@ class AtlasEmbeddingExplorer(Callback):
                 data=metadata,
                 id_field='id',
                 is_public=self.is_public,
-                name=self.name,
+                identifier=self.name,
                 description=self.description,
-                build_topic_model=False,
+                topic_model=False,
             )
         except BaseException as e:
             logger.info(e)
