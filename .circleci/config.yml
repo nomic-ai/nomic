@@ -43,8 +43,8 @@ commands:
 
 jobs:
   build_test:
-    image:
-      - image: ubuntu-2204:2024.01.2
+    machine:
+      image: ubuntu-2204:2024.01.2
     resource_class: large
     steps:
       - prep
