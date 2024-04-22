@@ -1262,11 +1262,6 @@ class AtlasDataset(AtlasClass):
                 ),
             }
 
-        print("*" * 100)
-        print("modality", self.modality, modality)
-        print(build_template)
-        print("*" * 100)
-
         response = requests.post(
             self.atlas_api_path + "/v1/project/index/create",
             headers=self.header,
