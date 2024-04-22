@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-import pyarrow
 import pyarrow as pa
 import requests
 

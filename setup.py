@@ -48,6 +48,7 @@ setup(
             'coverage',
             "pylint",
             "pytest",
+            "isort",
             "pyright",
             "myst-parser",
             "mkdocs-material",
