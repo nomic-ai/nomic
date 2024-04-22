@@ -155,9 +155,7 @@ def embed_texts(
 
     for i in tqdm(range(0, len(texts), batch_size)):
         batch = json.dumps({"texts": texts[i : i + batch_size]})
-        response = client.invoke_endpoint(
-            EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json"
-        )
+        response = client.invoke_endpoint(EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json")
         embeddings.extend(parse_sagemaker_response(response))
 
     return {

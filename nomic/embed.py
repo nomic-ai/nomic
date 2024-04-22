@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, overload
+from typing import Any, List, Literal, Optional, Sequence, Tuple, Union, overload
 
 import PIL
 import PIL.Image
@@ -15,11 +15,12 @@ import requests
 from .dataset import AtlasClass
 from .settings import *
 
+embed4all_installed = True
+
 try:
     from gpt4all import CancellationError, Embed4All
 except ImportError:
-    if not TYPE_CHECKING:
-        Embed4All = None
+    embed4all_installed = False
 
 atlas_class: Optional[AtlasClass] = None
 
@@ -32,6 +33,7 @@ _EMBED4ALL_MODELS = {
     "nomic-embed-text-v1": "nomic-embed-text-v1.f16.gguf",
     "nomic-embed-text-v1.5": "nomic-embed-text-v1.5.f16.gguf",
 }
+
 
 def is_backoff_status_code(code: int):
     if code == 429 or code >= 500:
@@ -90,7 +92,6 @@ def text_api_request(
         raise Exception((response.status_code, response.text))
 
 
-
 @overload
 def text(
     texts: list[str],
@@ -100,7 +101,10 @@ def text(
     dimensionality: int | None = ...,
     long_text_mode: str = ...,
     inference_mode: Literal["remote"] = ...,
-) -> dict[str, Any]: ...
+) -> dict[str, Any]:
+    ...
+
+
 @overload
 def text(
     texts: list[str],
@@ -112,7 +116,10 @@ def text(
     inference_mode: Literal["local", "dynamic"],
     device: str | None = ...,
     **kwargs: Any,
-) -> dict[str, Any]: ...
+) -> dict[str, Any]:
+    ...
+
+
 @overload
 def text(
     texts: list[str],
@@ -124,7 +131,8 @@ def text(
     inference_mode: str,
     device: str | None = ...,
     **kwargs: Any,
-) -> dict[str, Any]: ...
+) -> dict[str, Any]:
+    ...
 
 
 def text(
@@ -152,7 +160,7 @@ def text(
         device: The device to use for local embeddings. Defaults to CPU, or Metal on Apple Silicon. It can be set to:
             - "gpu": Use the best available GPU.
             - "amd", "nvidia": Use the best available GPU from the specified vendor.
-			- A specific device name from the output of `GPT4All.list_gpus()`
+                        - A specific device name from the output of `GPT4All.list_gpus()`
         kwargs: Remaining arguments are passed to the Embed4All contructor.
 
     Returns:
@@ -176,7 +184,7 @@ def text(
             raise TypeError(f"device argument cannot be used with inference_mode='remote'")
         if kwargs:
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
-    elif Embed4All is None:
+    elif embed4all_installed is None:
         raise RuntimeError(
             f"The 'gpt4all' package is required for local inference. Suggestion: `pip install \"nomic[local]\"`",
         )
@@ -193,7 +201,7 @@ def text(
                 device=device,
                 **kwargs,
             )
-        except CancellationError:
+        except CancellationError:  # type: ignore
             pass  # dynamic mode chose to use Atlas, fall through
 
     return _text_atlas(texts, model, task_type, dimensionality, long_text_mode)
@@ -244,16 +252,15 @@ def _text_atlas(
     return combined
 
 
-
-_embed4all: Embed4All | None = None
-_embed4all_kwargs: dict[str, Any] | None = None
+_embed4all: Optional[Embed4All] = None
+_embed4all_kwargs: Optional[dict[str, Any]] = None
 
 
 def _text_embed4all(
     texts: list[str],
     model: str,
     task_type: str,
-    dimensionality: int | None,
+    dimensionality: Optional[int],
     long_text_mode: str,
     dynamic_mode: bool,
     **kwargs: Any,
@@ -272,7 +279,7 @@ def _text_embed4all(
     if _embed4all is None or _embed4all.gpt4all.config["filename"] != g4a_model or _embed4all_kwargs != kwargs:
         if _embed4all is not None:
             _embed4all.close()
-        _embed4all = Embed4All(g4a_model, **kwargs)
+        _embed4all = Embed4All(g4a_model, **kwargs)  # type: ignore
         _embed4all_kwargs = kwargs
 
     def cancel_cb(batch_sizes: list[int], backend: str) -> bool:
@@ -305,10 +312,15 @@ def free_embedding_model() -> None:
 
 def image_api_request(images: List[Tuple[str, bytes]], model: str = 'nomic-embed-vision-v1'):
     global atlas_class
+
+    assert atlas_class is not None
+    atlas_url = atlas_class.atlas_api_path
+    atlas_header = atlas_class.header
+
     response = request_backoff(
         lambda: requests.post(
-            atlas_class.atlas_api_path + "/v1/embedding/image",
-            headers=atlas_class.header,
+            atlas_url + "/v1/embedding/image",
+            headers=atlas_header,
             data={"model": model},
             files=images,
         )
@@ -318,21 +330,20 @@ def image_api_request(images: List[Tuple[str, bytes]], model: str = 'nomic-embed
         return response.json()
     else:
         raise Exception((response.status_code, response.text))
-    
-    
+
+
 def resize_pil(img):
     width, height = img.size
-    #if image is too large, downsample before sending over the wire
+    # if image is too large, downsample before sending over the wire
     max_width = 512
     max_height = 512
     if max_width > 512 or max_height > 512:
-        downsize_factor = max(width/max_width, height/max_height)
-        img.resize((width/downsize_factor, height/downsize_factor))
+        downsize_factor = max(width / max_width, height / max_height)
+        img.resize((width / downsize_factor, height / downsize_factor))
     return img
 
 
-def images(images: Iterable[Union[str, PIL.Image.Image]], model: str = 'nomic-embed-vision-v1'):
-
+def images(images: Sequence[Union[str, PIL.Image.Image]], model: str = 'nomic-embed-vision-v1'):
     """
     Generates embeddings for the given images.
 
@@ -345,7 +356,6 @@ def images(images: Iterable[Union[str, PIL.Image.Image]], model: str = 'nomic-em
     """
     global atlas_class
 
-
     if atlas_class is None:
         atlas_class = AtlasClass()
 
@@ -355,15 +365,14 @@ def images(images: Iterable[Union[str, PIL.Image.Image]], model: str = 'nomic-em
     # if there are fewer images per worker than the max chunksize just split them evenly
     chunksize = min(smallchunk, chunksize)
 
-
     image_batch = []
     for image in images:
         if isinstance(image, str) and os.path.exists(image):
-                img = resize_pil(PIL.Image.open(image))
-                buffered = BytesIO()
-                img.save(buffered, format="JPEG")
+            img = resize_pil(PIL.Image.open(image))
+            buffered = BytesIO()
+            img.save(buffered, format="JPEG")
 
-                image_batch.append(("images", buffered.getvalue()))
+            image_batch.append(("images", buffered.getvalue()))
 
         elif isinstance(image, PIL.Image.Image):
             img = resize_pil(image)
@@ -372,7 +381,6 @@ def images(images: Iterable[Union[str, PIL.Image.Image]], model: str = 'nomic-em
             image_batch.append(("images", buffered.getvalue()))
         else:
             raise ValueError(f"Not a valid file: {image}")
-
 
     combined = {'embeddings': [], 'usage': {}, 'model': model}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
