@@ -11,4 +11,4 @@ PyJWT==2.8.0
 rich==13.7.1
 pydantic==2.6.4
 Pillow==10.0.0
-gpt4all==2.5.1
+# gpt4all==2.5.1
