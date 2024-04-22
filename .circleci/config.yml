@@ -44,7 +44,7 @@ commands:
 jobs:
   build_test:
     docker:
-      - image: circleci/python:lastest
+      - image: circleci/python:latest
     resource_class: large
     steps:
       - prep
