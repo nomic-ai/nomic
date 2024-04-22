@@ -101,8 +101,7 @@ def text(
     dimensionality: int | None = ...,
     long_text_mode: str = ...,
     inference_mode: Literal["remote"] = ...,
-) -> dict[str, Any]:
-    ...
+) -> dict[str, Any]: ...
 
 
 @overload
@@ -116,8 +115,7 @@ def text(
     inference_mode: Literal["local", "dynamic"],
     device: str | None = ...,
     **kwargs: Any,
-) -> dict[str, Any]:
-    ...
+) -> dict[str, Any]: ...
 
 
 @overload
@@ -131,8 +129,7 @@ def text(
     inference_mode: str,
     device: str | None = ...,
     **kwargs: Any,
-) -> dict[str, Any]:
-    ...
+) -> dict[str, Any]: ...
 
 
 def text(

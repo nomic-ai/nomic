@@ -1,4 +1,4 @@
-black==24.7.0
+black==24.3.0
 isort==5.12.0
 pyright==1.1.359
 # following for pyright
