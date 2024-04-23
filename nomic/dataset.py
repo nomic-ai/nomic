@@ -822,7 +822,7 @@ class AtlasDataset(AtlasClass):
         dataset = self._get_dataset_by_slug_identifier(identifier=str(identifier))
 
         if dataset:  # dataset already exists
-            logger.info(f"Loading existing dataset `{identifier}``.")
+            logger.info(f"Loading existing dataset `{identifier}`.")
             dataset_id = dataset['id']
 
         if dataset_id is None:  # if there is no existing project, make a new one.
