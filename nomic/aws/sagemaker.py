@@ -15,7 +15,9 @@ def _get_sagemaker_role():
     try:
         return sagemaker.get_execution_role()
     except ValueError:
-        raise ValueError("Unable to fetch sagemaker execution role. Please provide a role.")
+        raise ValueError(
+            "Unable to fetch sagemaker execution role. Please provide a role."
+        )
 
 
 def parse_sagemaker_response(response):
