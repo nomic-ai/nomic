@@ -653,9 +653,7 @@ class AtlasProjection:
 
         return self._tile_data
 
-    def _tiles_in_order(
-        self, coords_only=False
-    ) -> Iterator[Union[Tuple[int, int, int], Path]]:
+    def _tiles_in_order(self, coords_only=False) -> Iterator[Union[Tuple[int, int, int], Path]]:
         """
         Returns:
             A list of all tiles in the projection in a fixed order so that all
