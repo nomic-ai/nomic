@@ -129,8 +129,6 @@ def embed_texts(
     region_name: str,
     task_type: str = "search_document",
     batch_size: int = 32,
-    dimensionality: int = 768,
-    binary: bool = False,
 ):
     """
     Embed a list of texts using a sagemaker model endpoint.
@@ -141,8 +139,6 @@ def embed_texts(
         region_name: AWS region sagemaker endpoint is in.
         task_type: The task type to use when embedding.
         batch_size: Size of each batch. Default is 32.
-        dimensionality: Number of dimensions to return. Options are (64, 128, 256, 512, 768).
-        binary: Whether to return binary embeddings.
 
     Returns:
         Dictionary with "embeddings" (python 2d list of floats), "model" (sagemaker endpoint used to generate embeddings).
@@ -153,25 +149,12 @@ def embed_texts(
         return None
 
     texts = preprocess_texts(texts, task_type)
-    assert dimensionality in (
-        64,
-        128,
-        256,
-        512,
-        768,
-    ), f"Invalid number of dimensions: {dimensionality}"
 
     client = boto3.client("sagemaker-runtime", region_name=region_name)
     embeddings = []
 
     for i in tqdm(range(0, len(texts), batch_size)):
-        batch = json.dumps(
-            {
-                "texts": texts[i : i + batch_size],
-                "binary": binary,
-                "dimensionality": dimensionality,
-            }
-        )
+        batch = json.dumps({"texts": texts[i : i + batch_size]})
         response = client.invoke_endpoint(EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json")
         embeddings.extend(parse_sagemaker_response(response))
 
