@@ -12,6 +12,7 @@ venv:
 
 dev: all
 	source env/bin/activate; pip install -e ".[dev]"
+	git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 black:
 	source env/bin/activate; black nomic
