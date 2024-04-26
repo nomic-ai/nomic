@@ -18,7 +18,7 @@ black:
 	source env/bin/activate; black nomic
 
 isort:
-	source env/bin/activate; isort --ignore-whitespace --atomic nomic
+	source env/bin/activate; isort nomic
 
 pyright:
 	source env/bin/activate; pyright nomic/ -p . 
