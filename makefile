@@ -14,11 +14,10 @@ dev: all
 	source env/bin/activate; pip install -e ".[dev]"
 
 black:
-	source env/bin/activate; black -l 120 -S --target-version py36 nomic
-
+	source env/bin/activate; black nomic
 
 isort:
-	source env/bin/activate; isort  --ignore-whitespace --atomic -w 120 nomic
+	source env/bin/activate; isort --ignore-whitespace --atomic nomic
 
 pyright:
 	source env/bin/activate; pyright nomic/ -p . 
@@ -35,7 +34,8 @@ lint: black isort pyright
 pretty: isort black
 
 test:
-	source env/bin/activate;  pytest -s tests
+	source env/bin/activate; pytest -s tests
+
 clean:
 	rm -rf {.pytest_cache,env,nomic.egg-info}
 	find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
@@ -45,10 +45,10 @@ ci_venv:
 	source ci_venv/bin/activate; pip install -r ci_venv_requirements.txt
 
 black_ci:
-	source env/bin/activate; black --check --diff -l 120 -S --target-version py36 nomic
+	source env/bin/activate; black --check --diff nomic
 
 isort_ci:
-	source env/bin/activate; isort --check --diff --skip env --skip env --profile black --ignore-whitespace --atomic -w 120 nomic
+	source env/bin/activate; isort --check --diff --skip nomic
 
 pyright_ci:
 	source env/bin/activate; pyright nomic/ -p .
