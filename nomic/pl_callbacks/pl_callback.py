@@ -28,8 +28,8 @@ class AtlasLightningContainer:
             Dict[str, str],
         ] = {},
     ):
-        '''Log a batch of embeddings and corresponding metadata for each embedding.'''
-        assert isinstance(embeddings, torch.Tensor), 'You must log a torch Tensor'
+        """Log a batch of embeddings and corresponding metadata for each embedding."""
+        assert isinstance(embeddings, torch.Tensor), "You must log a torch Tensor"
 
         # ensure passed in embeddings are a tensor with shape (batch_size, dimension)
         if len(embeddings.shape) != 2:
@@ -62,7 +62,7 @@ class AtlasLightningContainer:
             self.metadata[key] = self.metadata[key] + metadata_copy[key]
 
     def clear(self):
-        '''Clears all embeddings and metadata from the final produced map.'''
+        """Clears all embeddings and metadata from the final produced map."""
         self.embeddings = []
         self.metadata = defaultdict(list)
 
@@ -84,7 +84,7 @@ class AtlasEmbeddingExplorer(Callback):
         is_public=True,
         overwrite_on_validation=False,
     ):
-        '''
+        """
 
         Args:
             max_points: The maximum points to visualize. -1 will visualize all points.
@@ -93,7 +93,7 @@ class AtlasEmbeddingExplorer(Callback):
             description: A description for your embedding explorer.
             is_public: Should your embedding explorer be public
             overwrite_on_validation: Re-creates your validation set viewer on every validation run.
-        '''
+        """
         self.max_points = max_points
         self.name = name
         self.description = description
@@ -106,7 +106,7 @@ class AtlasEmbeddingExplorer(Callback):
         self.last_rebuild_timestamp = datetime.min
 
     def on_train_start(self, trainer: "pl.Trainer", pl_module: pl.LightningModule):
-        '''Verify that atlas is configured and set up variables'''
+        """Verify that atlas is configured and set up variables"""
         AtlasUser()  # verify logged in.
         AtlasLightningModule(pl_module).atlas = self.atlas
 
@@ -143,7 +143,7 @@ class AtlasEmbeddingExplorer(Callback):
         embeddings = torch.cat(self.atlas.embeddings).detach().cpu().numpy()
 
         lengths = map(len, self.atlas.metadata.values())
-        assert set(lengths) != 1, 'Error in logging metadata, it is not all the same length'
+        assert set(lengths) != 1, "Error in logging metadata, it is not all the same length"
 
         if self.max_points > 0:
             embeddings = embeddings[: self.max_points, :]
@@ -155,20 +155,20 @@ class AtlasEmbeddingExplorer(Callback):
                     self.atlas.metadata[key] = [str(x) for x in self.atlas.metadata[key]]
 
         keys = list(self.atlas.metadata.keys())
-        if 'id' not in self.atlas.metadata:
-            self.atlas.metadata['id'] = [i for i in range(embeddings.shape[0])]
-            keys.append('id')
+        if "id" not in self.atlas.metadata:
+            self.atlas.metadata["id"] = [i for i in range(embeddings.shape[0])]
+            keys.append("id")
 
         metadata = [dict(zip(keys, vals)) for vals in zip(*(self.atlas.metadata[k] for k in keys))]
 
         colorable_fields = []
         for key in keys:
-            if key == 'id':
+            if key == "id":
                 continue
             if (
                 isinstance(metadata[0][key], float)
                 or isinstance(metadata[0][key], int)
-                or key in ('class', 'label', 'target')
+                or key in ("class", "label", "target")
                 or len(set(self.atlas.metadata[key])) <= 10
             ):
                 colorable_fields.append(key)
@@ -177,7 +177,7 @@ class AtlasEmbeddingExplorer(Callback):
             project = atlas.map_data(
                 embeddings=embeddings,
                 data=metadata,
-                id_field='id',
+                id_field="id",
                 is_public=self.is_public,
                 identifier=self.name,
                 description=self.description,
