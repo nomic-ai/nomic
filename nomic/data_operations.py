@@ -20,7 +20,6 @@ from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from tqdm import tqdm
 
-
 from .settings import EMBEDDING_PAGINATION_LIMIT
 from .utils import download_feather
 
