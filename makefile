@@ -49,7 +49,7 @@ black_ci:
 	source env/bin/activate; black --check --diff nomic
 
 isort_ci:
-	source env/bin/activate; isort --check --diff --skip nomic
+	source env/bin/activate; isort --check --diff nomic
 
 pyright_ci:
 	source env/bin/activate; pyright nomic/ -p .
