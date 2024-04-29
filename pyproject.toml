@@ -1,0 +1,11 @@
+[tool.black]
+line-length = 120
+target-version = ['py39']
+skip-string-normalization = false
+
+[tool.isort]
+profile = "black"
+skip = ["env", "ci_venv"]
+ignore_whitespace = false
+atomic = true
+line_length = 120

@@ -47,14 +47,14 @@ def map_data(
         embedding_model: Options to adjust the embedding model used to embed your dataset.
     :return:
     """
-    modality = 'embedding'
+    modality = "embedding"
     if embeddings is not None:
-        assert isinstance(embeddings, np.ndarray), 'You must pass in a numpy array'
+        assert isinstance(embeddings, np.ndarray), "You must pass in a numpy array"
         if embeddings.size == 0:
             raise Exception("Your embeddings cannot be empty")
 
     if indexed_field is not None:
-        modality = 'text'
+        modality = "text"
 
     if id_field is None:
         id_field = ATLAS_DEFAULT_ID_FIELD
@@ -104,14 +104,14 @@ def map_data(
     number_of_datums_before_upload = dataset.total_datums
 
     if number_of_datums_before_upload > 0:
-        raise Exception('Cannot use map_data to update an existing dataset.')
+        raise Exception("Cannot use map_data to update an existing dataset.")
 
     # Add data by modality
     logger.info("Uploading data to Atlas.")
     try:
-        if modality == 'text':
+        if modality == "text":
             dataset.add_data(data=data)
-        elif modality == 'embedding':
+        elif modality == "embedding":
             dataset.add_data(
                 embeddings=embeddings,
                 data=data,
@@ -157,7 +157,7 @@ def map_embeddings(
     projection_spread: float = DEFAULT_PROJECTION_SPREAD,
     organization_name=None,
 ) -> AtlasDataset:
-    '''
+    """
 
     Args:
         embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
@@ -178,9 +178,9 @@ def map_embeddings(
     Returns:
         An AtlasDataset that now contains your map.
 
-    '''
+    """
 
-    assert isinstance(embeddings, np.ndarray), 'You must pass in a numpy array'
+    assert isinstance(embeddings, np.ndarray), "You must pass in a numpy array"
     raise DeprecationWarning("map_embeddings is deprecated and will soon be removed, use atlas.map_data instead.")
 
 
@@ -204,7 +204,7 @@ def map_text(
     duplicate_threshold: float = DEFAULT_DUPLICATE_THRESHOLD,
     organization_name=None,
 ) -> AtlasDataset:
-    '''
+    """
     Generates or updates a map of the given text.
 
     Args:
@@ -225,7 +225,7 @@ def map_text(
     Returns:
         The AtlasDataset containing your map.
 
-    '''
+    """
     if organization_name is not None:
         logger.warning(
             "Passing organization name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads)."
@@ -234,14 +234,14 @@ def map_text(
 
 
 # NOTE: This will be deprecated for AtlasDataStream class
-def _get_datastream_credentials(name: Optional[str] = 'contrastors') -> Dict[str, str]:
-    '''
+def _get_datastream_credentials(name: Optional[str] = "contrastors") -> Dict[str, str]:
+    """
     Returns credentials for a datastream.
 
     Args:
         name: Datastream name
     Returns:
         A dictionary with credentials to access a datastream.
-    '''
+    """
     atlas_data_access = AtlasDataStream(name)
     return atlas_data_access.get_credentials()

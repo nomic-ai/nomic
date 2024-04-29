@@ -232,7 +232,7 @@ def _text_atlas(
     # if there are fewer texts per worker than the max chunksize just split them evenly
     chunksize = min(smallchunk, chunksize)
 
-    combined = {'embeddings': [], 'usage': {}, 'model': model, 'inference_mode': 'remote'}
+    combined = {"embeddings": [], "usage": {}, "model": model, "inference_mode": "remote"}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         for chunkstart in range(0, len(texts), chunksize):
@@ -242,10 +242,10 @@ def _text_atlas(
 
         for future in futures:
             response = future.result()
-            assert response['model'] == model
-            combined['embeddings'] += response['embeddings']
-            for counter, value in response['usage'].items():
-                combined['usage'][counter] = combined['usage'].get(counter, 0) + value
+            assert response["model"] == model
+            combined["embeddings"] += response["embeddings"]
+            for counter, value in response["usage"].items():
+                combined["usage"][counter] = combined["usage"].get(counter, 0) + value
     return combined
 
 
@@ -307,7 +307,7 @@ def free_embedding_model() -> None:
         _embed4all = _embed4all_kwargs = None
 
 
-def image_api_request(images: List[Tuple[str, bytes]], model: str = 'nomic-embed-vision-v1'):
+def image_api_request(images: List[Tuple[str, bytes]], model: str = "nomic-embed-vision-v1"):
     global atlas_class
 
     assert atlas_class is not None
@@ -340,7 +340,7 @@ def resize_pil(img):
     return img
 
 
-def images(images: Sequence[Union[str, PIL.Image.Image]], model: str = 'nomic-embed-vision-v1'):
+def images(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-embed-vision-v1"):
     """
     Generates embeddings for the given images.
 
@@ -379,7 +379,7 @@ def images(images: Sequence[Union[str, PIL.Image.Image]], model: str = 'nomic-em
         else:
             raise ValueError(f"Not a valid file: {image}")
 
-    combined = {'embeddings': [], 'usage': {}, 'model': model}
+    combined = {"embeddings": [], "usage": {}, "model": model}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
         for chunkstart in range(0, len(image_batch), chunksize):
@@ -389,8 +389,8 @@ def images(images: Sequence[Union[str, PIL.Image.Image]], model: str = 'nomic-em
 
         for future in futures:
             response = future.result()
-            assert response['model'] == model
-            combined['embeddings'] += response['embeddings']
-            for counter, value in response['usage'].items():
-                combined['usage'][counter] = combined['usage'].get(counter, 0) + value
+            assert response["model"] == model
+            combined["embeddings"] += response["embeddings"]
+            for counter, value in response["usage"].items():
+                combined["usage"][counter] = combined["usage"].get(counter, 0) + value
     return combined
