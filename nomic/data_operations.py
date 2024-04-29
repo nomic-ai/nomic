@@ -20,7 +20,6 @@ from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from tqdm import tqdm
 
-
 from .settings import EMBEDDING_PAGINATION_LIMIT
 from .utils import download_feather
 
@@ -74,13 +73,13 @@ class AtlasMapDuplicates:
         Returns:
             The ids for all data points which are semantic duplicates and are candidates for being deleted from the dataset. If you remove these data points from your dataset, your dataset will be semantically deduplicated.
         """
-        dupes = self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))  # type: ignore
+        dupes = self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], "deletion candidate"))  # type: ignore
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})\n"
         duplicate_count = len(
-            self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], 'deletion candidate'))  # type: ignore
+            self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], "deletion candidate"))  # type: ignore
         )
         cluster_count = len(self.tb[self.cluster_field].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
@@ -105,23 +104,24 @@ class AtlasMapTopics:
             self.depth = len(topic_fields)
 
             # If using topic ids, fetch topic labels
-            if 'int' in topic_fields[0]:
+            if "int" in topic_fields[0]:
                 new_topic_fields = []
                 label_df = self.metadata[["topic_id", "depth", "topic_short_description"]]
                 for d in range(1, self.depth + 1):
                     column = f"_topic_depth_{d}_int"
-                    topic_ids_to_label = self._tb[column].to_pandas().rename('topic_id')
+                    topic_ids_to_label = self._tb[column].to_pandas().rename("topic_id")
                     topic_ids_to_label = pd.DataFrame(label_df[label_df["depth"] == d]).merge(
-                        topic_ids_to_label, on='topic_id', how='right'
+                        topic_ids_to_label, on="topic_id", how="right"
                     )
                     new_column = f"_topic_depth_{d}"
                     self._tb = self._tb.append_column(
-                        new_column, pa.Array.from_pandas(topic_ids_to_label["topic_short_description"])
+                        new_column,
+                        pa.Array.from_pandas(topic_ids_to_label["topic_short_description"]),
                     )
                     new_topic_fields.append(new_column)
                 topic_fields = new_topic_fields
 
-            renamed_fields = [f'topic_depth_{i}' for i in range(1, self.depth + 1)]
+            renamed_fields = [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
             self._tb = self._tb.select([self.id_field] + topic_fields).rename_columns([self.id_field] + renamed_fields)
 
         except pa.lib.ArrowInvalid as e:  # type: ignore
@@ -158,12 +158,12 @@ class AtlasMapTopics:
         response = requests.get(
             self.projection.dataset.atlas_api_path
             + "/v1/project/{}/index/projection/{}".format(
-                self.projection.dataset.meta['id'], self.projection.projection_id
+                self.projection.dataset.meta["id"], self.projection.projection_id
             ),
             headers=self.projection.dataset.header,
         )
-        topics = json.loads(response.text)['topic_models'][0]['features']
-        topic_data = [e['properties'] for e in topics]
+        topics = json.loads(response.text)["topic_models"][0]["features"]
+        topic_data = [e["properties"] for e in topics]
         topic_data = pd.DataFrame(topic_data)
         column_list = [(f"_topic_depth_{i}", f"topic_depth_{i}") for i in range(1, self.depth + 1)]
         column_list.append(("topic", "topic_id"))
@@ -248,7 +248,7 @@ class AtlasMapTopics:
         return result
 
     def get_topic_density(self, time_field: str, start: datetime, end: datetime):
-        '''
+        """
         Computes the density/frequency of topics in a given interval of a timestamp field.
 
         Useful for answering questions such as:
@@ -262,7 +262,7 @@ class AtlasMapTopics:
 
         Returns:
             A list of `{topic, count}` dictionaries, sorted from largest count to smallest count.
-        '''
+        """
         data = AtlasMapData(self.projection, fields=[time_field])
         time_data = data._tb.select([self.id_field, time_field])
         merged_tb = self._tb.join(time_data, self.id_field, join_type="inner").combine_chunks()
@@ -273,17 +273,17 @@ class AtlasMapTopics:
         merged_tb = merged_tb.filter(expr)
         topic_densities = {}
         for depth in range(1, self.depth + 1):
-            topic_column = f'topic_depth_{depth}'
+            topic_column = f"topic_depth_{depth}"
             topic_counts = merged_tb.group_by(topic_column).aggregate([(self.id_field, "count")]).to_pandas()
             for _, row in topic_counts.iterrows():
                 topic = row[topic_column]
                 if topic not in topic_densities:
                     topic_densities[topic] = 0
-                topic_densities[topic] += row[self.id_field + '_count']
+                topic_densities[topic] += row[self.id_field + "_count"]
         return topic_densities
 
     def vector_search_topics(self, queries: np.ndarray, k: int = 32, depth: int = 3) -> Dict:
-        '''
+        """
         Given an embedding, returns a normalized distribution over topics.
 
         Useful for answering the questions such as:
@@ -298,11 +298,11 @@ class AtlasMapTopics:
 
         Returns:
             A dict mapping `{topic: posterior probability}` for each query.
-        '''
+        """
 
         if queries.ndim != 2:
             raise ValueError(
-                'Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).'
+                "Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d)."
             )
 
         bytesio = io.BytesIO()
@@ -312,10 +312,10 @@ class AtlasMapTopics:
             self.dataset.atlas_api_path + "/v1/project/data/get/embedding/topic",
             headers=self.dataset.header,
             json={
-                'atlas_index_id': self.projection.atlas_index_id,
-                'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                'k': k,
-                'depth': depth,
+                "atlas_index_id": self.projection.atlas_index_id,
+                "queries": base64.b64encode(bytesio.getvalue()).decode("utf-8"),
+                "k": k,
+                "depth": depth,
             },
         )
         if response.status_code != 200:
@@ -380,7 +380,7 @@ class AtlasMapEmbeddings:
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
-        self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, 'x', 'y'])
+        self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, "x", "y"])
         self.dataset = projection.dataset
         self._latent = None
 
@@ -446,8 +446,8 @@ class AtlasMapEmbeddings:
                     )
                 for file in sortable:
                     tb = feather.read_table(file, memory_map=True)
-                    dims = tb['_embeddings'].type.list_size
-                    all_embeddings.append(pa.compute.list_flatten(tb['_embeddings']).to_numpy().reshape(-1, dims))  # type: ignore
+                    dims = tb["_embeddings"].type.list_size
+                    all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
 
     def _download_latent(self):
@@ -456,12 +456,16 @@ class AtlasMapEmbeddings:
         """
         logger.warning("Downloading latent embeddings of all datapoints.")
         limit = 10_000
-        route = self.projection.dataset.atlas_api_path + '/v1/project/data/get/embedding/paged'
+        route = self.projection.dataset.atlas_api_path + "/v1/project/data/get/embedding/paged"
         last = None
 
         with tqdm(total=self.dataset.total_datums // limit) as pbar:
             while True:
-                params = {'projection_id': self.projection.id, "last_file": last, "page_size": limit}
+                params = {
+                    "projection_id": self.projection.id,
+                    "last_file": last,
+                    "page_size": limit,
+                }
                 r = requests.post(route, headers=self.projection.dataset.header, json=params)
                 if r.status_code == 204:
                     # Download complete!
@@ -469,7 +473,7 @@ class AtlasMapEmbeddings:
                 fin = BytesIO(r.content)
                 tb = feather.read_table(fin, memory_map=True)
 
-                tilename = tb.schema.metadata[b'tile'].decode("utf-8")
+                tilename = tb.schema.metadata[b"tile"].decode("utf-8")
                 dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 feather.write_feather(tb, dest)
@@ -477,9 +481,12 @@ class AtlasMapEmbeddings:
                 pbar.update(1)
 
     def vector_search(
-        self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5
+        self,
+        queries: Optional[np.ndarray] = None,
+        ids: Optional[List[str]] = None,
+        k: int = 5,
     ) -> Tuple[List, List]:
-        '''
+        """
         Performs semantic vector search over data points on your map.
         If ids is specified, receive back the most similar data ids in latent vector space to your input ids.
         If queries is specified, receive back the data ids with representations most similar to the query vectors.
@@ -494,10 +501,10 @@ class AtlasMapEmbeddings:
             A tuple with two elements containing the following information:
                 neighbors: A set of ids corresponding to the nearest neighbors of each query
                 distances: A set of distances between each query and its neighbors.
-        '''
+        """
 
         if queries is None and ids is None:
-            raise ValueError('You must specify either a list of datum `ids` or NumPy array of `queries` but not both.')
+            raise ValueError("You must specify either a list of datum `ids` or NumPy array of `queries` but not both.")
 
         max_k = 128
         max_queries = 256
@@ -514,7 +521,7 @@ class AtlasMapEmbeddings:
                 raise Exception(f"Max vectors per query is {max_queries}. You sent {queries.shape[0]}.")
             if queries.ndim != 2:
                 raise ValueError(
-                    'Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d).'
+                    "Expected a 2 dimensional array. If you have a single query, we expect an array of shape (1, d)."
                 )
 
             bytesio = io.BytesIO()
@@ -524,30 +531,34 @@ class AtlasMapEmbeddings:
                 self.projection.dataset.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_embedding",
                 headers=self.projection.dataset.header,
                 json={
-                    'atlas_index_id': self.projection.atlas_index_id,
-                    'queries': base64.b64encode(bytesio.getvalue()).decode('utf-8'),
-                    'k': k,
+                    "atlas_index_id": self.projection.atlas_index_id,
+                    "queries": base64.b64encode(bytesio.getvalue()).decode("utf-8"),
+                    "k": k,
                 },
             )
         else:
             response = requests.post(
                 self.projection.dataset.atlas_api_path + "/v1/project/data/get/nearest_neighbors/by_id",
                 headers=self.projection.dataset.header,
-                json={'atlas_index_id': self.projection.atlas_index_id, 'datum_ids': ids, 'k': k},
+                json={
+                    "atlas_index_id": self.projection.atlas_index_id,
+                    "datum_ids": ids,
+                    "k": k,
+                },
             )
 
         if response.status_code == 500:
-            raise Exception('Cannot perform vector search on your map at this time. Try again later.')
+            raise Exception("Cannot perform vector search on your map at this time. Try again later.")
 
         if response.status_code != 200:
             raise Exception(response.text)
 
         response = response.json()
 
-        return response['neighbors'], response['distances']
+        return response["neighbors"], response["distances"]
 
     def _get_embedding_iterator(self) -> Iterable[Tuple[str, str]]:
-        '''
+        """
         Deprecated in favor of `map.embeddings.latent`.
 
         Iterate through embeddings of your datums.
@@ -555,12 +566,12 @@ class AtlasMapEmbeddings:
         Returns:
             An iterable mapping datum ids to their embeddings.
 
-        '''
+        """
 
         raise DeprecationWarning("Deprecated as of June 2023. Iterate `map.embeddings.latent`.")
 
     def _download_embeddings(self, save_directory: str, num_workers: int = 10) -> bool:
-        '''
+        """
         Deprecated in favor of `map.embeddings.latent`.
 
         Downloads embeddings to the specified save_directory.
@@ -571,7 +582,7 @@ class AtlasMapEmbeddings:
             True on success
 
 
-        '''
+        """
         raise DeprecationWarning("Deprecated as of June 2023. Use `map.embeddings.latent`.")
 
     def __repr__(self) -> str:
@@ -594,9 +605,9 @@ class AtlasMapTags:
 
     @property
     def df(self, overwrite: Optional[bool] = False) -> pd.DataFrame:
-        '''
+        """
         Pandas DataFrame mapping each data point to its tags.
-        '''
+        """
         tags = self.get_tags()
         tag_definition_ids = [tag["tag_definition_id"] for tag in tags]
         if self.auto_cleanup:
@@ -627,34 +638,38 @@ class AtlasMapTags:
         return pa.concat_tables(tbs).to_pandas()
 
     def get_tags(self) -> List[Dict[str, str]]:
-        '''
+        """
         Retrieves back all tags made in the web browser for a specific map.
         Each tag is a dictionary containing tag_name, tag_id, and metadata.
 
         Returns:
             A list of tags a user has created for projection.
-        '''
+        """
         tags = requests.get(
-            self.dataset.atlas_api_path + '/v1/project/projection/tags/get/all',
+            self.dataset.atlas_api_path + "/v1/project/projection/tags/get/all",
             headers=self.dataset.header,
-            params={'project_id': self.dataset.id, 'projection_id': self.projection.id, 'include_dsl_rule': False},
+            params={
+                "project_id": self.dataset.id,
+                "projection_id": self.projection.id,
+                "include_dsl_rule": False,
+            },
         ).json()
         keep_tags = []
         for tag in tags:
             is_complete = requests.get(
-                self.dataset.atlas_api_path + '/v1/project/projection/tags/status',
+                self.dataset.atlas_api_path + "/v1/project/projection/tags/status",
                 headers=self.dataset.header,
                 params={
-                    'project_id': self.dataset.id,
-                    'tag_id': tag["tag_id"],
+                    "project_id": self.dataset.id,
+                    "tag_id": tag["tag_id"],
                 },
-            ).json()['is_complete']
+            ).json()["is_complete"]
             if is_complete:
                 keep_tags.append(tag)
         return keep_tags
 
     def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool] = False):
-        '''
+        """
         Returns the datum ids in a given tag.
 
         Args:
@@ -663,7 +678,7 @@ class AtlasMapTags:
 
         Returns:
             List of datum ids.
-        '''
+        """
         ordered_tag_paths = self._download_tag(tag_name, overwrite=overwrite)
         datum_ids = []
         for path in ordered_tag_paths:
@@ -728,13 +743,13 @@ class AtlasMapTags:
         return ordered_tag_paths
 
     def _remove_outdated_tag_files(self, tag_definition_ids: List[str]):
-        '''
+        """
         Attempts to remove outdated tag files based on tag definition ids.
         Any tag with a definition not in tag_definition_ids will be deleted.
 
         Args:
             tag_definition_ids: A list of tag definition ids to keep.
-        '''
+        """
         # NOTE: This currently only gets triggered on `df` property
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
@@ -743,7 +758,7 @@ class AtlasMapTags:
                 tile = self.projection.tile_destination / Path(quad_str)
                 tile_dir = tile.parent
                 if tile_dir.exists():
-                    tagged_files = tile_dir.glob('*_tag*')
+                    tagged_files = tile_dir.glob("*_tag*")
                     for file in tagged_files:
                         tag_definition_id = file.name.split(".")[-2]
                         if tag_definition_id in tag_definition_ids:
@@ -825,7 +840,7 @@ class AtlasMapData:
             for big_sidecar in additional_sidecars:
                 fname = (
                     base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode("utf-8")
-                    if big_sidecar != 'datum_id'
+                    if big_sidecar != "datum_id"
                     else big_sidecar
                 )
                 carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)  # type: ignore
@@ -856,9 +871,9 @@ class AtlasMapData:
             for field in sidecars:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
         encoded_sidecars = [base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8") for sidecar in sidecars]
-        if any(sidecar == 'datum_id' for (field, sidecar) in registered_sidecars):
-            sidecars.append('datum_id')
-            encoded_sidecars.append('datum_id')
+        if any(sidecar == "datum_id" for (field, sidecar) in registered_sidecars):
+            sidecars.append("datum_id")
+            encoded_sidecars.append("datum_id")
 
         for quad in tqdm(all_quads):
             for encoded_colname in encoded_sidecars:

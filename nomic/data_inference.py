@@ -12,11 +12,11 @@ def from_list(values: Dict[str, Any], schema=None) -> pa.Table:
 
 
 permitted_types = {
-    'integer': pa.int32(),
-    'float': pa.float32(),
-    'date': pa.timestamp('ms'),
-    'string': pa.string(),
-    'categorical': pa.string(),
+    "integer": pa.int32(),
+    "float": pa.float32(),
+    "date": pa.timestamp("ms"),
+    "string": pa.string(),
+    "categorical": pa.string(),
 }
 
 
@@ -27,7 +27,7 @@ def convert_pyarrow_schema_for_atlas(schema: pa.Schema) -> pa.Schema:
     types = {}
     whitelist = {}
     for field in schema:
-        if field.name.startswith('_'):
+        if field.name.startswith("_"):
             # Underscore fields are private to Atlas and will be handled with their own logic.
             if not field.name in {"_embeddings"}:
                 raise ValueError(f"Underscore fields are reserved for Atlas internal use: {field.name}")
@@ -39,17 +39,17 @@ def convert_pyarrow_schema_for_atlas(schema: pa.Schema) -> pa.Schema:
         elif pa.types.is_struct(field.type):
             raise TypeError(f"Struct types not supported: {field.name}")
         elif pa.types.is_dictionary(field.type):
-            types[field.name] = 'categorical'
+            types[field.name] = "categorical"
         elif pa.types.is_string(field.type):
-            types[field.name] = 'string'
+            types[field.name] = "string"
         elif pa.types.is_integer(field.type):
-            types[field.name] = 'integer'
+            types[field.name] = "integer"
         elif pa.types.is_floating(field.type):
-            types[field.name] = 'float'
+            types[field.name] = "float"
         elif pa.types.is_timestamp(field.type):
-            types[field.name] = 'date'
+            types[field.name] = "date"
         elif pa.types.is_temporal(field.type):
-            types[field.name] = 'date'
+            types[field.name] = "date"
         else:
             raise TypeError(f"Unknown type: {field.name} {field.type}")
     usertypes = {k: permitted_types[v] for k, v in types.items()}
@@ -58,7 +58,7 @@ def convert_pyarrow_schema_for_atlas(schema: pa.Schema) -> pa.Schema:
 
 
 class NomicProjectOptions(BaseModel):
-    '''
+    """
     Options for Nomic 2D Dimensionality Reduction Model
 
     Args:
@@ -68,7 +68,7 @@ class NomicProjectOptions(BaseModel):
         local_neighborhood_size: Only used when model is `nomic-project-v2`. Controls the size of the neighborhood used in the local structure optimizing step of `nomic-project-v2` algorithm. Min value: `max(n_neighbors, 1)`; max value: `128`. Default: `None` (Auto-inferred).
         spread: Determines how tight together points appear. Larger values result a more spread out point layout. Min value: `0`. It is recommended leaving this value as the default `None` (Auto-inferred).
         rho: Only used when model is nomic-project-v2. Controls the spread in the local structure optimizing step of `nomic-project-v2`. Min value: `0`; max value: `1`. It is recommended to leave this value as the default `None` (Auto-inferred).
-    '''
+    """
 
     n_neighbors: Optional[int] = None
     n_epochs: Optional[int] = None
@@ -79,39 +79,39 @@ class NomicProjectOptions(BaseModel):
 
 
 class NomicTopicOptions(BaseModel):
-    '''
+    """
     Options for Nomic Topic Model
 
     Args:
         build_topic_model: If True, builds a topic model over your dataset's embeddings.
         community_description_target_field: The dataset field/column that Atlas will use to assign a human-readable description to each topic.
-    '''
+    """
 
     build_topic_model: bool = True
-    community_description_target_field: Optional[str] = Field(default=None, alias='topic_label_field')
-    cluster_method: str = 'fast'
+    community_description_target_field: Optional[str] = Field(default=None, alias="topic_label_field")
+    cluster_method: str = "fast"
     enforce_topic_hierarchy: bool = False
 
 
 class NomicDuplicatesOptions(BaseModel):
-    '''
+    """
     Options for Duplicate Detection
 
     Args:
         tag_duplicates: Should duplicate detection run over your datasets embeddings?
         duplicate_cutoff: A hyperparameter of duplicate detection, smaller values capture more exact duplicates.
-    '''
+    """
 
     tag_duplicates: bool = True
     duplicate_cutoff: float = DEFAULT_DUPLICATE_THRESHOLD
 
 
 class NomicEmbedOptions(BaseModel):
-    '''
+    """
     Options for Configuring the Nomic Embedding Model
 
     Args:
         model: The Nomic Embedding Model to use.
-    '''
+    """
 
-    model: str = 'NomicEmbed'
+    model: str = "NomicEmbed"

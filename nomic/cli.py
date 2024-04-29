@@ -9,11 +9,17 @@ import requests
 from rich.console import Console
 
 tenants = {
-    'staging': {'frontend_domain': 'staging-atlas.nomic.ai', 'api_domain': 'staging-api-atlas.nomic.ai'},
-    'production': {'frontend_domain': 'atlas.nomic.ai', 'api_domain': 'api-atlas.nomic.ai'},
+    "staging": {
+        "frontend_domain": "staging-atlas.nomic.ai",
+        "api_domain": "staging-api-atlas.nomic.ai",
+    },
+    "production": {
+        "frontend_domain": "atlas.nomic.ai",
+        "api_domain": "api-atlas.nomic.ai",
+    },
 }
 
-nomic_base_path = Path.home() / '.nomic'
+nomic_base_path = Path.home() / ".nomic"
 
 
 def validate_api_http_response(response):
@@ -25,22 +31,25 @@ def validate_api_http_response(response):
 
 def get_api_credentials(fn=None):
     if fn is None:
-        fn = 'credentials'
+        fn = "credentials"
     filepath = nomic_base_path / fn
     if not filepath.exists():
         raise ValueError("You have not configured your Nomic API token. Run `nomic login` to configure.")
 
-    with open(filepath, 'r') as file:
+    with open(filepath, "r") as file:
         credentials = json.load(file)
         return credentials
 
 
-def login(token, tenant='production', domain=None):
-    if tenant == 'enterprise' and domain is None:
+def login(token, tenant="production", domain=None):
+    if tenant == "enterprise" and domain is None:
         raise ValueError("Enterprise tenants must specify their deployment domain.")
 
     if domain is not None:
-        tenants['enterprise'] = {'frontend_domain': domain, 'api_domain': f'api.{domain}'}
+        tenants["enterprise"] = {
+            "frontend_domain": domain,
+            "api_domain": f"api.{domain}",
+        }
 
     if tenant not in tenants:
         raise ValueError("Invalid tenant.")
@@ -66,98 +75,98 @@ def login(token, tenant='production', domain=None):
     expires = None
     refresh_token = None
 
-    if token.startswith('nk-'):
+    if token.startswith("nk-"):
         bearer_token = token
     else:
         refresh_token = token
-        response = requests.get('https://' + environment['api_domain'] + f"/v1/user/token/refresh/{token}")
+        response = requests.get("https://" + environment["api_domain"] + f"/v1/user/token/refresh/{token}")
         response = validate_api_http_response(response)
 
         if not response.status_code == 200:
             raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
-        bearer_token = response.json()['access_token']
+        bearer_token = response.json()["access_token"]
         decoded_token = jwt.decode(bearer_token, options={"verify_signature": False})
-        expires = decoded_token['exp']
+        expires = decoded_token["exp"]
 
-    with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
+    with open(os.path.join(nomic_base_path, "credentials"), "w") as file:
         saved_credentials = {
-            'refresh_token': refresh_token,
-            'token': bearer_token,
-            'tenant': tenant,
-            'expires': expires,
+            "refresh_token": refresh_token,
+            "token": bearer_token,
+            "tenant": tenant,
+            "expires": expires,
         }
 
-        if tenant == 'enterprise':
+        if tenant == "enterprise":
             saved_credentials = {**saved_credentials, **environment}
         json.dump(saved_credentials, file)
 
 
 def refresh_bearer_token():
     credentials = get_api_credentials()
-    if credentials['expires'] and time.time() >= credentials['expires']:
+    if credentials["expires"] and time.time() >= credentials["expires"]:
         try:
-            environment = tenants[credentials['tenant']]
+            environment = tenants[credentials["tenant"]]
         except KeyError:
             environment = credentials
         response = requests.get(
-            'https://' + environment['api_domain'] + f"/v1/user/token/refresh/{credentials['refresh_token']}"
+            "https://" + environment["api_domain"] + f"/v1/user/token/refresh/{credentials['refresh_token']}"
         )
         response = validate_api_http_response(response)
 
         if not response.status_code == 200:
             raise Exception("Could not authorize you with Nomic. Run `nomic login` to re-authenticate.")
 
-        bearer_token = response.json()['access_token']
-        credentials['token'] = bearer_token
-        with open(os.path.join(nomic_base_path, 'credentials'), 'w') as file:
+        bearer_token = response.json()["access_token"]
+        credentials["token"] = bearer_token
+        with open(os.path.join(nomic_base_path, "credentials"), "w") as file:
             json.dump(credentials, file)
     return credentials
 
 
 def switch(tenant):
-    assert tenant in ['staging', 'production', None]
+    assert tenant in ["staging", "production", None]
     credentials = get_api_credentials()
-    current_tenant = credentials['tenant']
+    current_tenant = credentials["tenant"]
     if tenant is None:
-        print(f'Current tenant: {current_tenant}')
+        print(f"Current tenant: {current_tenant}")
         return
     if current_tenant == tenant:
         return
     else:
-        current_loc = nomic_base_path / 'credentials'
-        new_loc = nomic_base_path / f'credentials_{current_tenant}'
-        print(f'Switching from {current_tenant} to {tenant}.')
+        current_loc = nomic_base_path / "credentials"
+        new_loc = nomic_base_path / f"credentials_{current_tenant}"
+        print(f"Switching from {current_tenant} to {tenant}.")
         if current_loc.exists():
             current_loc.rename(new_loc)
-        if (nomic_base_path / f'credentials_{tenant}').exists():
-            (nomic_base_path / f'credentials_{tenant}').rename(current_loc)
+        if (nomic_base_path / f"credentials_{tenant}").exists():
+            (nomic_base_path / f"credentials_{tenant}").rename(current_loc)
         else:
             login(token=None, tenant=tenant)
 
 
 @click.command()
-@click.option('--domain', default=None, help='Domain to use for Atlas enterprise login')
-@click.argument('command', nargs=1, default='')
-@click.argument('params', nargs=-1)
+@click.option("--domain", default=None, help="Domain to use for Atlas enterprise login")
+@click.argument("command", nargs=1, default="")
+@click.argument("params", nargs=-1)
 def cli(command, params, domain=None):
-    if command == 'login':
+    if command == "login":
         if len(params) == 0:
-            login(token=None, tenant='production')
-        if len(params) == 1 and params[0] == 'staging':
-            login(token=None, tenant='staging')
-        if len(params) == 2 and params[0] == 'staging':
-            login(token=params[1], tenant='staging')
-        if len(params) == 1 and params[0] == 'enterprise':
+            login(token=None, tenant="production")
+        if len(params) == 1 and params[0] == "staging":
+            login(token=None, tenant="staging")
+        if len(params) == 2 and params[0] == "staging":
+            login(token=params[1], tenant="staging")
+        if len(params) == 1 and params[0] == "enterprise":
             if domain is None:
-                raise ValueError('Must pass --domain to log into an enterprise environment')
-            login(token=None, tenant='enterprise', domain=domain)
-        if len(params) == 2 and params[0] == 'enterprise':
+                raise ValueError("Must pass --domain to log into an enterprise environment")
+            login(token=None, tenant="enterprise", domain=domain)
+        if len(params) == 2 and params[0] == "enterprise":
             if domain is None:
-                raise ValueError('Must pass --domain to log into an enterprise environment')
-            login(token=params[1], tenant='enterprise', domain=domain)
+                raise ValueError("Must pass --domain to log into an enterprise environment")
+            login(token=params[1], tenant="enterprise", domain=domain)
         if len(params) == 1:
-            login(token=params[0], tenant='production')
-    elif command == 'switch':
+            login(token=params[0], tenant="production")
+    elif command == "switch":
         if len(params) == 0:
             switch(tenant=None)
         if len(params) == 1:
