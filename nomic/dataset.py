@@ -98,8 +98,6 @@ class AtlasClass(object):
 
     def _get_current_user(self):
         api_base_path = self.atlas_api_path
-        if self.atlas_api_path.startswith("https://api-atlas.nomic.ai"):
-            api_base_path = "https://no-cdn-api-atlas.nomic.ai"
 
         response = requests.get(
             api_base_path + "/v1/user",
