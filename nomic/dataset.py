@@ -599,7 +599,7 @@ class AtlasProjection:
                 sidecars.append((field.name, sidecar_name))
         return sidecars
 
-    def _fetch_tiles(self, overwrite: bool = True):
+    def _fetch_tiles(self, overwrite: bool = False):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
 
