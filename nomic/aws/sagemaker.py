@@ -1,16 +1,16 @@
+import concurrent.futures
+import io
 import json
 import logging
+import multiprocessing as mp
+from pathlib import PosixPath
 from typing import List, Optional, Union
 
 import boto3
-import sagemaker
-from tqdm import tqdm
 import PIL
 import PIL.Image
-import io
-import multiprocessing as mp
-from pathlib import PosixPath
-import concurrent.futures
+import sagemaker
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -186,6 +186,7 @@ def embed_texts(
         "usage": {},
     }
 
+
 def preprocess_images(images: List[Union[str, "PIL.Image.Image", bytes]]) -> List[bytes]:
     """
     Preprocess a list of images for embedding using a sagemaker model.
@@ -204,6 +205,8 @@ def preprocess_images(images: List[Union[str, "PIL.Image.Image", bytes]]) -> Lis
             image = PIL.Image.open(io.BytesIO(image))
         elif isinstance(image, PosixPath):
             image = PIL.Image.open(image)
+        else:
+            assert isinstance(image, PIL.Image.Image), f"Invalid image type: {type(image)}"
         image = image.convert("RGB")
         buffered = io.BytesIO()
         image.save(buffered, format="JPEG")
@@ -211,13 +214,17 @@ def preprocess_images(images: List[Union[str, "PIL.Image.Image", bytes]]) -> Lis
         encoded_images.append(encoded_image)
     return encoded_images
 
+
 def sagemaker_image_request(image: Union[str, bytes, "PIL.Image.Image"], sagemaker_endpoint: str, region_name: str):
     preprocessed_image = preprocess_images([image])
 
     client = boto3.client("sagemaker-runtime", region_name=region_name)
-    response = client.invoke_endpoint(EndpointName=sagemaker_endpoint, Body=preprocessed_image[0], ContentType="image/jpeg")
+    response = client.invoke_endpoint(
+        EndpointName=sagemaker_endpoint, Body=preprocessed_image[0], ContentType="image/jpeg"
+    )
 
     return parse_sagemaker_response(response)
+
 
 def embed_image(
     images: List[Union[str, "PIL.Image.Image", bytes]],
@@ -246,7 +253,7 @@ def embed_image(
         "usage": {},
     }
 
-    
+
 def batch_transform_image(
     s3_input_path: str,
     s3_output_path: str,
