@@ -660,7 +660,7 @@ class AtlasProjection:
                     yield (z, x, y)
                 else:
                     yield path
-                paths.extend(children(z, x, y))
+                paths.extend(children(z, x, y))  # pyright: ignore
 
     @property
     def tile_destination(self):
