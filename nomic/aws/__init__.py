@@ -11,4 +11,4 @@ def _check_aws_dependencies():
 
 _check_aws_dependencies()
 
-from .sagemaker import embed_texts
+from .sagemaker import embed_images, embed_text

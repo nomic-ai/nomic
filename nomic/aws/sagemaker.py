@@ -128,7 +128,7 @@ def batch_transform_text(
     return job_name
 
 
-def embed_texts(
+def embed_text(
     texts: List[str],
     sagemaker_endpoint: str,
     region_name: str,
@@ -226,7 +226,7 @@ def sagemaker_image_request(image: Union[str, bytes, "PIL.Image.Image"], sagemak
     return parse_sagemaker_response(response)
 
 
-def embed_image(
+def embed_images(
     images: List[Union[str, "PIL.Image.Image", bytes]],
     sagemaker_endpoint: str,
     region_name: str,
