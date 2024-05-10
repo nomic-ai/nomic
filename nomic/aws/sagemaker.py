@@ -187,7 +187,7 @@ def embed_text(
     }
 
 
-def preprocess_images(images: List[Union[str, "PIL.Image.Image", bytes]]) -> List[bytes]:
+def preprocess_image(images: List[Union[str, "PIL.Image.Image", bytes]]) -> List[bytes]:
     """
     Preprocess a list of images for embedding using a sagemaker model.
 
@@ -216,7 +216,7 @@ def preprocess_images(images: List[Union[str, "PIL.Image.Image", bytes]]) -> Lis
 
 
 def sagemaker_image_request(image: Union[str, bytes, "PIL.Image.Image"], sagemaker_endpoint: str, region_name: str):
-    preprocessed_image = preprocess_images([image])
+    preprocessed_image = preprocess_image([image])
 
     client = boto3.client("sagemaker-runtime", region_name=region_name)
     response = client.invoke_endpoint(
@@ -226,7 +226,7 @@ def sagemaker_image_request(image: Union[str, bytes, "PIL.Image.Image"], sagemak
     return parse_sagemaker_response(response)
 
 
-def embed_images(
+def embed_image(
     images: List[Union[str, "PIL.Image.Image", bytes]],
     sagemaker_endpoint: str,
     region_name: str,

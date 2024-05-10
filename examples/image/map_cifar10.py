@@ -41,7 +41,7 @@ for idx, image in enumerate(tqdm(dataset)):
     if idx >= max_embeddings:
         break
 
-output = embed.images(images=images)
+output = embed.image(images=images)
 
 embeddings = np.array(output['embeddings'])
 
