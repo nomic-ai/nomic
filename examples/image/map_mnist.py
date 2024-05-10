@@ -18,7 +18,7 @@ for idx, image in enumerate(dataset):
         break
 
 start = time.time()
-output = embed.images(images=images)
+output = embed.image(images=images)
 
 print(time.time() - start)
 print(output['usage'])
