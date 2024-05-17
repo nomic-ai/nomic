@@ -434,19 +434,18 @@ class AtlasMapEmbeddings:
 
         for path in self.projection._tiles_in_order(coords_only=False):
             # double with-suffix to remove '.embeddings.feather'
-            if isinstance(path, Path):
-                files = path.parent.glob(path.with_suffix("").stem + "-*.embeddings.feather")
-                # Should there be more than 10, we need to sort by int values, not string values
-                sortable = sorted(files, key=lambda x: int(x.with_suffix("").stem.split("-")[-1]))
-                if len(sortable) == 0:
-                    raise FileNotFoundError(
-                        "Could not find any embeddings for tile {}".format(path)
-                        + " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'."
-                    )
-                for file in sortable:
-                    tb = feather.read_table(file, memory_map=True)
-                    dims = tb["_embeddings"].type.list_size
-                    all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
+            files = path.parent.glob(path.with_suffix("").stem + "-*.embeddings.feather")
+            # Should there be more than 10, we need to sort by int values, not string values
+            sortable = sorted(files, key=lambda x: int(x.with_suffix("").stem.split("-")[-1]))
+            if len(sortable) == 0:
+                raise FileNotFoundError(
+                    "Could not find any embeddings for tile {}".format(path)
+                    + " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'."
+                )
+            for file in sortable:
+                tb = feather.read_table(file, memory_map=True)
+                dims = tb["_embeddings"].type.list_size
+                all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
 
     def _download_latent(self):
@@ -605,24 +604,23 @@ class AtlasMapTags:
         tbs = []
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
-            if isinstance(quad, Tuple):
-                quad_str = os.path.join(*[str(q) for q in quad])
-                datum_id_filename = quad_str + "." + "datum_id" + ".feather"
-                path = self.projection.tile_destination / Path(datum_id_filename)
-                tb = feather.read_table(path, memory_map=True)
-                for tag in tags:
-                    tag_definition_id = tag["tag_definition_id"]
-                    tag_filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-                    path = self.projection.tile_destination / Path(tag_filename)
-                    tag_tb = feather.read_table(path, memory_map=True)
-                    bitmask = None
-                    if "all_set" in tag_tb.column_names:
-                        bool_v = tag_tb["all_set"][0].as_py() == True
-                        bitmask = pa.array([bool_v] * len(tb), type=pa.bool_())
-                    else:
-                        bitmask = tag_tb["bitmask"]
-                    tb = tb.append_column(tag["tag_name"], bitmask)
-                tbs.append(tb)
+            quad_str = os.path.join(*[str(q) for q in quad])
+            datum_id_filename = quad_str + "." + "datum_id" + ".feather"
+            path = self.projection.tile_destination / Path(datum_id_filename)
+            tb = feather.read_table(path, memory_map=True)
+            for tag in tags:
+                tag_definition_id = tag["tag_definition_id"]
+                tag_filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
+                path = self.projection.tile_destination / Path(tag_filename)
+                tag_tb = feather.read_table(path, memory_map=True)
+                bitmask = None
+                if "all_set" in tag_tb.column_names:
+                    bool_v = tag_tb["all_set"][0].as_py() == True
+                    bitmask = pa.array([bool_v] * len(tb), type=pa.bool_())
+                else:
+                    bitmask = tag_tb["bitmask"]
+                tb = tb.append_column(tag["tag_name"], bitmask)
+            tbs.append(tb)
         return pa.concat_tables(tbs).to_pandas()
 
     def get_tags(self) -> List[Dict[str, str]]:
@@ -705,25 +703,24 @@ class AtlasMapTags:
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         ordered_tag_paths = []
         for quad in tqdm(all_quads):
-            if isinstance(quad, Tuple):
-                quad_str = os.path.join(*[str(q) for q in quad])
-                filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-                path = self.projection.tile_destination / Path(filename)
-                download_attempt = 0
-                download_success = False
-                while download_attempt < 3 and not download_success:
-                    download_attempt += 1
-                    if not path.exists() or overwrite:
-                        download_feather(root_url + filename, path, headers=self.dataset.header)
-                    try:
-                        ipc.open_file(path).schema
-                        download_success = True
-                    except pa.ArrowInvalid:
-                        path.unlink(missing_ok=True)
+            quad_str = os.path.join(*[str(q) for q in quad])
+            filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
+            path = self.projection.tile_destination / Path(filename)
+            download_attempt = 0
+            download_success = False
+            while download_attempt < 3 and not download_success:
+                download_attempt += 1
+                if not path.exists() or overwrite:
+                    download_feather(root_url + filename, path, headers=self.dataset.header)
+                try:
+                    ipc.open_file(path).schema
+                    download_success = True
+                except pa.ArrowInvalid:
+                    path.unlink(missing_ok=True)
 
-                if not download_success:
-                    raise Exception(f"Failed to download tag {tag_name}.")
-                ordered_tag_paths.append(path)
+            if not download_success:
+                raise Exception(f"Failed to download tag {tag_name}.")
+            ordered_tag_paths.append(path)
         return ordered_tag_paths
 
     def _remove_outdated_tag_files(self, tag_definition_ids: List[str]):
@@ -737,23 +734,22 @@ class AtlasMapTags:
         # NOTE: This currently only gets triggered on `df` property
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
-            if isinstance(quad, Tuple):
-                quad_str = os.path.join(*[str(q) for q in quad])
-                tile = self.projection.tile_destination / Path(quad_str)
-                tile_dir = tile.parent
-                if tile_dir.exists():
-                    tagged_files = tile_dir.glob("*_tag*")
-                    for file in tagged_files:
-                        tag_definition_id = file.name.split(".")[-2]
-                        if tag_definition_id in tag_definition_ids:
-                            try:
-                                file.unlink()
-                            except PermissionError:
-                                print("Permission denied: unable to delete outdated tag file. Skipping")
-                                return
-                            except Exception as e:
-                                print(f"Exception occurred when trying to delete outdated tag file: {e}. Skipping")
-                                return
+            quad_str = os.path.join(*[str(q) for q in quad])
+            tile = self.projection.tile_destination / Path(quad_str)
+            tile_dir = tile.parent
+            if tile_dir.exists():
+                tagged_files = tile_dir.glob("*_tag*")
+                for file in tagged_files:
+                    tag_definition_id = file.name.split(".")[-2]
+                    if tag_definition_id in tag_definition_ids:
+                        try:
+                            file.unlink()
+                        except PermissionError:
+                            print("Permission denied: unable to delete outdated tag file. Skipping")
+                            return
+                        except Exception as e:
+                            print(f"Exception occurred when trying to delete outdated tag file: {e}. Skipping")
+                            return
 
     def add(self, ids: List[str], tags: List[str]):
         # '''

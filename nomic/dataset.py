@@ -11,7 +11,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union, overload
 
 import numpy as np
 import pandas as pd
@@ -620,20 +620,26 @@ class AtlasProjection:
             sidecars = set([])
         sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
         for path in self._tiles_in_order():
-            if isinstance(path, Path):
-                tb = pa.feather.read_table(path, memory_map=True)  # type: ignore
-                for sidecar_file in sidecars:
-                    carfile = pa.feather.read_table(  # type: ignore
-                        path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
-                    )
-                    for col in carfile.column_names:
-                        tb = tb.append_column(col, carfile[col])
-                tbs.append(tb)
+            tb = pa.feather.read_table(path, memory_map=True)  # type: ignore
+            for sidecar_file in sidecars:
+                carfile = pa.feather.read_table(  # type: ignore
+                    path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
+                )
+                for col in carfile.column_names:
+                    tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
         self._tile_data = pa.concat_tables(tbs)
 
         return self._tile_data
 
-    def _tiles_in_order(self, coords_only=False) -> Iterator[Union[Tuple[int, int, int], Path]]:
+    @overload
+    def _tiles_in_order(self, *, coords_only: Literal[False] = ...) -> Iterator[Path]: ...
+    @overload
+    def _tiles_in_order(self, *, coords_only: Literal[True]) -> Iterator[Tuple[int, int, int]]: ...
+    @overload
+    def _tiles_in_order(self, *, coords_only: bool) -> Iterator[Any]: ...
+
+    def _tiles_in_order(self, *, coords_only: bool = False) -> Iterator[Any]:
         """
         Returns:
             A list of all tiles in the projection in a fixed order so that all
@@ -1093,7 +1099,7 @@ class AtlasDataset(AtlasClass):
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
         reuse_embeddings_from_index: Optional[str] = None,
-    ) -> Union[AtlasProjection, None]:
+    ) -> Optional[AtlasProjection]:
         """
         Creates an index in the specified dataset.
 
