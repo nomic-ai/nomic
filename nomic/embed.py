@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from io import BytesIO
-from typing import Any, List, Literal, Optional, Sequence, Tuple, Union, overload
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Sequence, Tuple, Union, overload
 
 import PIL
 import PIL.Image
@@ -15,12 +15,12 @@ import requests
 from .dataset import AtlasClass
 from .settings import *
 
-embed4all_installed = True
-
 try:
     from gpt4all import CancellationError, Embed4All
 except ImportError:
-    embed4all_installed = False
+    if TYPE_CHECKING:
+        raise
+    Embed4All = None
 
 atlas_class: Optional[AtlasClass] = None
 
@@ -157,7 +157,7 @@ def text(
         device: The device to use for local embeddings. Defaults to CPU, or Metal on Apple Silicon. It can be set to:
             - "gpu": Use the best available GPU.
             - "amd", "nvidia": Use the best available GPU from the specified vendor.
-                        - A specific device name from the output of `GPT4All.list_gpus()`
+            - A specific device name from the output of `GPT4All.list_gpus()`
         kwargs: Remaining arguments are passed to the Embed4All contructor.
 
     Returns:
@@ -181,7 +181,7 @@ def text(
             raise TypeError(f"device argument cannot be used with inference_mode='remote'")
         if kwargs:
             raise TypeError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
-    elif embed4all_installed is None:
+    elif Embed4All is None:
         raise RuntimeError(
             f"The 'gpt4all' package is required for local inference. Suggestion: `pip install \"nomic[local]\"`",
         )
@@ -198,7 +198,7 @@ def text(
                 device=device,
                 **kwargs,
             )
-        except CancellationError:  # type: ignore
+        except CancellationError:
             pass  # dynamic mode chose to use Atlas, fall through
 
     return _text_atlas(texts, model, task_type, dimensionality, long_text_mode)
@@ -276,7 +276,7 @@ def _text_embed4all(
     if _embed4all is None or _embed4all.gpt4all.config["filename"] != g4a_model or _embed4all_kwargs != kwargs:
         if _embed4all is not None:
             _embed4all.close()
-        _embed4all = Embed4All(g4a_model, **kwargs)  # type: ignore
+        _embed4all = Embed4All(g4a_model, **kwargs)
         _embed4all_kwargs = kwargs
 
     def cancel_cb(batch_sizes: list[int], backend: str) -> bool:
