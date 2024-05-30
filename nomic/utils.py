@@ -242,11 +242,15 @@ def get_object_size_in_bytes(obj):
 
 # Helpful function for downloading feather files
 # Best for small feather files
-def download_feather(url: str, path: Path, headers: Optional[dict] = None, retries=3, overwrite=False):
+def download_feather(url: str, path: Path, headers: Optional[dict] = None, retries=3, overwrite=False) -> pa.Schema:
+    """
+    Download a feather file from a URL to a local path.
+    Returns the schema of feather file if successful.
+    """
     assert retries > 0, "Retries must be greater than 0"
     download_attempt = 0
     download_success = False
-
+    schema = None
     while download_attempt < retries and not download_success:
         download_attempt += 1
         if not path.exists() or overwrite:
@@ -257,7 +261,10 @@ def download_feather(url: str, path: Path, headers: Optional[dict] = None, retri
             path.parent.mkdir(parents=True, exist_ok=True)
             pa.feather.write_feather(tb, path)
         try:
-            ipc.open_file(path).schema
+            schema = ipc.open_file(path).schema
             download_success = True
         except pa.ArrowInvalid:
             path.unlink(missing_ok=True)
+    if not download_success or schema is None:
+        raise ValueError(f"Failed to download feather file from {url} after {retries} attempts.")
+    return schema

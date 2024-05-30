@@ -706,20 +706,7 @@ class AtlasMapTags:
             quad_str = os.path.join(*[str(q) for q in quad])
             filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
             path = self.projection.tile_destination / Path(filename)
-            download_attempt = 0
-            download_success = False
-            while download_attempt < 3 and not download_success:
-                download_attempt += 1
-                if not path.exists() or overwrite:
-                    download_feather(root_url + filename, path, headers=self.dataset.header)
-                try:
-                    ipc.open_file(path).schema
-                    download_success = True
-                except pa.ArrowInvalid:
-                    path.unlink(missing_ok=True)
-
-            if not download_success:
-                raise Exception(f"Failed to download tag {tag_name}.")
+            download_feather(root_url + filename, path, headers=self.dataset.header, overwrite=True)
             ordered_tag_paths.append(path)
         return ordered_tag_paths
 
@@ -860,10 +847,8 @@ class AtlasMapData:
                 quad_str = os.path.join(*[str(q) for q in quad])
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / Path(filename)
-
-                if not os.path.exists(path):
-                    # WARNING: Potentially large data request here
-                    download_feather(root + filename, path, headers=self.dataset.header)
+                # WARNING: Potentially large data request here
+                download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
 
         return sidecars
 
