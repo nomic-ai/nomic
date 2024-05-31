@@ -1,14 +1,9 @@
 import base64
-import concurrent
-import concurrent.futures
-import glob
 import io
 import json
 import os
-from atexit import register
 from collections import defaultdict
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -16,9 +11,8 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import requests
-from loguru import logger
 from pyarrow import compute as pc
-from pyarrow import feather, ipc
+from pyarrow import feather
 from tqdm import tqdm
 
 from .settings import EMBEDDING_PAGINATION_LIMIT
