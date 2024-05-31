@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import requests
+from loguru import logger
 from pyarrow import compute as pc
 from pyarrow import feather
 from tqdm import tqdm
@@ -94,6 +95,7 @@ class AtlasMapTopics:
         self._hierarchy = None
 
         try:
+            logger.info("Downloading topics")
             self._tb: pa.Table = projection._fetch_tiles()
             topic_fields = [column for column in self._tb.column_names if column.startswith("_topic_depth_")]
             self.depth = len(topic_fields)
@@ -444,6 +446,7 @@ class AtlasMapEmbeddings:
         assert "embeddings" in registered_sidecar_names, "Embeddings not found in sidecars."
 
         downloaded_files_in_tile_order = []
+        logger.info("Downloading latent embeddings...")
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
         for quad in tqdm(all_quads):
             quad_str = os.path.join(*[str(q) for q in quad])
@@ -453,32 +456,6 @@ class AtlasMapEmbeddings:
             download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
             downloaded_files_in_tile_order.append(path)
         return downloaded_files_in_tile_order
-
-    # def _download_latent(self):
-    #     """
-    #     Downloads the latent embeddings one file at a time.
-    #     """
-    #     logger.warning("Downloading latent embeddings of all datapoints.")
-    #     limit = 10_000
-    #     route = self.projection.dataset.atlas_api_path + "/v1/project/data/get/embedding/paged"
-    #     last = None
-
-    #     with tqdm(total=self.dataset.total_datums // limit) as pbar:
-    #         while True:
-    #             params = {"projection_id": self.projection.id, "last_file": last, "page_size": limit}
-    #             r = requests.post(route, headers=self.projection.dataset.header, json=params)
-    #             if r.status_code == 204:
-    #                 # Download complete!
-    #                 break
-    #             fin = BytesIO(r.content)
-    #             tb = feather.read_table(fin, memory_map=True)
-
-    #             tilename = tb.schema.metadata[b"tile"].decode("utf-8")
-    #             dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
-    #             dest.parent.mkdir(parents=True, exist_ok=True)
-    #             feather.write_feather(tb, dest)
-    #             last = tilename
-    #             pbar.update(1)
 
     def vector_search(
         self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5
@@ -700,6 +677,7 @@ class AtlasMapTags:
         """
         Downloads the feather tree for large sidecar columns.
         """
+        logger.info("Downloading tags")
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
         root_url = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
@@ -828,6 +806,7 @@ class AtlasMapData:
         """
         Downloads the feather tree for large sidecar columns.
         """
+        logger.info("Downloading dataset")
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
