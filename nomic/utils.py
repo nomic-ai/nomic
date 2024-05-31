@@ -8,8 +8,8 @@ from typing import Optional
 from uuid import UUID
 
 import pyarrow as pa
-from pyarrow import ipc
 import requests
+from pyarrow import ipc
 
 nouns = [
     "newton",

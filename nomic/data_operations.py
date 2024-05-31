@@ -1,4 +1,3 @@
-from atexit import register
 import base64
 import concurrent
 import concurrent.futures
@@ -6,6 +5,7 @@ import glob
 import io
 import json
 import os
+from atexit import register
 from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
