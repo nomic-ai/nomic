@@ -633,11 +633,16 @@ class AtlasProjection:
         return self._tile_data
 
     @overload
-    def _tiles_in_order(self, *, coords_only: Literal[False] = ...) -> Iterator[Path]: ...
+    def _tiles_in_order(self, *, coords_only: Literal[False] = ...) -> Iterator[Path]:
+        ...
+
     @overload
-    def _tiles_in_order(self, *, coords_only: Literal[True]) -> Iterator[Tuple[int, int, int]]: ...
+    def _tiles_in_order(self, *, coords_only: Literal[True]) -> Iterator[Tuple[int, int, int]]:
+        ...
+
     @overload
-    def _tiles_in_order(self, *, coords_only: bool) -> Iterator[Any]: ...
+    def _tiles_in_order(self, *, coords_only: bool) -> Iterator[Any]:
+        ...
 
     def _tiles_in_order(self, *, coords_only: bool = False) -> Iterator[Any]:
         """
@@ -693,7 +698,7 @@ class AtlasProjection:
             quad = rawquad + ".feather"
             all_quads.append(quad)
             path = self.tile_destination / quad
-            schema = download_feather(root+quad, path, headers=self.dataset.header, overwrite=overwrite)
+            schema = download_feather(root + quad, path, headers=self.dataset.header, overwrite=overwrite)
 
             if sidecars is None and b"sidecars" in schema.metadata:
                 # Grab just the filenames

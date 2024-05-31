@@ -437,7 +437,6 @@ class AtlasMapEmbeddings:
             dims = tb["_embeddings"].type.list_size
             all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
-    
 
     def _download_latent(self) -> List[Path]:
         """
