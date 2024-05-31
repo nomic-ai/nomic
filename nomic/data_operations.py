@@ -440,8 +440,8 @@ class AtlasMapEmbeddings:
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
-        registered_sidecars = self.projection._registered_sidecars()
-        assert "embeddings" in registered_sidecars, "Embeddings not found in sidecars."
+        registered_sidecar_names = [sidecar[1] for sidecar in self.projection._registered_sidecars()]
+        assert "embeddings" in registered_sidecar_names, "Embeddings not found in sidecars."
 
         downloaded_files_in_tile_order = []
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
