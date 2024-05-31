@@ -232,7 +232,6 @@ def embed_image(
     region_name: str,
     model_name="nomic-embed-vision-v1",
 ) -> dict:
-
     embeddings = []
 
     max_workers = mp.cpu_count()
