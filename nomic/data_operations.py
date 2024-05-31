@@ -1,3 +1,4 @@
+from atexit import register
 import base64
 import concurrent
 import concurrent.futures
@@ -426,53 +427,65 @@ class AtlasMapEmbeddings:
         if self._latent is not None:
             return self._latent
 
-        root_embedding = self.projection.tile_destination / "0/0/0-0.embeddings.feather"
-        # Not the most complete check, hence the warning below.
-        if not root_embedding.exists():
-            self._download_latent()
+        downloaded_files_in_tile_order = self._download_latent()
+        assert len(downloaded_files_in_tile_order) > 0, "No embeddings found for this map."
         all_embeddings = []
 
-        for path in self.projection._tiles_in_order(coords_only=False):
-            # double with-suffix to remove '.embeddings.feather'
-            files = path.parent.glob(path.with_suffix("").stem + "-*.embeddings.feather")
+        for path in downloaded_files_in_tile_order:
             # Should there be more than 10, we need to sort by int values, not string values
-            sortable = sorted(files, key=lambda x: int(x.with_suffix("").stem.split("-")[-1]))
-            if len(sortable) == 0:
-                raise FileNotFoundError(
-                    "Could not find any embeddings for tile {}".format(path)
-                    + " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'."
-                )
-            for file in sortable:
-                tb = feather.read_table(file, memory_map=True)
-                dims = tb["_embeddings"].type.list_size
-                all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
+            tb = feather.read_table(path, memory_map=True)
+            dims = tb["_embeddings"].type.list_size
+            all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
+    
 
-    def _download_latent(self):
+    def _download_latent(self) -> List[Path]:
         """
-        Downloads the latent embeddings one file at a time.
+        Downloads the feather tree for embeddings.
+        Returns the path to downloaded embeddings.
         """
-        logger.warning("Downloading latent embeddings of all datapoints.")
-        limit = 10_000
-        route = self.projection.dataset.atlas_api_path + "/v1/project/data/get/embedding/paged"
-        last = None
+        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
+        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
-        with tqdm(total=self.dataset.total_datums // limit) as pbar:
-            while True:
-                params = {"projection_id": self.projection.id, "last_file": last, "page_size": limit}
-                r = requests.post(route, headers=self.projection.dataset.header, json=params)
-                if r.status_code == 204:
-                    # Download complete!
-                    break
-                fin = BytesIO(r.content)
-                tb = feather.read_table(fin, memory_map=True)
+        registered_sidecars = self.projection._registered_sidecars()
+        assert "embeddings" in registered_sidecars, "Embeddings not found in sidecars."
 
-                tilename = tb.schema.metadata[b"tile"].decode("utf-8")
-                dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                feather.write_feather(tb, dest)
-                last = tilename
-                pbar.update(1)
+        downloaded_files_in_tile_order = []
+        all_quads = list(self.projection._tiles_in_order(coords_only=True))
+        for quad in tqdm(all_quads):
+            quad_str = os.path.join(*[str(q) for q in quad])
+            filename = quad_str + "." + "embeddings" + ".feather"
+            path = self.projection.tile_destination / Path(filename)
+            # WARNING: Potentially large data request here
+            download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
+            downloaded_files_in_tile_order.append(path)
+        return downloaded_files_in_tile_order
+
+    # def _download_latent(self):
+    #     """
+    #     Downloads the latent embeddings one file at a time.
+    #     """
+    #     logger.warning("Downloading latent embeddings of all datapoints.")
+    #     limit = 10_000
+    #     route = self.projection.dataset.atlas_api_path + "/v1/project/data/get/embedding/paged"
+    #     last = None
+
+    #     with tqdm(total=self.dataset.total_datums // limit) as pbar:
+    #         while True:
+    #             params = {"projection_id": self.projection.id, "last_file": last, "page_size": limit}
+    #             r = requests.post(route, headers=self.projection.dataset.header, json=params)
+    #             if r.status_code == 204:
+    #                 # Download complete!
+    #                 break
+    #             fin = BytesIO(r.content)
+    #             tb = feather.read_table(fin, memory_map=True)
+
+    #             tilename = tb.schema.metadata[b"tile"].decode("utf-8")
+    #             dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
+    #             dest.parent.mkdir(parents=True, exist_ok=True)
+    #             feather.write_feather(tb, dest)
+    #             last = tilename
+    #             pbar.update(1)
 
     def vector_search(
         self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5
