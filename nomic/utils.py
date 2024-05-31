@@ -259,7 +259,7 @@ def download_feather(url: str, path: Path, headers: Optional[dict] = None, retri
             readable.seek(0)
             tb = pa.feather.read_table(readable, memory_map=False)  # type: ignore
             path.parent.mkdir(parents=True, exist_ok=True)
-            pa.feather.write_feather(tb, path)
+            pa.feather.write_feather(tb, path)  # type: ignore
         try:
             schema = ipc.open_file(path).schema
             download_success = True
