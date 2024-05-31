@@ -43,7 +43,7 @@ setup(
         ],
         "dev": [
             "nomic[all]",
-            "black",
+            "black==24.3.0",
             "coverage",
             "pylint",
             "pytest",
