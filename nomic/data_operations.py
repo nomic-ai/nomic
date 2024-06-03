@@ -440,7 +440,7 @@ class AtlasMapEmbeddings:
         Returns the path to downloaded embeddings.
         """
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
+        root_url = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
         registered_sidecar_names = [sidecar[1] for sidecar in self.projection._registered_sidecars()]
         assert "embeddings" in registered_sidecar_names, "Embeddings not found in sidecars."
