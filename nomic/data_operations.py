@@ -439,6 +439,7 @@ class AtlasMapEmbeddings:
         Downloads the feather tree for embeddings.
         Returns the path to downloaded embeddings.
         """
+        # TODO: Is size of the embedding files (several hundreds of MBs) going to be a problem here?
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
         root_url = Path(
             f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
