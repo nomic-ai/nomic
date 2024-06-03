@@ -447,11 +447,9 @@ class AtlasMapEmbeddings:
 
         downloaded_files_in_tile_order = []
         logger.info("Downloading latent embeddings...")
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            filename = quad_str + "." + "embeddings" + ".feather"
-            path = self.projection.tile_destination / Path(filename)
+        all_quads = list(self.projection._tiles_in_order())
+        for base_tile in tqdm(all_quads):
+            path = base_tile.with_suffix(".embeddings.feather")
             # WARNING: Potentially large data request here
             download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
             downloaded_files_in_tile_order.append(path)
