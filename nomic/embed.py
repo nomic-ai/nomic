@@ -365,7 +365,7 @@ def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-emb
     image_batch = []
     for image in images:
         if isinstance(image, str) and os.path.exists(image):
-            img = resize_pil(PIL.Image.open(image))
+            img = resize_pil(PIL.Image.open(image)).convert("RGB")
             buffered = BytesIO()
             img.save(buffered, format="JPEG")
 
