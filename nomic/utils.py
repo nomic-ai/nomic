@@ -4,7 +4,7 @@ import random
 import sys
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID
 
 import pyarrow as pa
@@ -242,7 +242,9 @@ def get_object_size_in_bytes(obj):
 
 # Helpful function for downloading feather files
 # Best for small feather files
-def download_feather(url: str, path: Path, headers: Optional[dict] = None, retries=3, overwrite=False) -> pa.Schema:
+def download_feather(
+    url: Union[str, Path], path: Path, headers: Optional[dict] = None, retries=3, overwrite=False
+) -> pa.Schema:
     """
     Download a feather file from a URL to a local path.
     Returns the schema of feather file if successful.
@@ -254,7 +256,7 @@ def download_feather(url: str, path: Path, headers: Optional[dict] = None, retri
     while download_attempt < retries and not download_success:
         download_attempt += 1
         if not path.exists() or overwrite:
-            data = requests.get(url, headers=headers)
+            data = requests.get(str(url), headers=headers)
             readable = BytesIO(data.content)
             readable.seek(0)
             tb = pa.feather.read_table(readable, memory_map=False)  # type: ignore

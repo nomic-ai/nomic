@@ -440,7 +440,9 @@ class AtlasMapEmbeddings:
         Returns the path to downloaded embeddings.
         """
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root_url = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
+        root_url = Path(
+            f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
+        )
 
         registered_sidecar_names = [sidecar[1] for sidecar in self.projection._registered_sidecars()]
         assert "embeddings" in registered_sidecar_names, "Embeddings not found in sidecars."
@@ -448,10 +450,11 @@ class AtlasMapEmbeddings:
         downloaded_files_in_tile_order = []
         logger.info("Downloading latent embeddings...")
         all_quads = list(self.projection._tiles_in_order())
-        for base_tile in tqdm(all_quads):
-            path = base_tile.with_suffix(".embeddings.feather")
+        for quad in tqdm(all_quads):
+            path = quad.with_suffix(".embeddings.feather")
             # WARNING: Potentially large data request here
-            download_feather(Path(root_url, *path.parts[-3:]), path, headers=self.dataset.header, overwrite=False)
+            quadtree_loc = Path(*path.parts[-3:])
+            download_feather(root_url / quadtree_loc, path, headers=self.dataset.header, overwrite=False)
             downloaded_files_in_tile_order.append(path)
         return downloaded_files_in_tile_order
 
