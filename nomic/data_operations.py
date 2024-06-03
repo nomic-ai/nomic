@@ -451,7 +451,7 @@ class AtlasMapEmbeddings:
         for base_tile in tqdm(all_quads):
             path = base_tile.with_suffix(".embeddings.feather")
             # WARNING: Potentially large data request here
-            download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
+            download_feather(Path(root_url, *path.parts[-3:]), path, headers=self.dataset.header, overwrite=False)
             downloaded_files_in_tile_order.append(path)
         return downloaded_files_in_tile_order
 
