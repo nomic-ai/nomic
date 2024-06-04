@@ -334,9 +334,9 @@ def resize_pil(img):
     # if image is too large, downsample before sending over the wire
     max_width = 512
     max_height = 512
-    if max_width > 512 or max_height > 512:
-        downsize_factor = max(width / max_width, height / max_height)
-        img.resize((width / downsize_factor, height / downsize_factor))
+    if width > max_width or height > max_height:
+        downsize_factor = max(width // max_width, height // max_height)
+        img = img.resize((width // downsize_factor, height // downsize_factor))
     return img
 
 
