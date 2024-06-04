@@ -7,6 +7,7 @@ import os
 import time
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, List, Literal, Optional, Sequence, Tuple, Union, overload
+from urllib.parse import urlparse
 
 import PIL
 import PIL.Image
@@ -307,7 +308,11 @@ def free_embedding_model() -> None:
         _embed4all = _embed4all_kwargs = None
 
 
-def image_api_request(images: List[Tuple[str, bytes]], model: str = "nomic-embed-vision-v1"):
+def image_api_request(
+    images: Optional[List[Tuple[str, bytes]]] = None,
+    urls: Optional[List[str]] = None,
+    model: str = "nomic-embed-vision-v1",
+):
     global atlas_class
 
     assert atlas_class is not None
@@ -318,7 +323,7 @@ def image_api_request(images: List[Tuple[str, bytes]], model: str = "nomic-embed
         lambda: requests.post(
             atlas_url + "/v1/embedding/image",
             headers=atlas_header,
-            data={"model": model},
+            data={"model": model, "urls": urls},
             files=images,
         )
     )
@@ -340,7 +345,14 @@ def resize_pil(img):
     return img
 
 
-def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-embed-vision-v1"):
+def _is_valid_url(url):
+    if not isinstance(url, str):
+        return False
+    parsed_url = urlparse(url)
+    return all([parsed_url.scheme, parsed_url.netloc])
+
+
+def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-embed-vision-v1.5"):
     """
     Generates embeddings for the given images.
 
@@ -362,14 +374,24 @@ def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-emb
     # if there are fewer images per worker than the max chunksize just split them evenly
     chunksize = min(smallchunk, chunksize)
 
+    if isinstance(images, str):
+        raise TypeError("'images' parameter must be list of strings or PIL images, not str")
+
+    urls = []
     image_batch = []
     for image in images:
-        if isinstance(image, str) and os.path.exists(image):
-            img = resize_pil(PIL.Image.open(image))
-            buffered = BytesIO()
-            img.save(buffered, format="JPEG")
 
-            image_batch.append(("images", buffered.getvalue()))
+        if isinstance(image, str):
+            if os.path.exists(image):
+                img = resize_pil(PIL.Image.open(image)).convert("RGB")
+                buffered = BytesIO()
+                img.save(buffered, format="JPEG")
+                image_batch.append(("images", buffered.getvalue()))
+            elif _is_valid_url(image):
+                # Send URL as data
+                urls.append(image)
+            else:
+                raise ValueError(f"Invalid image path or url: {image}")
 
         elif isinstance(image, PIL.Image.Image):
             img = resize_pil(image)
@@ -379,13 +401,22 @@ def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-emb
         else:
             raise ValueError(f"Not a valid file: {image}")
 
+    if len(urls) > 0 and len(image_batch) > 0:
+        raise ValueError("Provide either urls or image files/objects, not both.")
+
+    num_images = len(urls) + len(image_batch)
     combined = {"embeddings": [], "usage": {}, "model": model}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
-        for chunkstart in range(0, len(image_batch), chunksize):
-            chunkend = min(len(image_batch), chunkstart + chunksize)
-            chunk = image_batch[chunkstart:chunkend]
-            futures.append(executor.submit(image_api_request, chunk, model))
+        for chunkstart in range(0, num_images, chunksize):
+            chunkend = min(num_images, chunkstart + chunksize)
+            image_chunk = None
+            url_chunk = None
+            if len(image_batch) > 0:
+                image_chunk = image_batch[chunkstart:chunkend]
+            else:
+                url_chunk = urls[chunkstart:chunkend]
+            futures.append(executor.submit(image_api_request, image_chunk, url_chunk, model))
 
         for future in futures:
             response = future.result()
