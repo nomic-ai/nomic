@@ -353,7 +353,7 @@ def _is_valid_url(url):
     return all([parsed_url.scheme, parsed_url.netloc])
 
 
-def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-embed-vision-v1"):
+def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-embed-vision-v1.5"):
     """
     Generates embeddings for the given images.
 
