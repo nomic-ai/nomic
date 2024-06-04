@@ -335,8 +335,8 @@ def resize_pil(img):
     max_width = 512
     max_height = 512
     if width > max_width or height > max_height:
-        downsize_factor = max(width / max_width, height / max_height)
-        img.resize((width / downsize_factor, height / downsize_factor))
+        downsize_factor = max(width // max_width, height // max_height)
+        img = img.resize((width // downsize_factor, height // downsize_factor))
     return img
 
 
