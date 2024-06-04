@@ -6,7 +6,6 @@ import logging
 import os
 import time
 from io import BytesIO
-from multiprocessing import Value
 from typing import TYPE_CHECKING, Any, List, Literal, Optional, Sequence, Tuple, Union, overload
 from urllib.parse import urlparse
 
