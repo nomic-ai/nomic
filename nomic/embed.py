@@ -6,7 +6,9 @@ import logging
 import os
 import time
 from io import BytesIO
+from multiprocessing import Value
 from typing import TYPE_CHECKING, Any, List, Literal, Optional, Sequence, Tuple, Union, overload
+from urllib.parse import urlparse
 
 import PIL
 import PIL.Image
@@ -340,6 +342,13 @@ def resize_pil(img):
     return img
 
 
+def _is_valid_url(url):
+    if not isinstance(url, str):
+        return False
+    parsed_url = urlparse(url)
+    return all([parsed_url.scheme, parsed_url.netloc])
+
+
 def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-embed-vision-v1"):
     """
     Generates embeddings for the given images.
@@ -362,14 +371,23 @@ def image(images: Sequence[Union[str, PIL.Image.Image]], model: str = "nomic-emb
     # if there are fewer images per worker than the max chunksize just split them evenly
     chunksize = min(smallchunk, chunksize)
 
+    if isinstance(images, str):
+        raise TypeError("'images' parameter must be list of strings or PIL images, not str")
+
     image_batch = []
     for image in images:
-        if isinstance(image, str) and os.path.exists(image):
-            img = resize_pil(PIL.Image.open(image)).convert("RGB")
-            buffered = BytesIO()
-            img.save(buffered, format="JPEG")
 
-            image_batch.append(("images", buffered.getvalue()))
+        if isinstance(image, str):
+            if os.path.exists(image):
+                img = resize_pil(PIL.Image.open(image)).convert("RGB")
+                buffered = BytesIO()
+                img.save(buffered, format="JPEG")
+                image_batch.append(("images", buffered.getvalue()))
+            elif _is_valid_url(image):
+                # Send URL as data
+                image_batch.append(("images", image))
+            else:
+                raise ValueError(f"Invalid image path or url: {image}")
 
         elif isinstance(image, PIL.Image.Image):
             img = resize_pil(image)
