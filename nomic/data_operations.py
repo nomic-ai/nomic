@@ -445,7 +445,7 @@ class AtlasMapEmbeddings:
             f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
         )
 
-        registered_sidecar_names = [sidecar[1] for sidecar in self.projection._registered_sidecars()]
+        registered_sidecar_names = [sidecar[1] for sidecar in self.projection._registered_columns]
         assert "embeddings" in registered_sidecar_names, "Embeddings not found in sidecars."
 
         downloaded_files_in_tile_order = []
@@ -765,60 +765,73 @@ class AtlasMapData:
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
         try:
-            # Run fetch_tiles first to guarantee existence of quad feather files
-            self._basic_data: pa.Table = self.projection._fetch_tiles()
+            # Download and load are separate to allow mem mapping
             sidecars = self._download_data(fields=fields)
-            self._tb = self._read_prefetched_tiles_with_sidecars(sidecars)
+            self._tb = self._load_data(sidecars)
+        except pa.lib.ArrowInvalid:  # type: ignore
+            raise ValueError("Failed to download data for this map")
 
-        except pa.lib.ArrowInvalid as e:  # type: ignore
-            raise ValueError("Failed to fetch tiles for this map")
+    def _load_data(self, data_columns: List[Tuple[str, str]]) -> pa.Table:
+        """
+        Loads data from a list of data columns (field and sidecar name tuples).
 
-    def _read_prefetched_tiles_with_sidecars(self, sidecars):
+        Args:
+            data_columns: A list of tuples containing field name and sidecar name.
+        """
         tbs = []
-        for path in self.projection._tiles_in_order():
-            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])  # type: ignore
-            for col in tb.column_names:
-                if col[0] == "_":
-                    tb = tb.drop([col])
-            for _, sidecar in sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar}.feather", memory_map=True)  # type: ignore
-                for col in carfile.column_names:
-                    tb = tb.append_column(col, carfile[col])
-            tbs.append(tb)
-        self._tb = pa.concat_tables(tbs)
 
+        fields_to_load = [field for field, _ in data_columns if field[0] != "_"]
+        sidecars_to_load = set([sidecar for _, sidecar in data_columns if sidecar != "datum_id"])
+
+        for key in tqdm(self.projection._manifest["key"]):
+            # Use datum id as root table
+            tb = pa.feather.read_table(
+                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+            )
+            for sidecar in sidecars_to_load:
+                filename = Path(key).with_suffix("." + sidecar + ".feather")
+                path = self.projection.tile_destination / Path(filename)
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar}.feather", memory_map=True)
+                for col in carfile.column_names:
+                    if col in fields_to_load:
+                        tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+
+        self._tb = pa.concat_tables(tbs)
         return self._tb
 
-    def _download_data(self, fields=None):
+    def _download_data(self, fields: Optional[List[str]] = None) -> List[Tuple[str, str]]:
         """
-        Downloads the feather tree for large sidecar columns.
+        Downloads the feather tree for user uploaded data.
+
+        fields:
+            A list of fields to download. If None, downloads all fields.
         """
         logger.info("Downloading dataset")
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        sidecars = None
+        # TODO: fall back on something more reliable here
         if fields is None:
             fields = self.dataset.dataset_fields
         else:
             for field in fields:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
 
-        sidecars = [
-            (field, sidecar)
-            for field, sidecar in self.projection._registered_sidecars()
-            if field[0] != "_" and field in fields
+        # Download specified or all sidecar fields + always download datum_id
+        data_columns_to_load = [
+            (str(field), str(sidecar))
+            for field, sidecar in self.projection._registered_columns
+            if field[0] != "_" and ((field in fields) or sidecar == "datum_id")
         ]
 
-        for quad in tqdm(all_quads):
-            for field, encoded_colname in sidecars:
-                quad_str = os.path.join(*[str(q) for q in quad])
-                filename = quad_str + "." + encoded_colname + ".feather"
+        for key in tqdm(self.projection._manifest["key"]):
+            for sidecar in set([sidecar for _, sidecar in data_columns_to_load]):
+                filename = Path(key).with_suffix("." + sidecar + ".feather")
                 path = self.projection.tile_destination / Path(filename)
                 # WARNING: Potentially large data request here
-                download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
-        return sidecars
+                download_feather(root + str(filename), path, headers=self.dataset.header, overwrite=False)
+        return data_columns_to_load
 
     @property
     def df(self) -> pd.DataFrame:

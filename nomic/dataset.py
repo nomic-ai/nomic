@@ -433,6 +433,8 @@ class AtlasProjection:
         self._tile_data = None
         self._data = None
         self._schema = None
+        self._manifest_tb: Optional[pa.Table] = None
+        self._sidecars: List[Tuple[str, str]] = []
 
     @property
     def map_link(self):
@@ -590,14 +592,34 @@ class AtlasProjection:
             self._schema = ipc.read_schema(io.BytesIO(content))
         return self._schema
 
-    def _registered_sidecars(self) -> List[Tuple[str, str]]:
+    @property
+    def _registered_columns(self) -> List[Tuple[str, str]]:
         "Returns [(field_name, sidecar_name), ...]"
-        sidecars = []
+        if self._sidecars:
+            return self._sidecars
+        self._sidecars = []
         for field in self.schema:
             sidecar_name = json.loads(field.metadata.get(b"sidecar_name", b'""'))
             if sidecar_name:
-                sidecars.append((field.name, sidecar_name))
-        return sidecars
+                self._sidecars.append((field.name, sidecar_name))
+        return self._sidecars
+
+    @property
+    def _manifest(self) -> pa.Table:
+        """
+        Returns the tile manifest for the projection
+        """
+        if self._manifest_tb is not None:
+            return self._manifest_tb
+
+        manifest_path = self.tile_destination / "manifest.feather"
+        manifest_url = (
+            self.dataset.atlas_api_path + f"/v1/project/projection/{self.projection_id}/quadtree/manifest.feather"
+        )
+
+        download_feather(manifest_url, manifest_path, headers=self.dataset.header, overwrite=False)
+        self._manifest_tb = feather.read_table(manifest_path, memory_map=False)
+        return self._manifest_tb
 
     def _fetch_tiles(self, overwrite: bool = False):
         """
@@ -619,7 +641,7 @@ class AtlasProjection:
             sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
         except KeyError:
             sidecars = set([])
-        sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
+        sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_columns())
         for path in self._tiles_in_order():
             tb = pa.feather.read_table(path, memory_map=True)  # type: ignore
             for sidecar_file in sidecars:
@@ -690,7 +712,7 @@ class AtlasProjection:
         root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/"
         all_quads = []
         sidecars = None
-        registered_sidecars = set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
+        registered_sidecars = set(sidecar_name for (_, sidecar_name) in self._registered_columns())
         while len(quads) > 0:
             rawquad = quads.pop(0)
             quad = rawquad + ".feather"

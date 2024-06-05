@@ -247,7 +247,16 @@ def download_feather(
 ) -> pa.Schema:
     """
     Download a feather file from a URL to a local path.
-    Returns the schema of feather file if successful.
+    Returns the schema or table of feather file if successful.
+
+    Parameters:
+        url (str): URL to download feather file from.
+        path (Path): Local path to save feather file to.
+        headers (dict): Optional headers to include in request.
+        retries (int): Number of download attempts before raising an error.
+        overwrite (bool): Whether to overwrite existing file.
+    Returns:
+        Feather schema.
     """
     assert retries > 0, "Retries must be greater than 0"
     download_attempt = 0
