@@ -632,11 +632,14 @@ class AtlasProjection:
             List of downloaded feather files.
         """
         downloaded_files = []
+        sidecar_suffix = "feather"
+        if sidecar_name != "":
+            sidecar_suffix = f"{sidecar_name}.feather" 
         for key in self._manifest["key"]:
-            sidecar_path = self.tile_destination / f"{key}.{sidecar_name}.feather"
+            sidecar_path = self.tile_destination / f"{key}.{sidecar_suffix}"
             sidecar_url = (
                 self.dataset.atlas_api_path
-                + f"/v1/project/projection/{self.projection_id}/quadtree/{key}.{sidecar_name}.feather"
+                + f"/v1/project/projection/{self.projection_id}/quadtree/{key}.{sidecar_suffix}"
             )
             downloaded_files.append(sidecar_path)
             download_feather(sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite)
