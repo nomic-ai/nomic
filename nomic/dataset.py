@@ -621,6 +621,27 @@ class AtlasProjection:
         self._manifest_tb = feather.read_table(manifest_path, memory_map=False)
         return self._manifest_tb
 
+    def _download_sidecar(self, sidecar_name, overwrite: bool = False) -> List[Path]:
+        """
+        Downloads a sidecar file for the projection for quadtree
+        Args:
+            sidecar_name: the name of the sidecar file
+            overwrite: if True then overwrite existing feather files.
+
+        Returns:
+            List of downloaded feather files.
+        """
+        downloaded_files = []
+        for key in self._manifest["key"]:
+            sidecar_path = self.tile_destination / f"{key}.{sidecar_name}.feather"
+            sidecar_url = (
+                self.dataset.atlas_api_path
+                + f"/v1/project/projection/{self.projection_id}/quadtree/{key}.{sidecar_name}.feather"
+            )
+            downloaded_files.append(sidecar_path)
+            download_feather(sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite)
+        return downloaded_files
+
     def _fetch_tiles(self, overwrite: bool = False):
         """
         Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.

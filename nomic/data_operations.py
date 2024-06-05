@@ -571,8 +571,11 @@ class AtlasMapTags:
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        # Pre-fetch tiles first upon initialization
-        self.projection._fetch_tiles(overwrite=False)
+        # Pre-fetch datum ids first upon initialization
+        try:
+            self.projection._download_sidecar("datum_id")
+        except Exception:
+            raise Exception("Failed to fetch datum ids which is required to load tags.")
         self.auto_cleanup = auto_cleanup
 
     @property
@@ -587,16 +590,13 @@ class AtlasMapTags:
         for tag in tags:
             self._download_tag(tag["tag_name"], overwrite=overwrite)
         tbs = []
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            datum_id_filename = quad_str + "." + "datum_id" + ".feather"
-            path = self.projection.tile_destination / Path(datum_id_filename)
-            tb = feather.read_table(path, memory_map=True)
+
+        for key in self.projection._manifest["key"]:
+            datum_id_path = self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather")
+            tb = feather.read_table(datum_id_path, memory_map=True)
             for tag in tags:
                 tag_definition_id = tag["tag_definition_id"]
-                tag_filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-                path = self.projection.tile_destination / Path(tag_filename)
+                path = self.projection.tile_destination / Path(key).with_suffix(f"._tag.{tag_definition_id}.feather")
                 tag_tb = feather.read_table(path, memory_map=True)
                 bitmask = None
                 if "all_set" in tag_tb.column_names:
@@ -646,9 +646,9 @@ class AtlasMapTags:
         Returns:
             List of datum ids.
         """
-        ordered_tag_paths = self._download_tag(tag_name, overwrite=overwrite)
+        tag_paths = self._download_tag(tag_name, overwrite=overwrite)
         datum_ids = []
-        for path in ordered_tag_paths:
+        for path in tag_paths:
             tb = feather.read_table(path)
             last_coord = path.name.split(".")[0]
             tile_path = path.with_name(last_coord + ".datum_id.feather")
@@ -680,21 +680,9 @@ class AtlasMapTags:
         Downloads the feather tree for large sidecar columns.
         """
         logger.info("Downloading tags")
-        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root_url = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
-
         tag = self._get_tag_by_name(tag_name)
         tag_definition_id = tag["tag_definition_id"]
-
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        ordered_tag_paths = []
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-            path = self.projection.tile_destination / Path(filename)
-            download_feather(root_url + filename, path, headers=self.dataset.header, overwrite=True)
-            ordered_tag_paths.append(path)
-        return ordered_tag_paths
+        return self.projection._download_sidecar(f"_tag.{tag_definition_id}", overwrite=overwrite)
 
     def _remove_outdated_tag_files(self, tag_definition_ids: List[str]):
         """
@@ -705,14 +693,12 @@ class AtlasMapTags:
             tag_definition_ids: A list of tag definition ids to keep.
         """
         # NOTE: This currently only gets triggered on `df` property
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            tile = self.projection.tile_destination / Path(quad_str)
+        for key in self.projection._manifest["key"]:
+            tile = self.projection.tile_destination / Path(key)
             tile_dir = tile.parent
             if tile_dir.exists():
-                tagged_files = tile_dir.glob("*_tag*")
-                for file in tagged_files:
+                tag_files = tile_dir.glob("*_tag*")
+                for file in tag_files:
                     tag_definition_id = file.name.split(".")[-2]
                     if tag_definition_id in tag_definition_ids:
                         try:
@@ -825,12 +811,8 @@ class AtlasMapData:
             if field[0] != "_" and ((field in fields) or sidecar == "datum_id")
         ]
 
-        for key in tqdm(self.projection._manifest["key"]):
-            for sidecar in set([sidecar for _, sidecar in data_columns_to_load]):
-                filename = Path(key).with_suffix("." + sidecar + ".feather")
-                path = self.projection.tile_destination / Path(filename)
-                # WARNING: Potentially large data request here
-                download_feather(root + str(filename), path, headers=self.dataset.header, overwrite=False)
+        for sidecar in set([sidecar for _, sidecar in data_columns_to_load]):
+            self.projection._download_sidecar(sidecar)
         return data_columns_to_load
 
     @property
