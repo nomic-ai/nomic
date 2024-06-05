@@ -1,13 +1,9 @@
 import base64
-import concurrent
-import concurrent.futures
-import glob
 import io
 import json
 import os
 from collections import defaultdict
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -17,7 +13,7 @@ import pyarrow as pa
 import requests
 from loguru import logger
 from pyarrow import compute as pc
-from pyarrow import feather, ipc
+from pyarrow import feather
 from tqdm import tqdm
 
 from .settings import EMBEDDING_PAGINATION_LIMIT
@@ -99,6 +95,7 @@ class AtlasMapTopics:
         self._hierarchy = None
 
         try:
+            logger.info("Downloading topics")
             self._tb: pa.Table = projection._fetch_tiles()
             topic_fields = [column for column in self._tb.column_names if column.startswith("_topic_depth_")]
             self.depth = len(topic_fields)
@@ -426,53 +423,41 @@ class AtlasMapEmbeddings:
         if self._latent is not None:
             return self._latent
 
-        root_embedding = self.projection.tile_destination / "0/0/0-0.embeddings.feather"
-        # Not the most complete check, hence the warning below.
-        if not root_embedding.exists():
-            self._download_latent()
+        downloaded_files_in_tile_order = self._download_latent()
+        assert len(downloaded_files_in_tile_order) > 0, "No embeddings found for this map."
         all_embeddings = []
 
-        for path in self.projection._tiles_in_order(coords_only=False):
-            # double with-suffix to remove '.embeddings.feather'
-            files = path.parent.glob(path.with_suffix("").stem + "-*.embeddings.feather")
+        for path in downloaded_files_in_tile_order:
             # Should there be more than 10, we need to sort by int values, not string values
-            sortable = sorted(files, key=lambda x: int(x.with_suffix("").stem.split("-")[-1]))
-            if len(sortable) == 0:
-                raise FileNotFoundError(
-                    "Could not find any embeddings for tile {}".format(path)
-                    + " If you possibly downloaded only some of the embeddings, run '[map_name].download_latent()'."
-                )
-            for file in sortable:
-                tb = feather.read_table(file, memory_map=True)
-                dims = tb["_embeddings"].type.list_size
-                all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
+            tb = feather.read_table(path, memory_map=True)
+            dims = tb["_embeddings"].type.list_size
+            all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
 
-    def _download_latent(self):
+    def _download_latent(self) -> List[Path]:
         """
-        Downloads the latent embeddings one file at a time.
+        Downloads the feather tree for embeddings.
+        Returns the path to downloaded embeddings.
         """
-        logger.warning("Downloading latent embeddings of all datapoints.")
-        limit = 10_000
-        route = self.projection.dataset.atlas_api_path + "/v1/project/data/get/embedding/paged"
-        last = None
+        # TODO: Is size of the embedding files (several hundreds of MBs) going to be a problem here?
+        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
+        root_url = Path(
+            f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
+        )
 
-        with tqdm(total=self.dataset.total_datums // limit) as pbar:
-            while True:
-                params = {"projection_id": self.projection.id, "last_file": last, "page_size": limit}
-                r = requests.post(route, headers=self.projection.dataset.header, json=params)
-                if r.status_code == 204:
-                    # Download complete!
-                    break
-                fin = BytesIO(r.content)
-                tb = feather.read_table(fin, memory_map=True)
+        registered_sidecar_names = [sidecar[1] for sidecar in self.projection._registered_sidecars()]
+        assert "embeddings" in registered_sidecar_names, "Embeddings not found in sidecars."
 
-                tilename = tb.schema.metadata[b"tile"].decode("utf-8")
-                dest = (self.projection.tile_destination / tilename).with_suffix(".embeddings.feather")
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                feather.write_feather(tb, dest)
-                last = tilename
-                pbar.update(1)
+        downloaded_files_in_tile_order = []
+        logger.info("Downloading latent embeddings...")
+        all_quads = list(self.projection._tiles_in_order())
+        for quad in tqdm(all_quads):
+            path = quad.with_suffix(".embeddings.feather")
+            # WARNING: Potentially large data request here
+            quadtree_loc = Path(*path.parts[-3:])
+            download_feather(root_url / quadtree_loc, path, headers=self.dataset.header, overwrite=False)
+            downloaded_files_in_tile_order.append(path)
+        return downloaded_files_in_tile_order
 
     def vector_search(
         self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5
@@ -694,6 +679,7 @@ class AtlasMapTags:
         """
         Downloads the feather tree for large sidecar columns.
         """
+        logger.info("Downloading tags")
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
         root_url = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
@@ -706,20 +692,7 @@ class AtlasMapTags:
             quad_str = os.path.join(*[str(q) for q in quad])
             filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
             path = self.projection.tile_destination / Path(filename)
-            download_attempt = 0
-            download_success = False
-            while download_attempt < 3 and not download_success:
-                download_attempt += 1
-                if not path.exists() or overwrite:
-                    download_feather(root_url + filename, path, headers=self.dataset.header)
-                try:
-                    ipc.open_file(path).schema
-                    download_success = True
-                except pa.ArrowInvalid:
-                    path.unlink(missing_ok=True)
-
-            if not download_success:
-                raise Exception(f"Failed to download tag {tag_name}.")
+            download_feather(root_url + filename, path, headers=self.dataset.header, overwrite=True)
             ordered_tag_paths.append(path)
         return ordered_tag_paths
 
@@ -791,7 +764,6 @@ class AtlasMapData:
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        self.fields = fields
         try:
             # Run fetch_tiles first to guarantee existence of quad feather files
             self._basic_data: pa.Table = self.projection._fetch_tiles()
@@ -801,29 +773,15 @@ class AtlasMapData:
         except pa.lib.ArrowInvalid as e:  # type: ignore
             raise ValueError("Failed to fetch tiles for this map")
 
-    def _read_prefetched_tiles_with_sidecars(self, additional_sidecars):
+    def _read_prefetched_tiles_with_sidecars(self, sidecars):
         tbs = []
-        root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))  # type: ignore
-        try:
-            small_sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
-        except KeyError:
-            small_sidecars = set([])
         for path in self.projection._tiles_in_order():
             tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])  # type: ignore
             for col in tb.column_names:
                 if col[0] == "_":
                     tb = tb.drop([col])
-            for sidecar_file in small_sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)  # type: ignore
-                for col in carfile.column_names:
-                    tb = tb.append_column(col, carfile[col])
-            for big_sidecar in additional_sidecars:
-                fname = (
-                    base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode("utf-8")
-                    if big_sidecar != "datum_id"
-                    else big_sidecar
-                )
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)  # type: ignore
+            for _, sidecar in sidecars:
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar}.feather", memory_map=True)  # type: ignore
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -835,36 +793,31 @@ class AtlasMapData:
         """
         Downloads the feather tree for large sidecar columns.
         """
+        logger.info("Downloading dataset")
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
         root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        sidecars = fields
-        registered_sidecars = self.projection._registered_sidecars()
-        if sidecars is None:
-            sidecars = [
-                field
-                for field in self.dataset.dataset_fields
-                if field not in self._basic_data.column_names and field != "_embeddings"
-            ]
+        sidecars = None
+        if fields is None:
+            fields = self.dataset.dataset_fields
         else:
-            for field in sidecars:
+            for field in fields:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
-        encoded_sidecars = [base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8") for sidecar in sidecars]
-        if any(sidecar == "datum_id" for (field, sidecar) in registered_sidecars):
-            sidecars.append("datum_id")
-            encoded_sidecars.append("datum_id")
+
+        sidecars = [
+            (field, sidecar)
+            for field, sidecar in self.projection._registered_sidecars()
+            if field[0] != "_" and field in fields
+        ]
 
         for quad in tqdm(all_quads):
-            for encoded_colname in encoded_sidecars:
+            for field, encoded_colname in sidecars:
                 quad_str = os.path.join(*[str(q) for q in quad])
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / Path(filename)
-
-                if not os.path.exists(path):
-                    # WARNING: Potentially large data request here
-                    download_feather(root + filename, path, headers=self.dataset.header)
-
+                # WARNING: Potentially large data request here
+                download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
         return sidecars
 
     @property

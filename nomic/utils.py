@@ -4,11 +4,12 @@ import random
 import sys
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID
 
 import pyarrow as pa
 import requests
+from pyarrow import ipc
 
 nouns = [
     "newton",
@@ -241,10 +242,31 @@ def get_object_size_in_bytes(obj):
 
 # Helpful function for downloading feather files
 # Best for small feather files
-def download_feather(url: str, path: Path, headers: Optional[dict] = None):
-    data = requests.get(url, headers=headers)
-    readable = BytesIO(data.content)
-    readable.seek(0)
-    tb = pa.feather.read_table(readable, memory_map=True)  # type: ignore
-    path.parent.mkdir(parents=True, exist_ok=True)
-    pa.feather.write_feather(tb, path)  # type: ignore
+def download_feather(
+    url: Union[str, Path], path: Path, headers: Optional[dict] = None, retries=3, overwrite=False
+) -> pa.Schema:
+    """
+    Download a feather file from a URL to a local path.
+    Returns the schema of feather file if successful.
+    """
+    assert retries > 0, "Retries must be greater than 0"
+    download_attempt = 0
+    download_success = False
+    schema = None
+    while download_attempt < retries and not download_success:
+        download_attempt += 1
+        if not path.exists() or overwrite:
+            data = requests.get(str(url), headers=headers)
+            readable = BytesIO(data.content)
+            readable.seek(0)
+            tb = pa.feather.read_table(readable, memory_map=False)  # type: ignore
+            path.parent.mkdir(parents=True, exist_ok=True)
+            pa.feather.write_feather(tb, path)  # type: ignore
+        try:
+            schema = ipc.open_file(path).schema
+            download_success = True
+        except pa.ArrowInvalid:
+            path.unlink(missing_ok=True)
+    if not download_success or schema is None:
+        raise ValueError(f"Failed to download feather file from {url} after {retries} attempts.")
+    return schema

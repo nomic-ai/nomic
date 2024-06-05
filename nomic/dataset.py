@@ -36,7 +36,7 @@ from .data_inference import (
 )
 from .data_operations import AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
 from .settings import *
-from .utils import assert_valid_project_id, get_object_size_in_bytes
+from .utils import assert_valid_project_id, download_feather
 
 
 class AtlasUser:
@@ -611,6 +611,7 @@ class AtlasProjection:
         """
         if self._tile_data is not None:
             return self._tile_data
+        logger.info(f"Downloading files for projection {self.projection_id}")
         self._download_large_feather(overwrite=overwrite)
         tbs = []
         root = feather.read_table(self.tile_destination / "0/0/0.feather", memory_map=True)
@@ -634,8 +635,10 @@ class AtlasProjection:
 
     @overload
     def _tiles_in_order(self, *, coords_only: Literal[False] = ...) -> Iterator[Path]: ...
+
     @overload
     def _tiles_in_order(self, *, coords_only: Literal[True]) -> Iterator[Tuple[int, int, int]]: ...
+
     @overload
     def _tiles_in_order(self, *, coords_only: bool) -> Iterator[Any]: ...
 
@@ -693,27 +696,7 @@ class AtlasProjection:
             quad = rawquad + ".feather"
             all_quads.append(quad)
             path = self.tile_destination / quad
-
-            download_attempt = 0
-            download_success = False
-            schema = None
-            while download_attempt < 3 and not download_success:
-                download_attempt += 1
-                if not path.exists() or overwrite:
-                    data = requests.get(root + quad, headers=self.dataset.header)
-                    readable = io.BytesIO(data.content)
-                    readable.seek(0)
-                    tb = feather.read_table(readable, memory_map=True)
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    feather.write_feather(tb, path)
-                try:
-                    schema = ipc.open_file(path).schema
-                    download_success = True
-                except pa.ArrowInvalid:
-                    path.unlink(missing_ok=True)
-
-            if not download_success or schema is None:
-                raise Exception(f"Failed to download tiles. Aborting...")
+            schema = download_feather(root + quad, path, headers=self.dataset.header, overwrite=overwrite)
 
             if sidecars is None and b"sidecars" in schema.metadata:
                 # Grab just the filenames
