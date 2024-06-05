@@ -611,6 +611,7 @@ class AtlasProjection:
         """
         if self._tile_data is not None:
             return self._tile_data
+        logger.info(f"Downloading files for projection {self.projection_id}")
         self._download_large_feather(overwrite=overwrite)
         tbs = []
         root = feather.read_table(self.tile_destination / "0/0/0.feather", memory_map=True)
