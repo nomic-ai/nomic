@@ -795,7 +795,6 @@ class AtlasMapData:
         """
         logger.info("Downloading dataset")
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
         # TODO: fall back on something more reliable here
         if fields is None:
@@ -808,7 +807,7 @@ class AtlasMapData:
         data_columns_to_load = [
             (str(field), str(sidecar))
             for field, sidecar in self.projection._registered_columns
-            if field[0] != "_" and ((field in fields) or sidecar == "datum_id")
+            if field[0] != "_" and sidecar != "" and ((field in fields) or sidecar == "datum_id")
         ]
 
         for sidecar in set([sidecar for _, sidecar in data_columns_to_load]):
