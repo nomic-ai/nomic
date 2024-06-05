@@ -764,7 +764,6 @@ class AtlasMapData:
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        self.fields = fields
         try:
             # Run fetch_tiles first to guarantee existence of quad feather files
             self._basic_data: pa.Table = self.projection._fetch_tiles()
@@ -774,29 +773,15 @@ class AtlasMapData:
         except pa.lib.ArrowInvalid as e:  # type: ignore
             raise ValueError("Failed to fetch tiles for this map")
 
-    def _read_prefetched_tiles_with_sidecars(self, additional_sidecars):
+    def _read_prefetched_tiles_with_sidecars(self, sidecars):
         tbs = []
-        root = feather.read_table(self.projection.tile_destination / Path("0/0/0.feather"))  # type: ignore
-        try:
-            small_sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
-        except KeyError:
-            small_sidecars = set([])
         for path in self.projection._tiles_in_order():
             tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])  # type: ignore
             for col in tb.column_names:
                 if col[0] == "_":
                     tb = tb.drop([col])
-            for sidecar_file in small_sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True)  # type: ignore
-                for col in carfile.column_names:
-                    tb = tb.append_column(col, carfile[col])
-            for big_sidecar in additional_sidecars:
-                fname = (
-                    base64.urlsafe_b64encode(big_sidecar.encode("utf-8")).decode("utf-8")
-                    if big_sidecar != "datum_id"
-                    else big_sidecar
-                )
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{fname}.feather", memory_map=True)  # type: ignore
+            for _, sidecar in sidecars:
+                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar}.feather", memory_map=True)  # type: ignore
                 for col in carfile.column_names:
                     tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
@@ -813,30 +798,26 @@ class AtlasMapData:
         root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
 
         all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        sidecars = fields
-        registered_sidecars = self.projection._registered_sidecars()
-        if sidecars is None:
-            sidecars = [
-                field
-                for field in self.dataset.dataset_fields
-                if field not in self._basic_data.column_names and field != "_embeddings"
-            ]
+        sidecars = None
+        if fields is None:
+            fields = self.dataset.dataset_fields
         else:
-            for field in sidecars:
+            for field in fields:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
-        encoded_sidecars = [base64.urlsafe_b64encode(sidecar.encode("utf-8")).decode("utf-8") for sidecar in sidecars]
-        if any(sidecar == "datum_id" for (field, sidecar) in registered_sidecars):
-            sidecars.append("datum_id")
-            encoded_sidecars.append("datum_id")
+
+        sidecars = [
+            (field, sidecar)
+            for field, sidecar in self.projection._registered_sidecars()
+            if field[0] != "_" and field in fields
+        ]
 
         for quad in tqdm(all_quads):
-            for encoded_colname in encoded_sidecars:
+            for field, encoded_colname in sidecars:
                 quad_str = os.path.join(*[str(q) for q in quad])
                 filename = quad_str + "." + encoded_colname + ".feather"
                 path = self.projection.tile_destination / Path(filename)
                 # WARNING: Potentially large data request here
                 download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
-
         return sidecars
 
     @property
