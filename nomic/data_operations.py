@@ -49,8 +49,8 @@ class AtlasMapDuplicates:
         duplicate_sidecar = self.duplicate_column[1]
         self.duplicate_field = self.duplicate_column[0].lstrip("_")
         self.cluster_field = self.cluster_column[0].lstrip("_")
-
-        for key in self.projection._manifest["key"]:
+        logger.info("Loading duplicates")
+        for key in tqdm(self.projection._manifest["key"]):
             # Use datum id as root table
             tb = pa.feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
@@ -146,7 +146,8 @@ class AtlasMapTopics:
         tbs = []
         # Should just be one sidecar
         topic_sidecar = set([sidecar for _, sidecar in self._topic_columns]).pop()
-        for key in self.projection._manifest["key"]:
+        logger.info("Loading topics")
+        for key in tqdm(self.projection._manifest["key"]):
             # Use datum id as root table
             tb = pa.feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
@@ -521,7 +522,8 @@ class AtlasMapEmbeddings:
         downloaded_files_in_tile_order = self._download_latent()
         assert len(downloaded_files_in_tile_order) > 0, "No embeddings found for this map."
         all_embeddings = []
-        for path in downloaded_files_in_tile_order:
+        logger.info("Loading latent embeddings")
+        for path in tqdm(downloaded_files_in_tile_order):
             tb = feather.read_table(path, memory_map=True)
             dims = tb["_embeddings"].type.list_size
             all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
@@ -675,8 +677,8 @@ class AtlasMapTags:
         for tag in tags:
             self._download_tag(tag["tag_name"], overwrite=overwrite)
         tbs = []
-
-        for key in self.projection._manifest["key"]:
+        logger.info("Loading tags")
+        for key in tqdm(self.projection._manifest["key"]):
             datum_id_path = self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather")
             tb = feather.read_table(datum_id_path, memory_map=True)
             for tag in tags:

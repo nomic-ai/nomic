@@ -8,7 +8,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union, overload
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pyarrow as pa
@@ -600,7 +600,9 @@ class AtlasProjection:
     @property
     def _manifest(self) -> pa.Table:
         """
-        Returns the tile manifest for the projection
+        Returns the tile manifest for the projection.
+        Tile manifest is in quadtree order. All quadtree operations should
+        depend on tile manifest to ensure consistency.
         """
         if self._manifest_tb is not None:
             return self._manifest_tb
