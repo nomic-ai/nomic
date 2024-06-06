@@ -4,7 +4,7 @@ import json
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -140,7 +140,8 @@ class AtlasMapTopics:
         Loads topics from the feather tree.
         """
         integer_topics = False
-        label_df: Optional[pd.DataFrame] = None
+        # pd.Series to match pd typing
+        label_df: Optional[Union[pd.DataFrame, pd.Series]] = None
         if "int" in self._topic_columns[0][0]:
             integer_topics = True
             label_df = self.metadata[["topic_id", "depth", "topic_short_description"]]
