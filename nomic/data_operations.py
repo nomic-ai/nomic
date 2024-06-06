@@ -1,7 +1,6 @@
 import base64
 import io
 import json
-import os
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -11,15 +10,10 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import requests
-from flask.scaffold import F
 from loguru import logger
 from pyarrow import compute as pc
 from pyarrow import feather
 from tqdm import tqdm
-
-from .settings import EMBEDDING_PAGINATION_LIMIT
-from .utils import download_feather
-
 
 class AtlasMapDuplicates:
     """

@@ -4,27 +4,20 @@ import concurrent.futures
 import io
 import json
 import os
-import pickle
 import time
-import uuid
-from collections import defaultdict
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union, overload
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union, overload
 
 import numpy as np
-import pandas as pd
 import pyarrow as pa
 import requests
 from loguru import logger
 from pandas import DataFrame
 from pyarrow import compute as pc
 from pyarrow import feather, ipc
-from pydantic import BaseModel, Field
 from tqdm import tqdm
-
-import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
 from .data_inference import (
