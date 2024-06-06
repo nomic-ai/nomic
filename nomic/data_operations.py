@@ -15,6 +15,7 @@ from pyarrow import compute as pc
 from pyarrow import feather
 from tqdm import tqdm
 
+
 class AtlasMapDuplicates:
     """
     Atlas Duplicate Clusters State. Atlas can automatically group embeddings that are sufficiently close into semantic clusters.

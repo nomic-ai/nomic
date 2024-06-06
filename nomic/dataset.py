@@ -647,44 +647,6 @@ class AtlasProjection:
             download_feather(sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite)
         return downloaded_files
 
-    @overload
-    def _tiles_in_order(self, *, coords_only: Literal[False] = ...) -> Iterator[Path]: ...
-
-    @overload
-    def _tiles_in_order(self, *, coords_only: Literal[True]) -> Iterator[Tuple[int, int, int]]: ...
-
-    @overload
-    def _tiles_in_order(self, *, coords_only: bool) -> Iterator[Any]: ...
-
-    def _tiles_in_order(self, *, coords_only: bool = False) -> Iterator[Any]:
-        """
-        Returns:
-            A list of all tiles in the projection in a fixed order so that all
-            datasets are guaranteed to be aligned.
-        """
-
-        def children(z, x, y):
-            # This is the definition of a quadtree.
-            return [
-                (z + 1, x * 2, y * 2),
-                (z + 1, x * 2 + 1, y * 2),
-                (z + 1, x * 2, y * 2 + 1),
-                (z + 1, x * 2 + 1, y * 2 + 1),
-            ]
-
-        # start with the root
-        paths = [(0, 0, 0)]
-        # Pop off the front, extend the back (breadth first traversal)
-        while len(paths) > 0:
-            z, x, y = paths.pop(0)
-            path = Path(self.tile_destination, str(z), str(x), str(y)).with_suffix(".feather")
-            if path.exists():
-                if coords_only:
-                    yield (z, x, y)
-                else:
-                    yield path
-                paths.extend(children(z, x, y))  # pyright: ignore
-
     @property
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
