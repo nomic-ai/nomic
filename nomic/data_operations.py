@@ -94,35 +94,68 @@ class AtlasMapTopics:
         self.id_field = self.projection.dataset.id_field
         self._metadata = None
         self._hierarchy = None
+        self._topic_columns = [column for column in self.projection._registered_columns if column[0].startswith("_topic_depth_")]
+        self.depth = len(self._topic_columns)
+        self._tb = None
 
-        try:
-            logger.info("Downloading topics")
-            self._tb: pa.Table = projection._fetch_tiles()
-            topic_fields = [column for column in self._tb.column_names if column.startswith("_topic_depth_")]
-            self.depth = len(topic_fields)
+        
+    def _load_topics(self):
+        """
+        Loads topics from the feather tree.
+        """
+        integer_topics = False
+        label_df: Optional[pd.DataFrame] = None
+        if "int" in self._topic_columns[0][0]:
+            integer_topics = True
+            label_df = self.metadata[["topic_id", "depth", "topic_short_description"]]
+        tbs = []
+        # Should just be one sidecar
+        topic_sidecar = set([sidecar for _, sidecar in self._topic_columns]).pop()
+        for key in self.projection._manifest["key"]:
+            # Use datum id as root table
+            tb = pa.feather.read_table(
+                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+            )
+            path = self.projection.tile_destination
+            if topic_sidecar == "":
+                path = path / Path(key).with_suffix(".feather")
+            else:
+                path = path / Path(key).with_suffix(f".{topic_sidecar}.feather")            
 
-            # If using topic ids, fetch topic labels
-            if "int" in topic_fields[0]:
-                new_topic_fields = []
-                label_df = self.metadata[["topic_id", "depth", "topic_short_description"]]
-                for d in range(1, self.depth + 1):
+            topic_tb = pa.feather.read_table(path, memory_map=True)
+            # Do this in depth order
+            for d in range(1, self.depth + 1):
+                column = f"_topic_depth_{d}"
+                if integer_topics:
                     column = f"_topic_depth_{d}_int"
-                    topic_ids_to_label = self._tb[column].to_pandas().rename("topic_id")
+                    topic_ids_to_label = topic_tb[column].to_pandas().rename("topic_id")
+                    assert label_df is not None
                     topic_ids_to_label = pd.DataFrame(label_df[label_df["depth"] == d]).merge(
                         topic_ids_to_label, on="topic_id", how="right"
                     )
                     new_column = f"_topic_depth_{d}"
-                    self._tb = self._tb.append_column(
+                    tb = tb.append_column(
                         new_column, pa.Array.from_pandas(topic_ids_to_label["topic_short_description"])
                     )
-                    new_topic_fields.append(new_column)
-                topic_fields = new_topic_fields
-
-            renamed_fields = [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
-            self._tb = self._tb.select([self.id_field] + topic_fields).rename_columns([self.id_field] + renamed_fields)
-
-        except pa.lib.ArrowInvalid as e:  # type: ignore
-            raise ValueError("Topic modeling has not yet been run on this map.")
+                else:
+                    tb = tb.append_column(f"_topic_depth_1", topic_tb["_topic_depth_1"])
+            tbs.append(tb)
+        
+        renamed_columns = [self.id_field] + [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
+        self._tb = pa.concat_tables(tbs).rename_columns(renamed_columns)
+        
+        
+    def _download_topics(self):
+        """
+        Downloads the feather tree for topics.
+        """
+        logger.info("Downloading topics")
+        self.projection._download_sidecar("datum_id", overwrite=False)
+        topic_sidecars = set([sidecar for _, sidecar in self._topic_columns])
+        assert len(topic_sidecars) > 0, "No topic sidecars found."
+        assert len(topic_sidecars) == 1, "Multiple topic sidecars found."
+        for sidecar in topic_sidecars:
+            self.projection._download_sidecar(sidecar, overwrite=False)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -138,6 +171,10 @@ class AtlasMapTopics:
         This table is memmapped from the underlying files and is the most efficient way to
         access topic information.
         """
+        if isinstance(self._tb, pa.Table):
+            return self._tb
+        self._download_topics()
+        self._load_topics()
         return self._tb
 
     @property
@@ -595,7 +632,7 @@ class AtlasMapTags:
         self.auto_cleanup = auto_cleanup
 
     @property
-    def df(self, overwrite: Optional[bool] = False) -> pd.DataFrame:
+    def df(self, overwrite: bool = False) -> pd.DataFrame:
         """
         Pandas DataFrame mapping each data point to its tags.
         """
@@ -651,7 +688,7 @@ class AtlasMapTags:
                 keep_tags.append(tag)
         return keep_tags
 
-    def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool] = False):
+    def get_datums_in_tag(self, tag_name: str, overwrite: bool = False):
         """
         Returns the datum ids in a given tag.
 
@@ -691,7 +728,7 @@ class AtlasMapTags:
                 return tag
         raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
 
-    def _download_tag(self, tag_name: str, overwrite: Optional[bool] = False):
+    def _download_tag(self, tag_name: str, overwrite: bool = False):
         """
         Downloads the feather tree for large sidecar columns.
         """
