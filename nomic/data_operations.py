@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import requests
+from flask.scaffold import F
 from loguru import logger
 from pyarrow import compute as pc
 from pyarrow import feather
@@ -376,7 +377,7 @@ class AtlasMapEmbeddings:
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
-        self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, "x", "y"])
+        self._tb: pa.Table = None
         self.dataset = projection.dataset
         self._latent = None
 
@@ -398,6 +399,31 @@ class AtlasMapEmbeddings:
 
         Does not include high-dimensional embeddings.
         """
+        if isinstance(self._tb, pa.Table):
+            return self._tb
+
+        # NOTE: This should be the same as "y" coordinate
+        coord_sidecar = self.projection._get_sidecar_from_field("x")
+        self.projection._download_sidecar(coord_sidecar, overwrite=False)
+        self.projection._download_sidecar("datum_id", overwrite=False)
+
+        tbs = []
+        for key in tqdm(self.projection._manifest["key"]):
+            # Use datum id as root table
+            tb = pa.feather.read_table(
+                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+            )
+            path = self.projection.tile_destination
+            if coord_sidecar == "":
+                path = path / Path(key).with_suffix(".feather")
+            else:
+                path = path / Path(key).with_suffix(f".{coord_sidecar}.feather")
+            carfile = pa.feather.read_table(path, memory_map=True)
+            for col in carfile.column_names:
+                if col in ["x", "y"]:
+                    tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+        self._tb = pa.concat_tables(tbs)
         return self._tb
 
     @property
@@ -426,9 +452,7 @@ class AtlasMapEmbeddings:
         downloaded_files_in_tile_order = self._download_latent()
         assert len(downloaded_files_in_tile_order) > 0, "No embeddings found for this map."
         all_embeddings = []
-
         for path in downloaded_files_in_tile_order:
-            # Should there be more than 10, we need to sort by int values, not string values
             tb = feather.read_table(path, memory_map=True)
             dims = tb["_embeddings"].type.list_size
             all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
@@ -440,24 +464,16 @@ class AtlasMapEmbeddings:
         Returns the path to downloaded embeddings.
         """
         # TODO: Is size of the embedding files (several hundreds of MBs) going to be a problem here?
-        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root_url = Path(
-            f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
-        )
 
-        registered_sidecar_names = [sidecar[1] for sidecar in self.projection._registered_columns]
-        assert "embeddings" in registered_sidecar_names, "Embeddings not found in sidecars."
+        embedding_sidecar = None
+        for field, sidecar in self.projection._registered_columns:
+            if field == "_embedding":
+                embedding_sidecar = sidecar
+                break
 
-        downloaded_files_in_tile_order = []
-        logger.info("Downloading latent embeddings...")
-        all_quads = list(self.projection._tiles_in_order())
-        for quad in tqdm(all_quads):
-            path = quad.with_suffix(".embeddings.feather")
-            # WARNING: Potentially large data request here
-            quadtree_loc = Path(*path.parts[-3:])
-            download_feather(root_url / quadtree_loc, path, headers=self.dataset.header, overwrite=False)
-            downloaded_files_in_tile_order.append(path)
-        return downloaded_files_in_tile_order
+        if embedding_sidecar is None:
+            raise ValueError("No embeddings found for this map.")
+        return self.projection._download_sidecar(embedding_sidecar, overwrite=False)
 
     def vector_search(
         self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5
@@ -766,7 +782,7 @@ class AtlasMapData:
         """
         tbs = []
 
-        fields_to_load = [field for field, _ in data_columns if field[0] != "_"]
+        fields_to_load = self.dataset.dataset_fields
         sidecars_to_load = set([sidecar for _, sidecar in data_columns if sidecar != "datum_id"])
 
         for key in tqdm(self.projection._manifest["key"]):
@@ -775,9 +791,12 @@ class AtlasMapData:
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
             )
             for sidecar in sidecars_to_load:
-                filename = Path(key).with_suffix("." + sidecar + ".feather")
-                path = self.projection.tile_destination / Path(filename)
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar}.feather", memory_map=True)
+                path = self.projection.tile_destination
+                if sidecar == "":
+                    path = path / Path(key).with_suffix(".feather")
+                else:
+                    path = path / Path(key).with_suffix(f".{sidecar}.feather")
+                carfile = pa.feather.read_table(path, memory_map=True)
                 for col in carfile.column_names:
                     if col in fields_to_load:
                         tb = tb.append_column(col, carfile[col])

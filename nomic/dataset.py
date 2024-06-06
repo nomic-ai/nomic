@@ -434,7 +434,7 @@ class AtlasProjection:
         self._data = None
         self._schema = None
         self._manifest_tb: Optional[pa.Table] = None
-        self._sidecars: List[Tuple[str, str]] = []
+        self._columns: List[Tuple[str, str]] = []
 
     @property
     def map_link(self):
@@ -595,14 +595,14 @@ class AtlasProjection:
     @property
     def _registered_columns(self) -> List[Tuple[str, str]]:
         "Returns [(field_name, sidecar_name), ...]"
-        if self._sidecars:
-            return self._sidecars
-        self._sidecars = []
+        if self._columns:
+            return self._columns
+        self._columns = []
         for field in self.schema:
             sidecar_name = json.loads(field.metadata.get(b"sidecar_name", b'""'))
             if sidecar_name:
-                self._sidecars.append((field.name, sidecar_name))
-        return self._sidecars
+                self._columns.append((field.name, sidecar_name))
+        return self._columns
 
     @property
     def _manifest(self) -> pa.Table:
@@ -613,13 +613,23 @@ class AtlasProjection:
             return self._manifest_tb
 
         manifest_path = self.tile_destination / "manifest.feather"
-        manifest_url = (
-            self.dataset.atlas_api_path + f"/v1/project/projection/{self.projection_id}/quadtree/manifest.feather"
-        )
+        manifest_url = self.dataset.atlas_api_path + f"/v1/project/projection/{self.id}/quadtree/manifest.feather"
 
         download_feather(manifest_url, manifest_path, headers=self.dataset.header, overwrite=False)
         self._manifest_tb = feather.read_table(manifest_path, memory_map=False)
         return self._manifest_tb
+
+    def _get_sidecar_from_field(self, field: str) -> str:
+        """
+        Returns the sidecar name for a given field.
+
+        Args:
+            field: the name of the field
+        """
+        for f, sidecar in self._registered_columns:
+            if field == f:
+                return sidecar
+        raise ValueError(f"Field {field} not found in registered columns.")
 
     def _download_sidecar(self, sidecar_name, overwrite: bool = False) -> List[Path]:
         """
@@ -638,8 +648,7 @@ class AtlasProjection:
         for key in self._manifest["key"]:
             sidecar_path = self.tile_destination / f"{key}.{sidecar_suffix}"
             sidecar_url = (
-                self.dataset.atlas_api_path
-                + f"/v1/project/projection/{self.projection_id}/quadtree/{key}.{sidecar_suffix}"
+                self.dataset.atlas_api_path + f"/v1/project/projection/{self.id}/quadtree/{key}.{sidecar_suffix}"
             )
             downloaded_files.append(sidecar_path)
             download_feather(sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite)
