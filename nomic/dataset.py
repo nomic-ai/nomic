@@ -593,7 +593,7 @@ class AtlasProjection:
         self._columns = []
         for field in self.schema:
             sidecar_name = json.loads(field.metadata.get(b"sidecar_name", b'""'))
-            if sidecar_name:
+            if sidecar_name is not None:
                 self._columns.append((field.name, sidecar_name))
         return self._columns
 
@@ -608,7 +608,10 @@ class AtlasProjection:
             return self._manifest_tb
 
         manifest_path = self.tile_destination / "manifest.feather"
-        manifest_url = self.dataset.atlas_api_path + f"/v1/project/projection/{self.id}/quadtree/manifest.feather"
+        manifest_url = (
+            self.dataset.atlas_api_path
+            + f"/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/manifest.feather"
+        )
 
         download_feather(manifest_url, manifest_path, headers=self.dataset.header, overwrite=False)
         self._manifest_tb = feather.read_table(manifest_path, memory_map=False)
@@ -628,7 +631,7 @@ class AtlasProjection:
 
     def _download_sidecar(self, sidecar_name, overwrite: bool = False) -> List[Path]:
         """
-        Downloads a sidecar file for the projection for quadtree
+        Downloads sidecar files from the quadtree
         Args:
             sidecar_name: the name of the sidecar file
             overwrite: if True then overwrite existing feather files.
@@ -640,13 +643,14 @@ class AtlasProjection:
         sidecar_suffix = "feather"
         if sidecar_name != "":
             sidecar_suffix = f"{sidecar_name}.feather"
-        for key in self._manifest["key"]:
+        for key in self._manifest["key"].to_pylist():
             sidecar_path = self.tile_destination / f"{key}.{sidecar_suffix}"
             sidecar_url = (
-                self.dataset.atlas_api_path + f"/v1/project/projection/{self.id}/quadtree/{key}.{sidecar_suffix}"
+                self.dataset.atlas_api_path
+                + f"/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/{key}.{sidecar_suffix}"
             )
-            downloaded_files.append(sidecar_path)
             download_feather(sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite)
+            downloaded_files.append(sidecar_path)
         return downloaded_files
 
     @property

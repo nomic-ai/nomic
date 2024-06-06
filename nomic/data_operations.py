@@ -40,6 +40,7 @@ class AtlasMapDuplicates:
 
         self.duplicate_column = duplicate_columns[0]
         self.cluster_column = cluster_columns[0]
+        self._tb = None
 
     def _load_duplicates(self):
         """
@@ -50,7 +51,7 @@ class AtlasMapDuplicates:
         self.duplicate_field = self.duplicate_column[0].lstrip("_")
         self.cluster_field = self.cluster_column[0].lstrip("_")
         logger.info("Loading duplicates")
-        for key in tqdm(self.projection._manifest["key"]):
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
             tb = pa.feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
@@ -64,7 +65,7 @@ class AtlasMapDuplicates:
 
             duplicate_tb = pa.feather.read_table(path, memory_map=True)
             for field in (self.duplicate_column[0], self.cluster_column[0]):
-                tb = tb.append_column(field, duplicate_tb)
+                tb = tb.append_column(field, duplicate_tb[field])
             tbs.append(tb)
         self._tb = pa.concat_tables(tbs).rename_columns([self.id_field, self.duplicate_field, self.cluster_field])
 
@@ -147,7 +148,7 @@ class AtlasMapTopics:
         # Should just be one sidecar
         topic_sidecar = set([sidecar for _, sidecar in self._topic_columns]).pop()
         logger.info("Loading topics")
-        for key in tqdm(self.projection._manifest["key"]):
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
             tb = pa.feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
@@ -447,8 +448,8 @@ class AtlasMapEmbeddings:
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
-        self._tb: pa.Table = None
         self.dataset = projection.dataset
+        self._tb: pa.Table = None
         self._latent = None
 
     @property
@@ -473,12 +474,14 @@ class AtlasMapEmbeddings:
             return self._tb
 
         # NOTE: This should be the same as "y" coordinate
-        coord_sidecar = self.projection._get_sidecar_from_field("x")
-        self.projection._download_sidecar(coord_sidecar, overwrite=False)
-        self.projection._download_sidecar("datum_id", overwrite=False)
+
+        self._download_projected()
+
+        logger.info("Loading projected embeddings")
 
         tbs = []
-        for key in tqdm(self.projection._manifest["key"]):
+        coord_sidecar = self.projection._get_sidecar_from_field("x")
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
             tb = pa.feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
@@ -529,16 +532,26 @@ class AtlasMapEmbeddings:
             all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
 
+    def _download_projected(self) -> List[Path]:
+        """
+        Downloads the feather tree for projection coordinates.
+        """
+        logger.info("Downloading projected embeddings")
+        coord_sidecar = self.projection._get_sidecar_from_field("x")
+        self.projection._download_sidecar("datum_id", overwrite=False)
+        return self.projection._download_sidecar(coord_sidecar, overwrite=False)
+
     def _download_latent(self) -> List[Path]:
         """
         Downloads the feather tree for embeddings.
         Returns the path to downloaded embeddings.
         """
         # TODO: Is size of the embedding files (several hundreds of MBs) going to be a problem here?
-
+        logger.info("Downloading latent embeddings")
         embedding_sidecar = None
         for field, sidecar in self.projection._registered_columns:
-            if field == "_embedding":
+            # NOTE: be _embeddings or _embedding
+            if field.startswith("_embedding"):
                 embedding_sidecar = sidecar
                 break
 
@@ -678,7 +691,7 @@ class AtlasMapTags:
             self._download_tag(tag["tag_name"], overwrite=overwrite)
         tbs = []
         logger.info("Loading tags")
-        for key in tqdm(self.projection._manifest["key"]):
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
             datum_id_path = self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather")
             tb = feather.read_table(datum_id_path, memory_map=True)
             for tag in tags:
@@ -780,7 +793,7 @@ class AtlasMapTags:
             tag_definition_ids: A list of tag definition ids to keep.
         """
         # NOTE: This currently only gets triggered on `df` property
-        for key in self.projection._manifest["key"]:
+        for key in self.projection._manifest["key"].to_pylist():
             tile = self.projection.tile_destination / Path(key)
             tile_dir = tile.parent
             if tile_dir.exists():
@@ -844,6 +857,7 @@ class AtlasMapData:
             for field in fields:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
             self.fields = fields
+        self._tb = None
 
     def _load_data(self, data_columns: List[Tuple[str, str]]):
         """
@@ -855,8 +869,8 @@ class AtlasMapData:
         tbs = []
 
         sidecars_to_load = set([sidecar for _, sidecar in data_columns if sidecar != "datum_id"])
-
-        for key in tqdm(self.projection._manifest["key"]):
+        logger.info("Loading data")
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
             tb = pa.feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
@@ -885,7 +899,7 @@ class AtlasMapData:
         Returns:
             List of downloaded columns
         """
-        logger.info("Downloading dataset")
+        logger.info("Downloading data")
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
 
         # Download specified or all sidecar fields + always download datum_id
@@ -895,7 +909,7 @@ class AtlasMapData:
             if field[0] != "_" and sidecar != "" and ((field in fields) or sidecar == "datum_id")
         ]
 
-        for sidecar in set([sidecar for _, sidecar in data_columns_to_load]):
+        for sidecar in tqdm(set([sidecar for _, sidecar in data_columns_to_load])):
             self.projection._download_sidecar(sidecar)
         return data_columns_to_load
 
@@ -905,6 +919,7 @@ class AtlasMapData:
         A pandas DataFrame associating each datapoint on your map to their metadata.
         Converting to pandas DataFrame may materialize a large amount of data into memory.
         """
+        logger.warning("Converting to pandas dataframe. This may materialize a large amount of data into memory.")
         return self.tb.to_pandas()
 
     @property
