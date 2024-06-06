@@ -31,22 +31,56 @@ class AtlasMapDuplicates:
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
-        try:
-            duplicate_fields = [
-                field for field in projection._fetch_tiles().column_names if "_duplicate_class" in field
-            ]
-            cluster_fields = [field for field in projection._fetch_tiles().column_names if "_cluster" in field]
-            assert len(duplicate_fields) > 0, "Duplicate detection has not yet been run on this map."
-            self.duplicate_field = duplicate_fields[0]
-            self.cluster_field = cluster_fields[0]
-            self._tb: pa.Table = projection._fetch_tiles().select(
-                [self.id_field, self.duplicate_field, self.cluster_field]
+
+        duplicate_columns = [
+            (field, sidecar)
+            for field, sidecar in self.projection._registered_columns
+            if field.startswith("_duplicate_class")
+        ]
+        cluster_columns = [
+            (field, sidecar) for field, sidecar in self.projection._registered_columns if field.startswith("_cluster")
+        ]
+
+        assert len(duplicate_columns) > 0, "Duplicate detection has not yet been run on this map."
+
+        self.duplicate_column = duplicate_columns[0]
+        self.cluster_column = cluster_columns[0]
+
+    def _load_duplicates(self):
+        """
+        Loads duplicates from the feather tree.
+        """
+        tbs = []
+        duplicate_sidecar = self.duplicate_column[1]
+        self.duplicate_field = self.duplicate_column[0].lstrip("_")
+        self.cluster_field = self.cluster_column[0].lstrip("_")
+
+        for key in self.projection._manifest["key"]:
+            # Use datum id as root table
+            tb = pa.feather.read_table(
+                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
             )
-        except pa.lib.ArrowInvalid as e:  # type: ignore
-            raise ValueError("Duplicate detection has not yet been run on this map.")
-        self.duplicate_field = self.duplicate_field.lstrip("_")
-        self.cluster_field = self.cluster_field.lstrip("_")
-        self._tb = self._tb.rename_columns([self.id_field, self.duplicate_field, self.cluster_field])
+            path = self.projection.tile_destination
+
+            if duplicate_sidecar == "":
+                path = path / Path(key).with_suffix(".feather")
+            else:
+                path = path / Path(key).with_suffix(f".{duplicate_sidecar}.feather")
+
+            duplicate_tb = pa.feather.read_table(path, memory_map=True)
+            for field in (self.duplicate_column[0], self.cluster_column[0]):
+                tb = tb.append_column(field, duplicate_tb)
+            tbs.append(tb)
+        self._tb = pa.concat_tables(tbs).rename_columns([self.id_field, self.duplicate_field, self.cluster_field])
+
+    def _download_duplicates(self):
+        """
+        Downloads the feather tree for duplicates.
+        """
+        logger.info("Downloading duplicates")
+        self.projection._download_sidecar("datum_id", overwrite=False)
+        assert self.cluster_column[1] == self.duplicate_column[1], "Cluster and duplicate should be in same sidecar"
+        self.projection._download_sidecar(self.duplicate_column[1], overwrite=False)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -62,6 +96,10 @@ class AtlasMapDuplicates:
         This table is memmapped from the underlying files and is the most efficient way to
         access duplicate information.
         """
+        if isinstance(self._tb, pa.Table):
+            return self._tb
+        self._download_duplicates()
+        self._load_duplicates()
         return self._tb
 
     def deletion_candidates(self) -> List[str]:
@@ -94,11 +132,13 @@ class AtlasMapTopics:
         self.id_field = self.projection.dataset.id_field
         self._metadata = None
         self._hierarchy = None
-        self._topic_columns = [column for column in self.projection._registered_columns if column[0].startswith("_topic_depth_")]
+        self._topic_columns = [
+            column for column in self.projection._registered_columns if column[0].startswith("_topic_depth_")
+        ]
+        assert len(self._topic_columns) > 0, "Topic modeling has not yet been run on this map."
         self.depth = len(self._topic_columns)
         self._tb = None
 
-        
     def _load_topics(self):
         """
         Loads topics from the feather tree.
@@ -120,7 +160,7 @@ class AtlasMapTopics:
             if topic_sidecar == "":
                 path = path / Path(key).with_suffix(".feather")
             else:
-                path = path / Path(key).with_suffix(f".{topic_sidecar}.feather")            
+                path = path / Path(key).with_suffix(f".{topic_sidecar}.feather")
 
             topic_tb = pa.feather.read_table(path, memory_map=True)
             # Do this in depth order
@@ -140,11 +180,10 @@ class AtlasMapTopics:
                 else:
                     tb = tb.append_column(f"_topic_depth_1", topic_tb["_topic_depth_1"])
             tbs.append(tb)
-        
+
         renamed_columns = [self.id_field] + [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
         self._tb = pa.concat_tables(tbs).rename_columns(renamed_columns)
-        
-        
+
     def _download_topics(self):
         """
         Downloads the feather tree for topics.
@@ -152,10 +191,8 @@ class AtlasMapTopics:
         logger.info("Downloading topics")
         self.projection._download_sidecar("datum_id", overwrite=False)
         topic_sidecars = set([sidecar for _, sidecar in self._topic_columns])
-        assert len(topic_sidecars) > 0, "No topic sidecars found."
         assert len(topic_sidecars) == 1, "Multiple topic sidecars found."
-        for sidecar in topic_sidecars:
-            self.projection._download_sidecar(sidecar, overwrite=False)
+        self.projection._download_sidecar(topic_sidecars.pop(), overwrite=False)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -298,8 +335,8 @@ class AtlasMapTopics:
             A list of `{topic, count}` dictionaries, sorted from largest count to smallest count.
         """
         data = AtlasMapData(self.projection, fields=[time_field])
-        time_data = data._tb.select([self.id_field, time_field])
-        merged_tb = self._tb.join(time_data, self.id_field, join_type="inner").combine_chunks()
+        time_data = data.tb.select([self.id_field, time_field])
+        merged_tb = self.tb.join(time_data, self.id_field, join_type="inner").combine_chunks()
 
         del time_data  # free up memory
 
@@ -628,7 +665,7 @@ class AtlasMapTags:
         try:
             self.projection._download_sidecar("datum_id")
         except Exception:
-            raise Exception("Failed to fetch datum ids which is required to load tags.")
+            raise ValueError("Failed to fetch datum ids which is required to load tags.")
         self.auto_cleanup = auto_cleanup
 
     @property
@@ -803,14 +840,15 @@ class AtlasMapData:
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        try:
-            # Download and load are separate to allow mem mapping
-            sidecars = self._download_data(fields=fields)
-            self._tb = self._load_data(sidecars)
-        except pa.lib.ArrowInvalid:  # type: ignore
-            raise ValueError("Failed to download data for this map")
+        if fields is None:
+            # TODO: fall back on something more reliable here
+            self.fields = self.dataset.dataset_fields
+        else:
+            for field in fields:
+                assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
+            self.fields = fields
 
-    def _load_data(self, data_columns: List[Tuple[str, str]]) -> pa.Table:
+    def _load_data(self, data_columns: List[Tuple[str, str]]):
         """
         Loads data from a list of data columns (field and sidecar name tuples).
 
@@ -819,7 +857,6 @@ class AtlasMapData:
         """
         tbs = []
 
-        fields_to_load = self.dataset.dataset_fields
         sidecars_to_load = set([sidecar for _, sidecar in data_columns if sidecar != "datum_id"])
 
         for key in tqdm(self.projection._manifest["key"]):
@@ -835,12 +872,11 @@ class AtlasMapData:
                     path = path / Path(key).with_suffix(f".{sidecar}.feather")
                 carfile = pa.feather.read_table(path, memory_map=True)
                 for col in carfile.column_names:
-                    if col in fields_to_load:
+                    if col in self.fields:
                         tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
 
         self._tb = pa.concat_tables(tbs)
-        return self._tb
 
     def _download_data(self, fields: Optional[List[str]] = None) -> List[Tuple[str, str]]:
         """
@@ -848,16 +884,12 @@ class AtlasMapData:
 
         fields:
             A list of fields to download. If None, downloads all fields.
+
+        Returns:
+            List of downloaded columns
         """
         logger.info("Downloading dataset")
         self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-
-        # TODO: fall back on something more reliable here
-        if fields is None:
-            fields = self.dataset.dataset_fields
-        else:
-            for field in fields:
-                assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
 
         # Download specified or all sidecar fields + always download datum_id
         data_columns_to_load = [
@@ -876,7 +908,7 @@ class AtlasMapData:
         A pandas DataFrame associating each datapoint on your map to their metadata.
         Converting to pandas DataFrame may materialize a large amount of data into memory.
         """
-        return self._tb.to_pandas()
+        return self.tb.to_pandas()
 
     @property
     def tb(self) -> pa.Table:
@@ -885,4 +917,9 @@ class AtlasMapData:
         This table is memmapped from the underlying files and is the most efficient way to
         access metadata information.
         """
+        if isinstance(self._tb, pa.Table):
+            return self._tb
+
+        columns = self._download_data(fields=self.fields)
+        self._load_data(columns)
         return self._tb

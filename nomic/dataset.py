@@ -654,40 +654,6 @@ class AtlasProjection:
             download_feather(sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite)
         return downloaded_files
 
-    def _fetch_tiles(self, overwrite: bool = False):
-        """
-        Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
-
-        Args:
-            overwrite: If True then overwrite web tile files.
-
-        Returns:
-            An Arrow table containing information for all data points in the index.
-        """
-        if self._tile_data is not None:
-            return self._tile_data
-        logger.info(f"Downloading files for projection {self.projection_id}")
-        self._download_large_feather(overwrite=overwrite)
-        tbs = []
-        root = feather.read_table(self.tile_destination / "0/0/0.feather", memory_map=True)
-        try:
-            sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
-        except KeyError:
-            sidecars = set([])
-        sidecars = set(sidecar_name for (_, sidecar_name) in self._registered_columns)
-        for path in self._tiles_in_order():
-            tb = pa.feather.read_table(path, memory_map=True)  # type: ignore
-            for sidecar_file in sidecars:
-                carfile = pa.feather.read_table(  # type: ignore
-                    path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
-                )
-                for col in carfile.column_names:
-                    tb = tb.append_column(col, carfile[col])
-            tbs.append(tb)
-        self._tile_data = pa.concat_tables(tbs)
-
-        return self._tile_data
-
     @overload
     def _tiles_in_order(self, *, coords_only: Literal[False] = ...) -> Iterator[Path]: ...
 
@@ -729,46 +695,6 @@ class AtlasProjection:
     @property
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
-
-    def _download_large_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
-        """
-        Downloads the feather tree.
-        Args:
-            overwrite: if True then overwrite existing feather files.
-
-        Returns:
-            A list containing all quadtiles downloads.
-        """
-        # TODO: change overwrite default to False once updating projection is removed.
-        quads = [f"0/0/0"]
-        self.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/"
-        all_quads = []
-        sidecars = None
-        registered_sidecars = set(sidecar_name for (_, sidecar_name) in self._registered_columns())
-        while len(quads) > 0:
-            rawquad = quads.pop(0)
-            quad = rawquad + ".feather"
-            all_quads.append(quad)
-            path = self.tile_destination / quad
-            schema = download_feather(root + quad, path, headers=self.dataset.header, overwrite=overwrite)
-
-            if sidecars is None and b"sidecars" in schema.metadata:
-                # Grab just the filenames
-                sidecars = set([v for k, v in json.loads(schema.metadata.get(b"sidecars")).items()])
-            elif sidecars is None:
-                sidecars = set()
-            if not "." in rawquad:
-                for sidecar in sidecars | registered_sidecars:
-                    # The sidecar loses the feather suffix because it's supposed to be raw.
-                    quads.append(quad.replace(".feather", f".{sidecar}"))
-            if not schema.metadata or b"children" not in schema.metadata:
-                # Sidecars don't have children.
-                continue
-            kids = schema.metadata.get(b"children")
-            children = json.loads(kids)
-            quads.extend(children)
-        return all_quads
 
     @property
     def datum_id_field(self):
