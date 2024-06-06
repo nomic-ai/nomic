@@ -53,7 +53,7 @@ class AtlasMapDuplicates:
         logger.info("Loading duplicates")
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
-            tb = pa.feather.read_table(
+            tb = feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
             )
             path = self.projection.tile_destination
@@ -63,7 +63,7 @@ class AtlasMapDuplicates:
             else:
                 path = path / Path(key).with_suffix(f".{duplicate_sidecar}.feather")
 
-            duplicate_tb = pa.feather.read_table(path, memory_map=True)
+            duplicate_tb = feather.read_table(path, memory_map=True)
             for field in (self.duplicate_column[0], self.cluster_column[0]):
                 tb = tb.append_column(field, duplicate_tb[field])
             tbs.append(tb)
@@ -150,7 +150,7 @@ class AtlasMapTopics:
         logger.info("Loading topics")
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
-            tb = pa.feather.read_table(
+            tb = feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
             )
             path = self.projection.tile_destination
@@ -159,7 +159,7 @@ class AtlasMapTopics:
             else:
                 path = path / Path(key).with_suffix(f".{topic_sidecar}.feather")
 
-            topic_tb = pa.feather.read_table(path, memory_map=True)
+            topic_tb = feather.read_table(path, memory_map=True)
             # Do this in depth order
             for d in range(1, self.depth + 1):
                 column = f"_topic_depth_{d}"
@@ -483,7 +483,7 @@ class AtlasMapEmbeddings:
         coord_sidecar = self.projection._get_sidecar_from_field("x")
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
-            tb = pa.feather.read_table(
+            tb = feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
             )
             path = self.projection.tile_destination
@@ -491,7 +491,7 @@ class AtlasMapEmbeddings:
                 path = path / Path(key).with_suffix(".feather")
             else:
                 path = path / Path(key).with_suffix(f".{coord_sidecar}.feather")
-            carfile = pa.feather.read_table(path, memory_map=True)
+            carfile = feather.read_table(path, memory_map=True)
             for col in carfile.column_names:
                 if col in ["x", "y"]:
                     tb = tb.append_column(col, carfile[col])
@@ -551,7 +551,7 @@ class AtlasMapEmbeddings:
         embedding_sidecar = None
         for field, sidecar in self.projection._registered_columns:
             # NOTE: be _embeddings or _embedding
-            if field.startswith("_embedding"):
+            if field == "_embeddings":
                 embedding_sidecar = sidecar
                 break
 
@@ -872,7 +872,7 @@ class AtlasMapData:
         logger.info("Loading data")
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
-            tb = pa.feather.read_table(
+            tb = feather.read_table(
                 self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
             )
             for sidecar in sidecars_to_load:
@@ -881,7 +881,7 @@ class AtlasMapData:
                     path = path / Path(key).with_suffix(".feather")
                 else:
                     path = path / Path(key).with_suffix(f".{sidecar}.feather")
-                carfile = pa.feather.read_table(path, memory_map=True)
+                carfile = feather.read_table(path, memory_map=True)
                 for col in carfile.column_names:
                     if col in self.fields:
                         tb = tb.append_column(col, carfile[col])
