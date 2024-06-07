@@ -474,8 +474,6 @@ class AtlasMapEmbeddings:
         if isinstance(self._tb, pa.Table):
             return self._tb
 
-        # NOTE: This should be the same as "y" coordinate
-
         self._download_projected()
 
         logger.info("Loading projected embeddings")
@@ -538,6 +536,7 @@ class AtlasMapEmbeddings:
         Downloads the feather tree for projection coordinates.
         """
         logger.info("Downloading projected embeddings")
+        # Note that y coord should be in same sidecar
         coord_sidecar = self.projection._get_sidecar_from_field("x")
         self.projection._download_sidecar("datum_id", overwrite=False)
         return self.projection._download_sidecar(coord_sidecar, overwrite=False)
@@ -907,7 +906,7 @@ class AtlasMapData:
         data_columns_to_load = [
             (str(field), str(sidecar))
             for field, sidecar in self.projection._registered_columns
-            if field[0] != "_" and sidecar != "" and ((field in fields) or sidecar == "datum_id")
+            if field[0] != "_" and ((field in fields) or sidecar == "datum_id")
         ]
 
         for sidecar in tqdm(set([sidecar for _, sidecar in data_columns_to_load])):
