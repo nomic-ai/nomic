@@ -23,6 +23,8 @@ from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
+from PIL import Image
+from io import BytesIO
 
 import nomic
 
@@ -344,7 +346,7 @@ class AtlasClass(object):
 
         for key in data.column_names:
             if key.startswith("_"):
-                if key == "_embeddings":
+                if key == "_embeddings" or key == "_blob_hash":
                     continue
                 raise ValueError("Metadata fields cannot start with _")
         if pa.compute.max(pa.compute.utf8_length(data[project.id_field])).as_py() > 36:  # type: ignore
@@ -1184,7 +1186,7 @@ class AtlasDataset(AtlasClass):
                 ),
             }
 
-        elif self.modality == "text":
+        elif self.modality == "text" or self.modality == "image":
             # find the index id of the index with name reuse_embeddings_from_index
             reuse_embedding_from_index_id = None
             indices = self.indices
@@ -1203,6 +1205,16 @@ class AtlasDataset(AtlasClass):
 
             if indexed_field not in self.dataset_fields:
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
+
+            if self.modality == "image":
+                if topic_model.community_description_target_field is None:
+                    print("You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics.")
+                    topic_field = None
+                    topic_model.build_topic_model = False
+                else:
+                    topic_field = topic_model.community_description_target_field
+            else:
+                topic_field = topic_model.community_description_target_field
 
             build_template = {
                 "project_id": self.id,
@@ -1236,7 +1248,7 @@ class AtlasDataset(AtlasClass):
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
-                        "community_description_target_field": indexed_field,
+                        "community_description_target_field": topic_field,
                         "cluster_method": topic_model.build_topic_model,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
@@ -1254,6 +1266,7 @@ class AtlasDataset(AtlasClass):
             headers=self.header,
             json=build_template,
         )
+        import pdb; pdb.set_trace()
         if response.status_code != 200:
             logger.info("Create dataset failed with code: {}".format(response.status_code))
             logger.info("Additional info: {}".format(response.text))
@@ -1371,7 +1384,7 @@ class AtlasDataset(AtlasClass):
         else:
             raise Exception(response.text)
 
-    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: Optional[np.ndarray] = None, pbar=None):
+    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: Optional[np.ndarray] = None, blobs: Optional[List[Union[str, bytes, Image.Image]]] = None, pbar=None):
         """
         Adds data of varying modality to an Atlas dataset.
         Args:
@@ -1384,8 +1397,103 @@ class AtlasDataset(AtlasClass):
         elif isinstance(data, pa.Table) and "_embeddings" in data.column_names:  # type: ignore
             embeddings = np.array(data.column("_embeddings").to_pylist())  # type: ignore
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
+        elif blobs is not None:
+            self._add_blobs(data=data, blobs=blobs, pbar=pbar)
         else:
             self._add_text(data=data, pbar=pbar)
+
+    def _add_blobs(self, data: Union[DataFrame, List[Dict], pa.Table], blobs: List[Union[str, bytes, Image.Image]], pbar=None):
+        """
+        Add data, with associated blobs, to the dataset.
+        Uploads blobs to the server and associates them with the data.
+        """
+        if isinstance(data, DataFrame):
+            data = pa.Table.from_pandas(data)
+        elif isinstance(data, list):
+            data = pa.Table.from_pylist(data)
+        elif not isinstance(data, pa.Table):
+            raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
+
+        blob_upload_endpoint = "/v1/project/data/add/blobs"
+
+        # uploda batch of blobs
+        # return hash of blob
+        # add hash to data as _blob_hash
+        # set indexed_field to _blob_hash
+        # call _add_data
+        ids = data[self.id_field].to_pylist()
+        # TODO: add support for other modalities
+        images = []
+        for uuid, blob in tqdm(zip(ids, blobs), total=len(ids), desc="Processing blobs"):
+            if isinstance(blob, str) and os.path.exists(blob):
+                # Auto resize to max 512x512
+                image = Image.open(blob)
+                if image.height > 512 or image.width > 512:
+                    image = image.resize((512, 512))
+                buffered = BytesIO()
+                image.save(buffered, format="JPEG")
+                images.append((uuid, buffered.getvalue()))
+            elif isinstance(blob, bytes):
+                images.append((uuid, blob))
+            elif isinstance(blob, Image.Image):
+                if blob.height > 512 or blob.width > 512:
+                    blob = blob.resize((512, 512))
+                buffered = BytesIO()
+                blob.save(buffered, format="JPEG")
+                images.append((uuid, buffered.getvalue()))
+            else:
+                raise ValueError("Invalid blob type")
+                
+        batch_size = 20
+        num_workers = 10
+
+        def send_request(i):
+            image_batch = images[i : i + batch_size]
+            ids = [uuid for uuid, _ in image_batch]
+            blobs = [("blobs", blob) for _, blob in image_batch]
+            response = requests.post(
+                self.atlas_api_path + blob_upload_endpoint,
+                headers=self.header,
+                data={"dataset_id": self.id},
+                files=blobs
+            )
+            if response.status_code != 200:
+                raise Exception(response.text)
+            return {uuid: blob_hash for uuid, blob_hash in zip(ids, response.json()["hashes"])}
+            
+        # if this method is being called internally, we pass a global progress bar
+        if pbar is None:
+            pbar = tqdm(total=int(len(data)) // batch_size)
+
+        hash_schema = pa.schema([("id", pa.string()), ("_blob_hash", pa.string())])
+        returned_ids = []
+        returned_hashes = []
+        
+        succeeded = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {executor.submit(send_request, i): i for i in range(0, len(data), batch_size)}
+
+            while futures:
+                # check for status of the futures which are currently working
+                done, _ = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
+                # process any completed futures
+                for future in done:
+                    response = future.result()
+                    # add hash to data as _blob_hash
+                    for uuid, blob_hash in response.items():
+                        returned_ids.append(uuid)
+                        returned_hashes.append(blob_hash)
+
+                    # A successful upload.
+                    succeeded += batch_size
+                    pbar.update(1)
+                    del futures[future]
+
+        hash_tb = pa.Table.from_pydict({"id": returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
+        merged_data = data.join(right_table=hash_tb, keys="id")
+
+        self._add_data(merged_data, pbar=pbar)
+        
 
     def _add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
         """
