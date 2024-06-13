@@ -24,7 +24,7 @@ labels = [
 images = []
 datums = []
 
-max_embeddings = 200_000
+max_embeddings = 100_000
 
 for idx, image in enumerate(tqdm(dataset)):
     images.append(image['img'])
@@ -41,12 +41,13 @@ for idx, image in enumerate(tqdm(dataset)):
     if idx >= max_embeddings:
         break
 
-output = embed.image(images=images)
 
-embeddings = np.array(output['embeddings'])
-
-atlas.map_data(embeddings=embeddings,
-               identifier='cifar',
+atlas.map_data(blobs=images,
+               identifier='cifar-50k-image-upload-with-topic',
                data=datums,
                id_field='id',
-               topic_model=False)
+               topic_model={
+                     "build_topic_model": True,
+                     "community_description_target_field": "label"
+                },
+)
