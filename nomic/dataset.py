@@ -643,7 +643,7 @@ class AtlasProjection:
         sidecar_suffix = "feather"
         if sidecar_name != "":
             sidecar_suffix = f"{sidecar_name}.feather"
-        for key in self._manifest["key"].to_pylist():
+        for key in tqdm(self._manifest["key"].to_pylist()):
             sidecar_path = self.tile_destination / f"{key}.{sidecar_suffix}"
             sidecar_url = (
                 self.dataset.atlas_api_path
