@@ -909,7 +909,8 @@ class AtlasMapData:
             if field[0] != "_" and ((field in fields) or sidecar == "datum_id")
         ]
 
-        for sidecar in tqdm(set([sidecar for _, sidecar in data_columns_to_load])):
+        # TODO: less confusing progress bar
+        for sidecar in set([sidecar for _, sidecar in data_columns_to_load]):
             self.projection._download_sidecar(sidecar)
         return data_columns_to_load
 
