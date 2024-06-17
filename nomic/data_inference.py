@@ -88,18 +88,9 @@ class NomicTopicOptions(BaseModel):
     """
 
     build_topic_model: bool = True
-    topic_label_field: Optional[str] = Field(default=None)
+    topic_label_field: Optional[str] = Field(default=None, alias="community_description_target_field")
     cluster_method: str = "fast"
     enforce_topic_hierarchy: bool = False
-
-    def dict(self, **kwargs):
-        # TODO can be removed after Atlas Cloud v0.0.85 reaches all released tenants
-        # Get the original dictionary
-        original_dict = super().dict(**kwargs)
-        # Replace the key if topic_label_field exists in the original dictionary
-        if "topic_label_field" in original_dict:
-            original_dict["community_description_target_field"] = original_dict.pop("topic_label_field")
-        return original_dict
 
 
 class NomicDuplicatesOptions(BaseModel):
