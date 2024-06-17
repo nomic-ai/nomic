@@ -10,6 +10,7 @@ import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union, overload
 
@@ -19,12 +20,11 @@ import pyarrow as pa
 import requests
 from loguru import logger
 from pandas import DataFrame
+from PIL import Image
 from pyarrow import compute as pc
 from pyarrow import feather, ipc
 from pydantic import BaseModel, Field
 from tqdm import tqdm
-from PIL import Image
-from io import BytesIO
 
 import nomic
 
@@ -1208,7 +1208,9 @@ class AtlasDataset(AtlasClass):
 
             if self.modality == "image":
                 if topic_model.community_description_target_field is None:
-                    print("You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics.")
+                    print(
+                        "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
+                    )
                     topic_field = None
                     topic_model.build_topic_model = False
                 else:
@@ -1266,7 +1268,9 @@ class AtlasDataset(AtlasClass):
             headers=self.header,
             json=build_template,
         )
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
         if response.status_code != 200:
             logger.info("Create dataset failed with code: {}".format(response.status_code))
             logger.info("Additional info: {}".format(response.text))
@@ -1384,7 +1388,13 @@ class AtlasDataset(AtlasClass):
         else:
             raise Exception(response.text)
 
-    def add_data(self, data=Union[DataFrame, List[Dict], pa.Table], embeddings: Optional[np.ndarray] = None, blobs: Optional[List[Union[str, bytes, Image.Image]]] = None, pbar=None):
+    def add_data(
+        self,
+        data=Union[DataFrame, List[Dict], pa.Table],
+        embeddings: Optional[np.ndarray] = None,
+        blobs: Optional[List[Union[str, bytes, Image.Image]]] = None,
+        pbar=None,
+    ):
         """
         Adds data of varying modality to an Atlas dataset.
         Args:
@@ -1402,7 +1412,9 @@ class AtlasDataset(AtlasClass):
         else:
             self._add_text(data=data, pbar=pbar)
 
-    def _add_blobs(self, data: Union[DataFrame, List[Dict], pa.Table], blobs: List[Union[str, bytes, Image.Image]], pbar=None):
+    def _add_blobs(
+        self, data: Union[DataFrame, List[Dict], pa.Table], blobs: List[Union[str, bytes, Image.Image]], pbar=None
+    ):
         """
         Add data, with associated blobs, to the dataset.
         Uploads blobs to the server and associates them with the data.
@@ -1443,7 +1455,7 @@ class AtlasDataset(AtlasClass):
                 images.append((uuid, buffered.getvalue()))
             else:
                 raise ValueError("Invalid blob type")
-                
+
         batch_size = 20
         num_workers = 10
 
@@ -1455,12 +1467,12 @@ class AtlasDataset(AtlasClass):
                 self.atlas_api_path + blob_upload_endpoint,
                 headers=self.header,
                 data={"dataset_id": self.id},
-                files=blobs
+                files=blobs,
             )
             if response.status_code != 200:
                 raise Exception(response.text)
             return {uuid: blob_hash for uuid, blob_hash in zip(ids, response.json()["hashes"])}
-            
+
         # if this method is being called internally, we pass a global progress bar
         if pbar is None:
             pbar = tqdm(total=int(len(data)) // batch_size)
@@ -1468,7 +1480,7 @@ class AtlasDataset(AtlasClass):
         hash_schema = pa.schema([("id", pa.string()), ("_blob_hash", pa.string())])
         returned_ids = []
         returned_hashes = []
-        
+
         succeeded = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {executor.submit(send_request, i): i for i in range(0, len(data), batch_size)}
@@ -1493,7 +1505,6 @@ class AtlasDataset(AtlasClass):
         merged_data = data.join(right_table=hash_tb, keys="id")
 
         self._add_data(merged_data, pbar=pbar)
-        
 
     def _add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
         """

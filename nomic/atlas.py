@@ -5,12 +5,12 @@ or in a Jupyter Notebook to organize and interact with your unstructured data.
 
 import uuid
 from typing import Dict, Iterable, List, Optional, Union
-from PIL import Image
 
 import numpy as np
 import pyarrow as pa
 from loguru import logger
 from pandas import DataFrame
+from PIL import Image
 from pyarrow import Table
 from tqdm import tqdm
 

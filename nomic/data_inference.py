@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union, Literal
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import pyarrow as pa
 from pydantic import BaseModel, Field
@@ -114,4 +114,6 @@ class NomicEmbedOptions(BaseModel):
         model: The Nomic Embedding Model to use.
     """
 
-    model: Literal["nomic-embed-text-v1", "nomic-embed-vision-v1", "nomic-embed-text-v1.5", "nomic-embed-vision-v1.5"] = "nomic-embed-text-v1.5"
+    model: Literal[
+        "nomic-embed-text-v1", "nomic-embed-vision-v1", "nomic-embed-text-v1.5", "nomic-embed-vision-v1.5"
+    ] = "nomic-embed-text-v1.5"
