@@ -243,7 +243,7 @@ def get_object_size_in_bytes(obj):
 # Helpful function for downloading feather files
 # Best for small feather files
 def download_feather(
-    url: Union[str, Path], path: Path, headers: Optional[dict] = None, num_attempts=3, overwrite=False
+    url: Union[str, Path], path: Path, headers: Optional[dict] = None, num_attempts=1, overwrite=False
 ) -> pa.Schema:
     """
     Download a feather file from a URL to a local path.

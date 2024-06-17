@@ -38,8 +38,8 @@ class AtlasMapDuplicates:
 
         assert len(duplicate_columns) > 0, "Duplicate detection has not yet been run on this map."
 
-        self.duplicate_column = duplicate_columns[0]
-        self.cluster_column = cluster_columns[0]
+        self._duplicate_column = duplicate_columns[0]
+        self._cluster_column = cluster_columns[0]
         self._tb = None
 
     def _load_duplicates(self):
@@ -47,9 +47,9 @@ class AtlasMapDuplicates:
         Loads duplicates from the feather tree.
         """
         tbs = []
-        duplicate_sidecar = self.duplicate_column[1]
-        self.duplicate_field = self.duplicate_column[0].lstrip("_")
-        self.cluster_field = self.cluster_column[0].lstrip("_")
+        duplicate_sidecar = self._duplicate_column[1]
+        self.duplicate_field = self._duplicate_column[0].lstrip("_")
+        self.cluster_field = self._cluster_column[0].lstrip("_")
         logger.info("Loading duplicates")
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
@@ -64,7 +64,7 @@ class AtlasMapDuplicates:
                 path = path / Path(key).with_suffix(f".{duplicate_sidecar}.feather")
 
             duplicate_tb = feather.read_table(path, memory_map=True)
-            for field in (self.duplicate_column[0], self.cluster_column[0]):
+            for field in (self._duplicate_column[0], self._cluster_column[0]):
                 tb = tb.append_column(field, duplicate_tb[field])
             tbs.append(tb)
         self._tb = pa.concat_tables(tbs).rename_columns([self.id_field, self.duplicate_field, self.cluster_field])
@@ -75,8 +75,8 @@ class AtlasMapDuplicates:
         """
         logger.info("Downloading duplicates")
         self.projection._download_sidecar("datum_id", overwrite=False)
-        assert self.cluster_column[1] == self.duplicate_column[1], "Cluster and duplicate should be in same sidecar"
-        self.projection._download_sidecar(self.duplicate_column[1], overwrite=False)
+        assert self._cluster_column[1] == self._duplicate_column[1], "Cluster and duplicate should be in same sidecar"
+        self.projection._download_sidecar(self._duplicate_column[1], overwrite=False)
 
     @property
     def df(self) -> pd.DataFrame:
