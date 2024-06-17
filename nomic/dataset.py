@@ -4,27 +4,20 @@ import concurrent.futures
 import io
 import json
 import os
-import pickle
 import time
-import uuid
-from collections import defaultdict
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union, overload
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import pandas as pd
 import pyarrow as pa
 import requests
 from loguru import logger
 from pandas import DataFrame
 from pyarrow import compute as pc
 from pyarrow import feather, ipc
-from pydantic import BaseModel, Field
 from tqdm import tqdm
-
-import nomic
 
 from .cli import refresh_bearer_token, validate_api_http_response
 from .data_inference import (
@@ -433,6 +426,8 @@ class AtlasProjection:
         self._tile_data = None
         self._data = None
         self._schema = None
+        self._manifest_tb: Optional[pa.Table] = None
+        self._columns: List[Tuple[str, str]] = []
 
     @property
     def map_link(self):
@@ -590,130 +585,77 @@ class AtlasProjection:
             self._schema = ipc.read_schema(io.BytesIO(content))
         return self._schema
 
-    def _registered_sidecars(self) -> List[Tuple[str, str]]:
+    @property
+    def _registered_columns(self) -> List[Tuple[str, str]]:
         "Returns [(field_name, sidecar_name), ...]"
-        sidecars = []
+        if self._columns:
+            return self._columns
+        self._columns = []
         for field in self.schema:
             sidecar_name = json.loads(field.metadata.get(b"sidecar_name", b'""'))
-            if sidecar_name:
-                sidecars.append((field.name, sidecar_name))
-        return sidecars
+            if sidecar_name is not None:
+                self._columns.append((field.name, sidecar_name))
+        return self._columns
 
-    def _fetch_tiles(self, overwrite: bool = False):
+    @property
+    def _manifest(self) -> pa.Table:
         """
-        Downloads all web data for the projection to the specified directory and returns it as a memmapped arrow table.
+        Returns the tile manifest for the projection.
+        Tile manifest is in quadtree order. All quadtree operations should
+        depend on tile manifest to ensure consistency.
+        """
+        if self._manifest_tb is not None:
+            return self._manifest_tb
+
+        manifest_path = self.tile_destination / "manifest.feather"
+        manifest_url = (
+            self.dataset.atlas_api_path
+            + f"/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/manifest.feather"
+        )
+
+        download_feather(manifest_url, manifest_path, headers=self.dataset.header, overwrite=False)
+        self._manifest_tb = feather.read_table(manifest_path, memory_map=False)
+        return self._manifest_tb
+
+    def _get_sidecar_from_field(self, field: str) -> str:
+        """
+        Returns the sidecar name for a given field.
 
         Args:
-            overwrite: If True then overwrite web tile files.
+            field: the name of the field
+        """
+        for f, sidecar in self._registered_columns:
+            if field == f:
+                return sidecar
+        raise ValueError(f"Field {field} not found in registered columns.")
+
+    def _download_sidecar(self, sidecar_name, overwrite: bool = False) -> List[Path]:
+        """
+        Downloads sidecar files from the quadtree
+        Args:
+            sidecar_name: the name of the sidecar file
+            overwrite: if True then overwrite existing feather files.
 
         Returns:
-            An Arrow table containing information for all data points in the index.
+            List of downloaded feather files.
         """
-        if self._tile_data is not None:
-            return self._tile_data
-        logger.info(f"Downloading files for projection {self.projection_id}")
-        self._download_large_feather(overwrite=overwrite)
-        tbs = []
-        root = feather.read_table(self.tile_destination / "0/0/0.feather", memory_map=True)
-        try:
-            sidecars = set([v for k, v in json.loads(root.schema.metadata[b"sidecars"]).items()])
-        except KeyError:
-            sidecars = set([])
-        sidecars |= set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
-        for path in self._tiles_in_order():
-            tb = pa.feather.read_table(path, memory_map=True)  # type: ignore
-            for sidecar_file in sidecars:
-                carfile = pa.feather.read_table(  # type: ignore
-                    path.parent / f"{path.stem}.{sidecar_file}.feather", memory_map=True
-                )
-                for col in carfile.column_names:
-                    tb = tb.append_column(col, carfile[col])
-            tbs.append(tb)
-        self._tile_data = pa.concat_tables(tbs)
-
-        return self._tile_data
-
-    @overload
-    def _tiles_in_order(self, *, coords_only: Literal[False] = ...) -> Iterator[Path]: ...
-
-    @overload
-    def _tiles_in_order(self, *, coords_only: Literal[True]) -> Iterator[Tuple[int, int, int]]: ...
-
-    @overload
-    def _tiles_in_order(self, *, coords_only: bool) -> Iterator[Any]: ...
-
-    def _tiles_in_order(self, *, coords_only: bool = False) -> Iterator[Any]:
-        """
-        Returns:
-            A list of all tiles in the projection in a fixed order so that all
-            datasets are guaranteed to be aligned.
-        """
-
-        def children(z, x, y):
-            # This is the definition of a quadtree.
-            return [
-                (z + 1, x * 2, y * 2),
-                (z + 1, x * 2 + 1, y * 2),
-                (z + 1, x * 2, y * 2 + 1),
-                (z + 1, x * 2 + 1, y * 2 + 1),
-            ]
-
-        # start with the root
-        paths = [(0, 0, 0)]
-        # Pop off the front, extend the back (breadth first traversal)
-        while len(paths) > 0:
-            z, x, y = paths.pop(0)
-            path = Path(self.tile_destination, str(z), str(x), str(y)).with_suffix(".feather")
-            if path.exists():
-                if coords_only:
-                    yield (z, x, y)
-                else:
-                    yield path
-                paths.extend(children(z, x, y))  # pyright: ignore
+        downloaded_files = []
+        sidecar_suffix = "feather"
+        if sidecar_name != "":
+            sidecar_suffix = f"{sidecar_name}.feather"
+        for key in tqdm(self._manifest["key"].to_pylist()):
+            sidecar_path = self.tile_destination / f"{key}.{sidecar_suffix}"
+            sidecar_url = (
+                self.dataset.atlas_api_path
+                + f"/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/{key}.{sidecar_suffix}"
+            )
+            download_feather(sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite)
+            downloaded_files.append(sidecar_path)
+        return downloaded_files
 
     @property
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
-
-    def _download_large_feather(self, dest: Optional[Union[str, Path]] = None, overwrite: bool = True):
-        """
-        Downloads the feather tree.
-        Args:
-            overwrite: if True then overwrite existing feather files.
-
-        Returns:
-            A list containing all quadtiles downloads.
-        """
-        # TODO: change overwrite default to False once updating projection is removed.
-        quads = [f"0/0/0"]
-        self.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/"
-        all_quads = []
-        sidecars = None
-        registered_sidecars = set(sidecar_name for (_, sidecar_name) in self._registered_sidecars())
-        while len(quads) > 0:
-            rawquad = quads.pop(0)
-            quad = rawquad + ".feather"
-            all_quads.append(quad)
-            path = self.tile_destination / quad
-            schema = download_feather(root + quad, path, headers=self.dataset.header, overwrite=overwrite)
-
-            if sidecars is None and b"sidecars" in schema.metadata:
-                # Grab just the filenames
-                sidecars = set([v for k, v in json.loads(schema.metadata.get(b"sidecars")).items()])
-            elif sidecars is None:
-                sidecars = set()
-            if not "." in rawquad:
-                for sidecar in sidecars | registered_sidecars:
-                    # The sidecar loses the feather suffix because it's supposed to be raw.
-                    quads.append(quad.replace(".feather", f".{sidecar}"))
-            if not schema.metadata or b"children" not in schema.metadata:
-                # Sidecars don't have children.
-                continue
-            kids = schema.metadata.get(b"children")
-            children = json.loads(kids)
-            quads.extend(children)
-        return all_quads
 
     @property
     def datum_id_field(self):
