@@ -1268,9 +1268,6 @@ class AtlasDataset(AtlasClass):
             headers=self.header,
             json=build_template,
         )
-        import pdb
-
-        pdb.set_trace()
         if response.status_code != 200:
             logger.info("Create dataset failed with code: {}".format(response.status_code))
             logger.info("Additional info: {}".format(response.text))
@@ -1485,21 +1482,16 @@ class AtlasDataset(AtlasClass):
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {executor.submit(send_request, i): i for i in range(0, len(data), batch_size)}
 
-            while futures:
-                # check for status of the futures which are currently working
-                done, _ = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
-                # process any completed futures
-                for future in done:
-                    response = future.result()
-                    # add hash to data as _blob_hash
-                    for uuid, blob_hash in response.items():
-                        returned_ids.append(uuid)
-                        returned_hashes.append(blob_hash)
+            for future in concurrent.futures.as_completed(futures):
+                response = future.result()
+                # add hash to data as _blob_hash
+                for uuid, blob_hash in response.items():
+                    returned_ids.append(uuid)
+                    returned_hashes.append(blob_hash)
 
-                    # A successful upload.
-                    succeeded += batch_size
-                    pbar.update(1)
-                    del futures[future]
+                # A successful upload.
+                succeeded += batch_size
+                pbar.update(1)
 
         hash_tb = pa.Table.from_pydict({"id": returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
         merged_data = data.join(right_table=hash_tb, keys="id") # type: ignore
