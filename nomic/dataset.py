@@ -1143,7 +1143,7 @@ class AtlasDataset(AtlasClass):
 
         build_template = {}
         if self.modality == "embedding":
-            if topic_model.community_description_target_field is None:
+            if topic_model.topic_label_field is None:
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                 )
@@ -1171,7 +1171,7 @@ class AtlasDataset(AtlasClass):
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
-                        "community_description_target_field": topic_model.community_description_target_field,
+                        "community_description_target_field": topic_model.topic_label_field,  # TODO change key to topic_label_field post v0.0.85
                         "cluster_method": topic_model.cluster_method,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
@@ -1236,7 +1236,7 @@ class AtlasDataset(AtlasClass):
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
-                        "community_description_target_field": indexed_field,
+                        "community_description_target_field": indexed_field,  # TODO change key to topic_label_field post v0.0.85
                         "cluster_method": topic_model.build_topic_model,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
