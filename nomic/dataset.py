@@ -1430,7 +1430,7 @@ class AtlasDataset(AtlasClass):
         # add hash to data as _blob_hash
         # set indexed_field to _blob_hash
         # call _add_data
-        ids = data[self.id_field].to_pylist() # type: ignore
+        ids = data[self.id_field].to_pylist()  # type: ignore
         # TODO: add support for other modalities
         images = []
         for uuid, blob in tqdm(zip(ids, blobs), total=len(ids), desc="Processing blobs"):
@@ -1494,7 +1494,7 @@ class AtlasDataset(AtlasClass):
                 pbar.update(1)
 
         hash_tb = pa.Table.from_pydict({"id": returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
-        merged_data = data.join(right_table=hash_tb, keys="id") # type: ignore
+        merged_data = data.join(right_table=hash_tb, keys="id")  # type: ignore
 
         self._add_data(merged_data, pbar=pbar)
 
