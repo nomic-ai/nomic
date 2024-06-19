@@ -6,12 +6,8 @@ import json
 import os
 import time
 from contextlib import contextmanager
-<<<<<<< HEAD
-from datetime import date, datetime
-from io import BytesIO
-=======
 from datetime import datetime
->>>>>>> main
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
