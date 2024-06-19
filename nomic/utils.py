@@ -243,30 +243,48 @@ def get_object_size_in_bytes(obj):
 # Helpful function for downloading feather files
 # Best for small feather files
 def download_feather(
-    url: Union[str, Path], path: Path, headers: Optional[dict] = None, retries=3, overwrite=False
+    url: Union[str, Path], path: Path, headers: Optional[dict] = None, num_attempts=1, overwrite=False
 ) -> pa.Schema:
     """
     Download a feather file from a URL to a local path.
     Returns the schema of feather file if successful.
+
+    Parameters:
+        url (str): URL to download feather file from.
+        path (Path): Local path to save feather file to.
+        headers (dict): Optional headers to include in request.
+        num_attempts (int): Number of download attempts before raising an error.
+        overwrite (bool): Whether to overwrite existing file.
+    Returns:
+        Feather schema.
     """
-    assert retries > 0, "Retries must be greater than 0"
+    assert num_attempts > 0, "Num attempts must be greater than 0"
     download_attempt = 0
     download_success = False
     schema = None
-    while download_attempt < retries and not download_success:
+    while download_attempt < num_attempts and not download_success:
         download_attempt += 1
         if not path.exists() or overwrite:
-            data = requests.get(str(url), headers=headers)
-            readable = BytesIO(data.content)
-            readable.seek(0)
-            tb = pa.feather.read_table(readable, memory_map=False)  # type: ignore
-            path.parent.mkdir(parents=True, exist_ok=True)
-            pa.feather.write_feather(tb, path)  # type: ignore
-        try:
-            schema = ipc.open_file(path).schema
-            download_success = True
-        except pa.ArrowInvalid:
-            path.unlink(missing_ok=True)
+            # Attempt download
+            try:
+                data = requests.get(str(url), headers=headers)
+                readable = BytesIO(data.content)
+                readable.seek(0)
+                tb = pa.feather.read_table(readable, memory_map=False)  # type: ignore
+                schema = tb.schema
+                path.parent.mkdir(parents=True, exist_ok=True)
+                pa.feather.write_feather(tb, path)  # type: ignore
+                download_success = True
+            except pa.ArrowInvalid:
+                # failed try again
+                path.unlink(missing_ok=True)
+        else:
+            # Load existing file
+            try:
+                schema = ipc.open_file(path).schema
+                download_success = True
+            except pa.ArrowInvalid:
+                path.unlink(missing_ok=True)
     if not download_success or schema is None:
-        raise ValueError(f"Failed to download feather file from {url} after {retries} attempts.")
+        raise ValueError(f"Failed to download feather file from {url} after {num_attempts} attempts.")
     return schema

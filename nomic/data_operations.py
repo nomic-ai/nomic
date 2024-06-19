@@ -1,11 +1,10 @@
 import base64
 import io
 import json
-import os
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -15,9 +14,6 @@ from loguru import logger
 from pyarrow import compute as pc
 from pyarrow import feather
 from tqdm import tqdm
-
-from .settings import EMBEDDING_PAGINATION_LIMIT
-from .utils import download_feather
 
 
 class AtlasMapDuplicates:
@@ -30,22 +26,57 @@ class AtlasMapDuplicates:
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
-        try:
-            duplicate_fields = [
-                field for field in projection._fetch_tiles().column_names if "_duplicate_class" in field
-            ]
-            cluster_fields = [field for field in projection._fetch_tiles().column_names if "_cluster" in field]
-            assert len(duplicate_fields) > 0, "Duplicate detection has not yet been run on this map."
-            self.duplicate_field = duplicate_fields[0]
-            self.cluster_field = cluster_fields[0]
-            self._tb: pa.Table = projection._fetch_tiles().select(
-                [self.id_field, self.duplicate_field, self.cluster_field]
+
+        duplicate_columns = [
+            (field, sidecar)
+            for field, sidecar in self.projection._registered_columns
+            if field.startswith("_duplicate_class")
+        ]
+        cluster_columns = [
+            (field, sidecar) for field, sidecar in self.projection._registered_columns if field.startswith("_cluster")
+        ]
+
+        assert len(duplicate_columns) > 0, "Duplicate detection has not yet been run on this map."
+
+        self._duplicate_column = duplicate_columns[0]
+        self._cluster_column = cluster_columns[0]
+        self._tb = None
+
+    def _load_duplicates(self):
+        """
+        Loads duplicates from the feather tree.
+        """
+        tbs = []
+        duplicate_sidecar = self._duplicate_column[1]
+        self.duplicate_field = self._duplicate_column[0].lstrip("_")
+        self.cluster_field = self._cluster_column[0].lstrip("_")
+        logger.info("Loading duplicates")
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
+            # Use datum id as root table
+            tb = feather.read_table(
+                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
             )
-        except pa.lib.ArrowInvalid as e:  # type: ignore
-            raise ValueError("Duplicate detection has not yet been run on this map.")
-        self.duplicate_field = self.duplicate_field.lstrip("_")
-        self.cluster_field = self.cluster_field.lstrip("_")
-        self._tb = self._tb.rename_columns([self.id_field, self.duplicate_field, self.cluster_field])
+            path = self.projection.tile_destination
+
+            if duplicate_sidecar == "":
+                path = path / Path(key).with_suffix(".feather")
+            else:
+                path = path / Path(key).with_suffix(f".{duplicate_sidecar}.feather")
+
+            duplicate_tb = feather.read_table(path, memory_map=True)
+            for field in (self._duplicate_column[0], self._cluster_column[0]):
+                tb = tb.append_column(field, duplicate_tb[field])
+            tbs.append(tb)
+        self._tb = pa.concat_tables(tbs).rename_columns([self.id_field, self.duplicate_field, self.cluster_field])
+
+    def _download_duplicates(self):
+        """
+        Downloads the feather tree for duplicates.
+        """
+        logger.info("Downloading duplicates")
+        self.projection._download_sidecar("datum_id", overwrite=False)
+        assert self._cluster_column[1] == self._duplicate_column[1], "Cluster and duplicate should be in same sidecar"
+        self.projection._download_sidecar(self._duplicate_column[1], overwrite=False)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -61,6 +92,10 @@ class AtlasMapDuplicates:
         This table is memmapped from the underlying files and is the most efficient way to
         access duplicate information.
         """
+        if isinstance(self._tb, pa.Table):
+            return self._tb
+        self._download_duplicates()
+        self._load_duplicates()
         return self._tb
 
     def deletion_candidates(self) -> List[str]:
@@ -93,35 +128,69 @@ class AtlasMapTopics:
         self.id_field = self.projection.dataset.id_field
         self._metadata = None
         self._hierarchy = None
+        self._topic_columns = [
+            column for column in self.projection._registered_columns if column[0].startswith("_topic_depth_")
+        ]
+        assert len(self._topic_columns) > 0, "Topic modeling has not yet been run on this map."
+        self.depth = len(self._topic_columns)
+        self._tb = None
 
-        try:
-            logger.info("Downloading topics")
-            self._tb: pa.Table = projection._fetch_tiles()
-            topic_fields = [column for column in self._tb.column_names if column.startswith("_topic_depth_")]
-            self.depth = len(topic_fields)
+    def _load_topics(self):
+        """
+        Loads topics from the feather tree.
+        """
+        integer_topics = False
+        # pd.Series to match pd typing
+        label_df: Optional[Union[pd.DataFrame, pd.Series]] = None
+        if "int" in self._topic_columns[0][0]:
+            integer_topics = True
+            label_df = self.metadata[["topic_id", "depth", "topic_short_description"]]
+        tbs = []
+        # Should just be one sidecar
+        topic_sidecar = set([sidecar for _, sidecar in self._topic_columns]).pop()
+        logger.info("Loading topics")
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
+            # Use datum id as root table
+            tb = feather.read_table(
+                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+            )
+            path = self.projection.tile_destination
+            if topic_sidecar == "":
+                path = path / Path(key).with_suffix(".feather")
+            else:
+                path = path / Path(key).with_suffix(f".{topic_sidecar}.feather")
 
-            # If using topic ids, fetch topic labels
-            if "int" in topic_fields[0]:
-                new_topic_fields = []
-                label_df = self.metadata[["topic_id", "depth", "topic_short_description"]]
-                for d in range(1, self.depth + 1):
+            topic_tb = feather.read_table(path, memory_map=True)
+            # Do this in depth order
+            for d in range(1, self.depth + 1):
+                column = f"_topic_depth_{d}"
+                if integer_topics:
                     column = f"_topic_depth_{d}_int"
-                    topic_ids_to_label = self._tb[column].to_pandas().rename("topic_id")
+                    topic_ids_to_label = topic_tb[column].to_pandas().rename("topic_id")
+                    assert label_df is not None
                     topic_ids_to_label = pd.DataFrame(label_df[label_df["depth"] == d]).merge(
                         topic_ids_to_label, on="topic_id", how="right"
                     )
                     new_column = f"_topic_depth_{d}"
-                    self._tb = self._tb.append_column(
+                    tb = tb.append_column(
                         new_column, pa.Array.from_pandas(topic_ids_to_label["topic_short_description"])
                     )
-                    new_topic_fields.append(new_column)
-                topic_fields = new_topic_fields
+                else:
+                    tb = tb.append_column(f"_topic_depth_1", topic_tb["_topic_depth_1"])
+            tbs.append(tb)
 
-            renamed_fields = [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
-            self._tb = self._tb.select([self.id_field] + topic_fields).rename_columns([self.id_field] + renamed_fields)
+        renamed_columns = [self.id_field] + [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
+        self._tb = pa.concat_tables(tbs).rename_columns(renamed_columns)
 
-        except pa.lib.ArrowInvalid as e:  # type: ignore
-            raise ValueError("Topic modeling has not yet been run on this map.")
+    def _download_topics(self):
+        """
+        Downloads the feather tree for topics.
+        """
+        logger.info("Downloading topics")
+        self.projection._download_sidecar("datum_id", overwrite=False)
+        topic_sidecars = set([sidecar for _, sidecar in self._topic_columns])
+        assert len(topic_sidecars) == 1, "Multiple topic sidecars found."
+        self.projection._download_sidecar(topic_sidecars.pop(), overwrite=False)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -137,6 +206,10 @@ class AtlasMapTopics:
         This table is memmapped from the underlying files and is the most efficient way to
         access topic information.
         """
+        if isinstance(self._tb, pa.Table):
+            return self._tb
+        self._download_topics()
+        self._load_topics()
         return self._tb
 
     @property
@@ -260,8 +333,8 @@ class AtlasMapTopics:
             A list of `{topic, count}` dictionaries, sorted from largest count to smallest count.
         """
         data = AtlasMapData(self.projection, fields=[time_field])
-        time_data = data._tb.select([self.id_field, time_field])
-        merged_tb = self._tb.join(time_data, self.id_field, join_type="inner").combine_chunks()
+        time_data = data.tb.select([self.id_field, time_field])
+        merged_tb = self.tb.join(time_data, self.id_field, join_type="inner").combine_chunks()
 
         del time_data  # free up memory
 
@@ -376,8 +449,8 @@ class AtlasMapEmbeddings:
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.id_field = self.projection.dataset.id_field
-        self._tb: pa.Table = projection._fetch_tiles().select([self.id_field, "x", "y"])
         self.dataset = projection.dataset
+        self._tb: pa.Table = None
         self._latent = None
 
     @property
@@ -398,6 +471,31 @@ class AtlasMapEmbeddings:
 
         Does not include high-dimensional embeddings.
         """
+        if isinstance(self._tb, pa.Table):
+            return self._tb
+
+        self._download_projected()
+
+        logger.info("Loading projected embeddings")
+
+        tbs = []
+        coord_sidecar = self.projection._get_sidecar_from_field("x")
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
+            # Use datum id as root table
+            tb = feather.read_table(
+                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+            )
+            path = self.projection.tile_destination
+            if coord_sidecar == "":
+                path = path / Path(key).with_suffix(".feather")
+            else:
+                path = path / Path(key).with_suffix(f".{coord_sidecar}.feather")
+            carfile = feather.read_table(path, memory_map=True)
+            for col in carfile.column_names:
+                if col in ["x", "y"]:
+                    tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+        self._tb = pa.concat_tables(tbs)
         return self._tb
 
     @property
@@ -426,13 +524,22 @@ class AtlasMapEmbeddings:
         downloaded_files_in_tile_order = self._download_latent()
         assert len(downloaded_files_in_tile_order) > 0, "No embeddings found for this map."
         all_embeddings = []
-
-        for path in downloaded_files_in_tile_order:
-            # Should there be more than 10, we need to sort by int values, not string values
+        logger.info("Loading latent embeddings")
+        for path in tqdm(downloaded_files_in_tile_order):
             tb = feather.read_table(path, memory_map=True)
             dims = tb["_embeddings"].type.list_size
             all_embeddings.append(pa.compute.list_flatten(tb["_embeddings"]).to_numpy().reshape(-1, dims))  # type: ignore
         return np.vstack(all_embeddings)
+
+    def _download_projected(self) -> List[Path]:
+        """
+        Downloads the feather tree for projection coordinates.
+        """
+        logger.info("Downloading projected embeddings")
+        # Note that y coord should be in same sidecar
+        coord_sidecar = self.projection._get_sidecar_from_field("x")
+        self.projection._download_sidecar("datum_id", overwrite=False)
+        return self.projection._download_sidecar(coord_sidecar, overwrite=False)
 
     def _download_latent(self) -> List[Path]:
         """
@@ -440,24 +547,17 @@ class AtlasMapEmbeddings:
         Returns the path to downloaded embeddings.
         """
         # TODO: Is size of the embedding files (several hundreds of MBs) going to be a problem here?
-        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root_url = Path(
-            f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
-        )
+        logger.info("Downloading latent embeddings")
+        embedding_sidecar = None
+        for field, sidecar in self.projection._registered_columns:
+            # NOTE: be _embeddings or _embedding
+            if field == "_embeddings":
+                embedding_sidecar = sidecar
+                break
 
-        registered_sidecar_names = [sidecar[1] for sidecar in self.projection._registered_sidecars()]
-        assert "embeddings" in registered_sidecar_names, "Embeddings not found in sidecars."
-
-        downloaded_files_in_tile_order = []
-        logger.info("Downloading latent embeddings...")
-        all_quads = list(self.projection._tiles_in_order())
-        for quad in tqdm(all_quads):
-            path = quad.with_suffix(".embeddings.feather")
-            # WARNING: Potentially large data request here
-            quadtree_loc = Path(*path.parts[-3:])
-            download_feather(root_url / quadtree_loc, path, headers=self.dataset.header, overwrite=False)
-            downloaded_files_in_tile_order.append(path)
-        return downloaded_files_in_tile_order
+        if embedding_sidecar is None:
+            raise ValueError("No embeddings found for this map.")
+        return self.projection._download_sidecar(embedding_sidecar, overwrite=False)
 
     def vector_search(
         self, queries: Optional[np.ndarray] = None, ids: Optional[List[str]] = None, k: int = 5
@@ -571,12 +671,15 @@ class AtlasMapTags:
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        # Pre-fetch tiles first upon initialization
-        self.projection._fetch_tiles(overwrite=False)
+        # Pre-fetch datum ids first upon initialization
+        try:
+            self.projection._download_sidecar("datum_id")
+        except Exception:
+            raise ValueError("Failed to fetch datum ids which is required to load tags.")
         self.auto_cleanup = auto_cleanup
 
     @property
-    def df(self, overwrite: Optional[bool] = False) -> pd.DataFrame:
+    def df(self, overwrite: bool = False) -> pd.DataFrame:
         """
         Pandas DataFrame mapping each data point to its tags.
         """
@@ -587,16 +690,13 @@ class AtlasMapTags:
         for tag in tags:
             self._download_tag(tag["tag_name"], overwrite=overwrite)
         tbs = []
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            datum_id_filename = quad_str + "." + "datum_id" + ".feather"
-            path = self.projection.tile_destination / Path(datum_id_filename)
-            tb = feather.read_table(path, memory_map=True)
+        logger.info("Loading tags")
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
+            datum_id_path = self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather")
+            tb = feather.read_table(datum_id_path, memory_map=True)
             for tag in tags:
                 tag_definition_id = tag["tag_definition_id"]
-                tag_filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-                path = self.projection.tile_destination / Path(tag_filename)
+                path = self.projection.tile_destination / Path(key).with_suffix(f"._tag.{tag_definition_id}.feather")
                 tag_tb = feather.read_table(path, memory_map=True)
                 bitmask = None
                 if "all_set" in tag_tb.column_names:
@@ -635,7 +735,7 @@ class AtlasMapTags:
                 keep_tags.append(tag)
         return keep_tags
 
-    def get_datums_in_tag(self, tag_name: str, overwrite: Optional[bool] = False):
+    def get_datums_in_tag(self, tag_name: str, overwrite: bool = False):
         """
         Returns the datum ids in a given tag.
 
@@ -646,9 +746,9 @@ class AtlasMapTags:
         Returns:
             List of datum ids.
         """
-        ordered_tag_paths = self._download_tag(tag_name, overwrite=overwrite)
+        tag_paths = self._download_tag(tag_name, overwrite=overwrite)
         datum_ids = []
-        for path in ordered_tag_paths:
+        for path in tag_paths:
             tb = feather.read_table(path)
             last_coord = path.name.split(".")[0]
             tile_path = path.with_name(last_coord + ".datum_id.feather")
@@ -675,26 +775,14 @@ class AtlasMapTags:
                 return tag
         raise ValueError(f"Tag {name} not found in projection {self.projection.id}.")
 
-    def _download_tag(self, tag_name: str, overwrite: Optional[bool] = False):
+    def _download_tag(self, tag_name: str, overwrite: bool = False):
         """
         Downloads the feather tree for large sidecar columns.
         """
         logger.info("Downloading tags")
-        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root_url = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
-
         tag = self._get_tag_by_name(tag_name)
         tag_definition_id = tag["tag_definition_id"]
-
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        ordered_tag_paths = []
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            filename = quad_str + "." + f"_tag.{tag_definition_id}" + ".feather"
-            path = self.projection.tile_destination / Path(filename)
-            download_feather(root_url + filename, path, headers=self.dataset.header, overwrite=True)
-            ordered_tag_paths.append(path)
-        return ordered_tag_paths
+        return self.projection._download_sidecar(f"_tag.{tag_definition_id}", overwrite=overwrite)
 
     def _remove_outdated_tag_files(self, tag_definition_ids: List[str]):
         """
@@ -705,14 +793,12 @@ class AtlasMapTags:
             tag_definition_ids: A list of tag definition ids to keep.
         """
         # NOTE: This currently only gets triggered on `df` property
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        for quad in tqdm(all_quads):
-            quad_str = os.path.join(*[str(q) for q in quad])
-            tile = self.projection.tile_destination / Path(quad_str)
+        for key in self.projection._manifest["key"].to_pylist():
+            tile = self.projection.tile_destination / Path(key)
             tile_dir = tile.parent
             if tile_dir.exists():
-                tagged_files = tile_dir.glob("*_tag*")
-                for file in tagged_files:
+                tag_files = tile_dir.glob("*_tag*")
+                for file in tag_files:
                     tag_definition_id = file.name.split(".")[-2]
                     if tag_definition_id in tag_definition_ids:
                         try:
@@ -764,61 +850,69 @@ class AtlasMapData:
         self.projection = projection
         self.dataset = projection.dataset
         self.id_field = self.projection.dataset.id_field
-        try:
-            # Run fetch_tiles first to guarantee existence of quad feather files
-            self._basic_data: pa.Table = self.projection._fetch_tiles()
-            sidecars = self._download_data(fields=fields)
-            self._tb = self._read_prefetched_tiles_with_sidecars(sidecars)
-
-        except pa.lib.ArrowInvalid as e:  # type: ignore
-            raise ValueError("Failed to fetch tiles for this map")
-
-    def _read_prefetched_tiles_with_sidecars(self, sidecars):
-        tbs = []
-        for path in self.projection._tiles_in_order():
-            tb = pa.feather.read_table(path).drop(["_id", "ix", "x", "y"])  # type: ignore
-            for col in tb.column_names:
-                if col[0] == "_":
-                    tb = tb.drop([col])
-            for _, sidecar in sidecars:
-                carfile = pa.feather.read_table(path.parent / f"{path.stem}.{sidecar}.feather", memory_map=True)  # type: ignore
-                for col in carfile.column_names:
-                    tb = tb.append_column(col, carfile[col])
-            tbs.append(tb)
-        self._tb = pa.concat_tables(tbs)
-
-        return self._tb
-
-    def _download_data(self, fields=None):
-        """
-        Downloads the feather tree for large sidecar columns.
-        """
-        logger.info("Downloading dataset")
-        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
-        root = f"{self.dataset.atlas_api_path}/v1/project/{self.dataset.id}/index/projection/{self.projection.id}/quadtree/"
-
-        all_quads = list(self.projection._tiles_in_order(coords_only=True))
-        sidecars = None
         if fields is None:
-            fields = self.dataset.dataset_fields
+            # TODO: fall back on something more reliable here
+            self.fields = self.dataset.dataset_fields
         else:
             for field in fields:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
+            self.fields = fields
+        self._tb = None
 
-        sidecars = [
-            (field, sidecar)
-            for field, sidecar in self.projection._registered_sidecars()
-            if field[0] != "_" and field in fields
+    def _load_data(self, data_columns: List[Tuple[str, str]]):
+        """
+        Loads data from a list of data columns (field and sidecar name tuples).
+
+        Args:
+            data_columns: A list of tuples containing field name and sidecar name.
+        """
+        tbs = []
+
+        sidecars_to_load = set([sidecar for _, sidecar in data_columns if sidecar != "datum_id"])
+        logger.info("Loading data")
+        for key in tqdm(self.projection._manifest["key"].to_pylist()):
+            # Use datum id as root table
+            tb = feather.read_table(
+                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+            )
+            for sidecar in sidecars_to_load:
+                path = self.projection.tile_destination
+                if sidecar == "":
+                    path = path / Path(key).with_suffix(".feather")
+                else:
+                    path = path / Path(key).with_suffix(f".{sidecar}.feather")
+                carfile = feather.read_table(path, memory_map=True)
+                for col in carfile.column_names:
+                    if col in self.fields:
+                        tb = tb.append_column(col, carfile[col])
+            tbs.append(tb)
+
+        self._tb = pa.concat_tables(tbs)
+
+    def _download_data(self, fields: Optional[List[str]] = None) -> List[Tuple[str, str]]:
+        """
+        Downloads the feather tree for user uploaded data.
+
+        fields:
+            A list of fields to download. If None, downloads all fields.
+
+        Returns:
+            List of downloaded columns
+        """
+        logger.info("Downloading data")
+        self.projection.tile_destination.mkdir(parents=True, exist_ok=True)
+
+        # Download specified or all sidecar fields + always download datum_id
+        data_columns_to_load = [
+            (str(field), str(sidecar))
+            for field, sidecar in self.projection._registered_columns
+            if field[0] != "_" and ((field in fields) or sidecar == "datum_id")
         ]
 
-        for quad in tqdm(all_quads):
-            for field, encoded_colname in sidecars:
-                quad_str = os.path.join(*[str(q) for q in quad])
-                filename = quad_str + "." + encoded_colname + ".feather"
-                path = self.projection.tile_destination / Path(filename)
-                # WARNING: Potentially large data request here
-                download_feather(root + filename, path, headers=self.dataset.header, overwrite=False)
-        return sidecars
+        # TODO: less confusing progress bar
+        for sidecar in set([sidecar for _, sidecar in data_columns_to_load]):
+            self.projection._download_sidecar(sidecar)
+        return data_columns_to_load
 
     @property
     def df(self) -> pd.DataFrame:
@@ -826,7 +920,8 @@ class AtlasMapData:
         A pandas DataFrame associating each datapoint on your map to their metadata.
         Converting to pandas DataFrame may materialize a large amount of data into memory.
         """
-        return self._tb.to_pandas()
+        logger.warning("Converting to pandas dataframe. This may materialize a large amount of data into memory.")
+        return self.tb.to_pandas()
 
     @property
     def tb(self) -> pa.Table:
@@ -835,4 +930,9 @@ class AtlasMapData:
         This table is memmapped from the underlying files and is the most efficient way to
         access metadata information.
         """
+        if isinstance(self._tb, pa.Table):
+            return self._tb
+
+        columns = self._download_data(fields=self.fields)
+        self._load_data(columns)
         return self._tb

@@ -84,11 +84,11 @@ class NomicTopicOptions(BaseModel):
 
     Args:
         build_topic_model: If True, builds a topic model over your dataset's embeddings.
-        community_description_target_field: The dataset field/column that Atlas will use to assign a human-readable description to each topic.
+        topic_label_field: The dataset column (usually the column you embedded) that Atlas will use to assign a human-readable description to each topic.
     """
 
     build_topic_model: bool = True
-    community_description_target_field: Optional[str] = Field(default=None, alias="topic_label_field")
+    topic_label_field: Optional[str] = Field(default=None, alias="community_description_target_field")
     cluster_method: str = "fast"
     enforce_topic_hierarchy: bool = False
 
