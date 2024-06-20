@@ -34,7 +34,6 @@ for idx, image in enumerate(tqdm(dataset)):
     b64img = base64.b64encode(buffered.getvalue()).decode('utf-8')
     datums.append({'id': str(idx),
                    'label': labels[image['label']],
-                  "img": f'<img src="data:image/jpeg;base64,{b64img}" style="min-width:150px"/>'
                   }
                 )
 
