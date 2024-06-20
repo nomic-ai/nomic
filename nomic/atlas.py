@@ -31,6 +31,7 @@ def map_data(
     topic_model: Union[bool, Dict, NomicTopicOptions] = True,
     duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
     embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
+    embedding_space: Optional[str] = None,
 ) -> AtlasDataset:
     """
 
@@ -45,6 +46,7 @@ def map_data(
         topic_model: Options to adjust Nomic Topic - the topic model organizing your dataset.
         duplicate_detection: Options to adjust Nomic Duplicates - the duplicate detection algorithm.
         embedding_model: Options to adjust the embedding model used to embed your dataset.
+        embedding_space: The latent space to embed your dataset into. Automatically set to 'nomic' for non-embedding projects.
     :return:
     """
     modality = "embedding"
@@ -52,6 +54,8 @@ def map_data(
         assert isinstance(embeddings, np.ndarray), "You must pass in a numpy array"
         if embeddings.size == 0:
             raise Exception("Your embeddings cannot be empty")
+    else:
+        embedding_space = "nomic"
 
     if indexed_field is not None:
         modality = "text"
@@ -132,6 +136,7 @@ def map_data(
         topic_model=topic_model,
         duplicate_detection=duplicate_detection,
         embedding_model=embedding_model,
+        embedding_space=embedding_space,
     )
 
     dataset = dataset._latest_dataset_state()

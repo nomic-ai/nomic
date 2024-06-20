@@ -1024,6 +1024,7 @@ class AtlasDataset(AtlasClass):
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
         reuse_embeddings_from_index: Optional[str] = None,
+        embedding_space: Optional[str] = None,
     ) -> Optional[AtlasProjection]:
         """
         Creates an index in the specified dataset.
@@ -1037,7 +1038,7 @@ class AtlasDataset(AtlasClass):
             topic_model: Options for configuring the topic model
             duplicate_detection: Options for configuring semantic duplicate detection
             embedding_model: Options for configuring the embedding model
-
+            embedding_space: The latent space embeddings are positioned in. Defaults to None, use 'nomic' to specify Nomic embeddings.
         Returns:
             The projection this index has built.
 
@@ -1100,6 +1101,7 @@ class AtlasDataset(AtlasClass):
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
                 "projection": "NomicProject",
+                "embedding_space": embedding_space,
                 "projection_hyperparameters": json.dumps(
                     {
                         "n_neighbors": projection.n_neighbors,
@@ -1154,6 +1156,7 @@ class AtlasDataset(AtlasClass):
                 "model": embedding_model.model,
                 "colorable_fields": colorable_fields,
                 "reuse_atoms_and_embeddings_from": reuse_embedding_from_index_id,
+                "embedding_space": embedding_space,
                 "model_hyperparameters": json.dumps(
                     {
                         "dataset_buffer_size": 1000,
