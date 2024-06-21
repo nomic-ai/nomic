@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Literal, Optional, Union
 
 import pyarrow as pa
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 
 from .settings import DEFAULT_DUPLICATE_THRESHOLD
 
@@ -88,7 +88,7 @@ class NomicTopicOptions(BaseModel):
     """
 
     build_topic_model: bool = True
-    topic_label_field: Optional[str] = Field(default=None, alias="community_description_target_field")
+    topic_label_field: Optional[str] = Field(default=None, validation_alias=AliasChoices("community_description_target_field"))
     cluster_method: str = "fast"
     enforce_topic_hierarchy: bool = False
 
