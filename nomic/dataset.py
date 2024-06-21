@@ -1373,6 +1373,9 @@ class AtlasDataset(AtlasClass):
         # set indexed_field to _blob_hash
         # call _add_data
         ids = data[self.id_field].to_pylist()  # type: ignore
+        if not isinstance(ids[0], str):
+            ids = [str(uuid) for uuid in ids]
+
         # TODO: add support for other modalities
         images = []
         for uuid, blob in tqdm(zip(ids, blobs), total=len(ids), desc="Processing blobs"):
