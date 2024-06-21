@@ -47,6 +47,6 @@ atlas.map_data(blobs=images,
                id_field='id',
                topic_model={
                      "build_topic_model": True,
-                     "community_description_target_field": "label"
+                     "topic_label_field": "label"
                 },
 )

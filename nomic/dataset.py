@@ -1149,16 +1149,16 @@ class AtlasDataset(AtlasClass):
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
 
             if self.modality == "image":
-                if topic_model.community_description_target_field is None:
+                if topic_model.topic_label_field is None:
                     print(
                         "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                     )
                     topic_field = None
                     topic_model.build_topic_model = False
                 else:
-                    topic_field = topic_model.community_description_target_field
+                    topic_field = topic_model.topic_label_field
             else:
-                topic_field = topic_model.community_description_target_field
+                topic_field = topic_model.topic_label_field
 
             build_template = {
                 "project_id": self.id,
