@@ -1372,6 +1372,14 @@ class AtlasDataset(AtlasClass):
         # add hash to data as _blob_hash
         # set indexed_field to _blob_hash
         # call _add_data
+        
+        # Cast self id field to string for merged data lower down on function
+        data = data.set_column(
+            data.schema.get_field_index(self.id_field),
+            self.id_field,
+            pc.cast(data[self.id_field], pa.string())
+        )
+
         ids = data[self.id_field].to_pylist()  # type: ignore
         if not isinstance(ids[0], str):
             ids = [str(uuid) for uuid in ids]
@@ -1419,7 +1427,7 @@ class AtlasDataset(AtlasClass):
         if pbar is None:
             pbar = tqdm(total=int(len(data)) // batch_size)
 
-        hash_schema = pa.schema([("id", pa.string()), ("_blob_hash", pa.string())])
+        hash_schema = pa.schema([(self.id_field, pa.string()), ("_blob_hash", pa.string())])
         returned_ids = []
         returned_hashes = []
 
@@ -1438,8 +1446,8 @@ class AtlasDataset(AtlasClass):
                 succeeded += batch_size
                 pbar.update(1)
 
-        hash_tb = pa.Table.from_pydict({"id": returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
-        merged_data = data.join(right_table=hash_tb, keys="id")  # type: ignore
+        hash_tb = pa.Table.from_pydict({self.id_field: returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
+        merged_data = data.join(right_table=hash_tb, keys=self.id_field)  # type: ignore
 
         self._add_data(merged_data, pbar=pbar)
 
