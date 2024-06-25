@@ -1372,12 +1372,10 @@ class AtlasDataset(AtlasClass):
         # add hash to data as _blob_hash
         # set indexed_field to _blob_hash
         # call _add_data
-        
+
         # Cast self id field to string for merged data lower down on function
         data = data.set_column(
-            data.schema.get_field_index(self.id_field),
-            self.id_field,
-            pc.cast(data[self.id_field], pa.string())
+            data.schema.get_field_index(self.id_field), self.id_field, pc.cast(data[self.id_field], pa.string())
         )
 
         ids = data[self.id_field].to_pylist()  # type: ignore
