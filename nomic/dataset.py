@@ -1404,7 +1404,7 @@ class AtlasDataset(AtlasClass):
             else:
                 raise ValueError("Invalid blob type")
 
-        batch_size = 20
+        batch_size = 40
         num_workers = 10
 
         def send_request(i):
