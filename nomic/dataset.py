@@ -1075,7 +1075,7 @@ class AtlasDataset(AtlasClass):
         elif isinstance(embedding_model, NomicEmbedOptions):
             pass
         elif isinstance(embedding_model, str):
-            embedding_model = NomicEmbedOptions(model=embedding_model) # type: ignore
+            embedding_model = NomicEmbedOptions(model=embedding_model)  # type: ignore
         else:
             embedding_model = NomicEmbedOptions()
 
@@ -1374,8 +1374,8 @@ class AtlasDataset(AtlasClass):
         # call _add_data
 
         # Cast self id field to string for merged data lower down on function
-        data = data.set_column( # type: ignore
-            data.schema.get_field_index(self.id_field), self.id_field, pc.cast(data[self.id_field], pa.string()) # type: ignore
+        data = data.set_column(  # type: ignore
+            data.schema.get_field_index(self.id_field), self.id_field, pc.cast(data[self.id_field], pa.string())  # type: ignore
         )
 
         ids = data[self.id_field].to_pylist()  # type: ignore
