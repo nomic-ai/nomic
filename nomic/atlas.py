@@ -67,8 +67,11 @@ def map_data(
                 model_name = embedding_model
             elif isinstance(embedding_model, dict):
                 model_name = embedding_model["model"]
-            else:
+            elif isinstance(embedding_model, NomicEmbedOptions):
                 model_name = embedding_model.model
+            else:
+                raise ValueError("embedding_model must be a string, dictionary, or NomicEmbedOptions object")
+
             if model_name in ["nomic-embed-text-v1", "nomic-embed-text-v1.5"]:
                 raise Exception("You cannot use a text embedding model with blobs")
         else:
