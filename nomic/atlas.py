@@ -63,7 +63,12 @@ def map_data(
         modality = "image"
         indexed_field = "_blob_hash"
         if embedding_model is not None:
-            model_name = embedding_model if isinstance(embedding_model, str) else embedding_model.model
+            if isinstance(embedding_model, str):
+                model_name = embedding_model
+            elif isinstance(embedding_model, dict):
+                model_name = embedding_model["model"]
+            else:
+                model_name = embedding_model.model
             if model_name in ["nomic-embed-text-v1", "nomic-embed-text-v1.5"]:
                 raise Exception("You cannot use a text embedding model with blobs")
         else:
