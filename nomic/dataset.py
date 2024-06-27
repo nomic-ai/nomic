@@ -438,6 +438,13 @@ class AtlasProjection:
         # return f"{self.project.web_path}/data/{self.project.meta['organization_slug']}/{self.project.meta['slug']}/map"
 
     @property
+    def dataset_link(self):
+        """
+        Retrieves a dataset link.
+        """
+        return f"{self.dataset.web_path}/data/{self.dataset.meta['organization_slug']}/{self.dataset.meta['slug']}"
+
+    @property
     def _status(self):
         response = requests.get(
             self.dataset.atlas_api_path + f"/v1/project/index/job/progress/{self.atlas_index_id}",
@@ -450,7 +457,7 @@ class AtlasProjection:
         return content
 
     def __str__(self):
-        return f"{self.name}: {self.map_link}"
+        return f"{self.name}: {self.dataset_link}"
 
     def __repr__(self):
         return self.__str__()
