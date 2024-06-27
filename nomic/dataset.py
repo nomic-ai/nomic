@@ -1046,7 +1046,7 @@ class AtlasDataset(AtlasClass):
             embedding_model: Options for configuring the embedding model
 
         Returns:
-            The dataset page for the index.
+            The projection this index has built.
 
         """
 
