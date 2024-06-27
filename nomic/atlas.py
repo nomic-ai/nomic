@@ -10,6 +10,7 @@ import numpy as np
 import pyarrow as pa
 from loguru import logger
 from pandas import DataFrame
+from PIL import Image
 from pyarrow import Table
 from tqdm import tqdm
 
@@ -21,6 +22,7 @@ from .utils import arrow_iterator, b64int, get_random_name
 
 def map_data(
     data: Optional[Union[DataFrame, List[Dict], Table]] = None,
+    blobs: Optional[List[Union[str, bytes, Image.Image]]] = None,
     embeddings: Optional[np.ndarray] = None,
     identifier: Optional[str] = None,
     description: str = "",
@@ -55,6 +57,26 @@ def map_data(
 
     if indexed_field is not None:
         modality = "text"
+
+    if blobs is not None:
+        # change this when we support other modalities
+        modality = "image"
+        indexed_field = "_blob_hash"
+        if embedding_model is not None:
+            if isinstance(embedding_model, str):
+                model_name = embedding_model
+            elif isinstance(embedding_model, dict):
+                model_name = embedding_model["model"]
+            elif isinstance(embedding_model, NomicEmbedOptions):
+                model_name = embedding_model.model
+            else:
+                raise ValueError("embedding_model must be a string, dictionary, or NomicEmbedOptions object")
+
+            if model_name in ["nomic-embed-text-v1", "nomic-embed-text-v1.5"]:
+                raise Exception("You cannot use a text embedding model with blobs")
+        else:
+            # default to vision v1.5
+            embedding_model = NomicEmbedOptions(model="nomic-embed-vision-v1.5")
 
     if id_field is None:
         id_field = ATLAS_DEFAULT_ID_FIELD
@@ -116,6 +138,9 @@ def map_data(
                 embeddings=embeddings,
                 data=data,
             )
+        elif modality == "image":
+            dataset.add_data(blobs=blobs, data=data)
+
     except BaseException as e:
         if number_of_datums_before_upload == 0:
             logger.info(f"{dataset.identifier}: Deleting dataset due to failure in initial upload.")

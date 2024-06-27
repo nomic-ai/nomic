@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import pyarrow as pa
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from .settings import DEFAULT_DUPLICATE_THRESHOLD
 
@@ -29,7 +29,7 @@ def convert_pyarrow_schema_for_atlas(schema: pa.Schema) -> pa.Schema:
     for field in schema:
         if field.name.startswith("_"):
             # Underscore fields are private to Atlas and will be handled with their own logic.
-            if not field.name in {"_embeddings"}:
+            if not field.name in {"_embeddings", "_blob_hash"}:
                 raise ValueError(f"Underscore fields are reserved for Atlas internal use: {field.name}")
             whitelist[field.name] = field.type
         elif pa.types.is_boolean(field.type):
@@ -114,4 +114,6 @@ class NomicEmbedOptions(BaseModel):
         model: The Nomic Embedding Model to use.
     """
 
-    model: str = "NomicEmbed"
+    model: Literal[
+        "nomic-embed-text-v1", "nomic-embed-vision-v1", "nomic-embed-text-v1.5", "nomic-embed-vision-v1.5"
+    ] = "nomic-embed-text-v1.5"
