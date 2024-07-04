@@ -56,6 +56,8 @@ def map_data(
             raise Exception("Your embeddings cannot be empty")
 
     if indexed_field is not None:
+        if embeddings is not None:
+            logger.warning("You have specified an indexed field but are using embeddings. Embeddings will be ignored.")
         modality = "text"
 
     if blobs is not None:
