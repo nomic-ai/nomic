@@ -97,9 +97,14 @@ def map_data(
     # no metadata was specified
     added_id_field = False
 
-    if data is None and embeddings is not None or blobs is not None:
-        data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
+    if data is None:
         added_id_field = True
+        if embeddings is not None:
+            data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
+        elif blobs is not None:
+            data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(blobs))]
+        else:
+            raise ValueError("You must specify either data, embeddings, or blobs")
 
     if id_field == ATLAS_DEFAULT_ID_FIELD and data is not None:
         if isinstance(data, list) and id_field not in data[0]:
