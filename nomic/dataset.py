@@ -1391,7 +1391,7 @@ class AtlasDataset(AtlasClass):
 
         # TODO: add support for other modalities
         images = []
-        for uuid, blob in tqdm(zip(ids, blobs), total=len(ids), desc="Processing blobs"):
+        for uuid, blob in tqdm(zip(ids, blobs), total=len(ids), desc="Loading images"):
             if isinstance(blob, str) and os.path.exists(blob):
                 # Auto resize to max 512x512
                 image = Image.open(blob)
@@ -1409,7 +1409,7 @@ class AtlasDataset(AtlasClass):
                 blob.save(buffered, format="JPEG")
                 images.append((uuid, buffered.getvalue()))
             else:
-                raise ValueError("Invalid blob type")
+                raise ValueError(f"Invalid blob type for {uuid}. Must be a path to an image, bytes, or PIL Image.")
 
         batch_size = 40
         num_workers = 10
@@ -1430,7 +1430,7 @@ class AtlasDataset(AtlasClass):
 
         # if this method is being called internally, we pass a global progress bar
         if pbar is None:
-            pbar = tqdm(total=int(len(data)) // batch_size)
+            pbar = tqdm(total=len(data), desc="Uploading blobs to Atlas")
 
         hash_schema = pa.schema([(self.id_field, pa.string()), ("_blob_hash", pa.string())])
         returned_ids = []
@@ -1448,8 +1448,8 @@ class AtlasDataset(AtlasClass):
                     returned_hashes.append(blob_hash)
 
                 # A successful upload.
-                succeeded += batch_size
-                pbar.update(1)
+                succeeded += len(response)
+                pbar.update(len(response))
 
         hash_tb = pa.Table.from_pydict({self.id_field: returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
         merged_data = data.join(right_table=hash_tb, keys=self.id_field)  # type: ignore
