@@ -35,11 +35,5 @@ for idx, image in enumerate(tqdm(dataset)):
 
 
 atlas.map_data(blobs=images,
-               identifier='cifar-50k-image-upload-with-topic',
-               data=datums,
-               id_field='id',
-               topic_model={
-                     "build_topic_model": True,
-                     "topic_label_field": "label"
-                },
+               identifier='cifar-50k'
 )
