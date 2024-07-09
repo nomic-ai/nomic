@@ -1245,7 +1245,7 @@ class AtlasDataset(AtlasClass):
             logger.warning("Could not find a map being built for this dataset.")
         else:
             logger.info(
-                f"Created map `{atlas_projection.name}` in dataset `{self.identifier}`: {atlas_projection.map_link}"
+                f"Created map `{atlas_projection.name}` in dataset `{self.identifier}`: {atlas_projection.dataset_link}"
             )
         return atlas_projection
 
