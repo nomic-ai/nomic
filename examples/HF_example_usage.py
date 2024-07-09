@@ -1,6 +1,6 @@
 
-from nomic_connector import hf_atlasdataset
-
+from huggingface_connecter import hf_atlasdataset
+import logging
 
 if __name__ == "__main__":
     dataset_identifier = input("Enter Hugging Face dataset identifier: ").strip()
@@ -8,9 +8,11 @@ if __name__ == "__main__":
 
     try:
         atlas_dataset = hf_atlasdataset(dataset_identifier)
-        print(f"AtlasDataset has been created for '{dataset_identifier}'")
+        logging.info(f"AtlasDataset has been created for '{dataset_identifier}'")
     except ValueError as e:
-        print(f"Error creating AtlasDataset: {e}")
+        logging.error(f"Error creating AtlasDataset: {e}")
+
+
 
 
 
