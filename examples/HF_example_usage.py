@@ -1,10 +1,22 @@
-from nomic.connectors import huggingface_connecter
-import logging
 
-# Example source url: https://huggingface.co/datasets/allenai/quartz
-#Takes last two parts of url to get allenai/quartz
-atlas_dataset = huggingface_connecter.load('allenai/quartz')
+from nomic_connector import hf_atlasdataset
 
-atlas_dataset.create_index(topic_model=True, embedding_model='NomicEmbed') 
 
-logging.info("Atlas dataset has been loaded and indexed successfully.")
+if __name__ == "__main__":
+    dataset_identifier = input("Enter Hugging Face dataset identifier: ").strip()
+
+
+    try:
+        atlas_dataset = hf_atlasdataset(dataset_identifier)
+        print(f"AtlasDataset has been created for '{dataset_identifier}'")
+    except ValueError as e:
+        print(f"Error creating AtlasDataset: {e}")
+
+
+
+
+
+
+
+
+
