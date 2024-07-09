@@ -2,7 +2,7 @@ from datasets import load_dataset
 from ulid import ULID  
 
 
-#need to add an init.py
+
 
 # Function to fetch data from a Hugging Face dataset
 def fetch_data_from_huggingface(dataset_identifier, dataset_split=None):
@@ -53,7 +53,7 @@ def fetch_data_from_huggingface(dataset_identifier, dataset_split=None):
         else:
             raise e  # Re-raise other ValueErrors
 
-# Main load function to be used as a connector
+# Load function to be used as a connector
 def load(dataset_identifier, dataset_split=None):
     data = fetch_data_from_huggingface(dataset_identifier.strip(), dataset_split)
 
