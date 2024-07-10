@@ -1,5 +1,5 @@
 
-from huggingface_connecter import hf_atlasdataset
+from huggingface_connector import hf_atlasdataset
 import logging
 
 if __name__ == "__main__":
