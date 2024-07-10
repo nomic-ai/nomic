@@ -1,4 +1,3 @@
-from nomic import embed
 from nomic import atlas
 from tqdm import tqdm
 
@@ -35,5 +34,6 @@ for idx, image in enumerate(tqdm(dataset)):
 
 
 atlas.map_data(blobs=images,
+               data=datums,
                identifier='cifar-50k'
 )

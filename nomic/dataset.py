@@ -1041,7 +1041,7 @@ class AtlasDataset(AtlasClass):
             name: The name of the index and the map.
             indexed_field: For text datasets, name the data field corresponding to the text to be mapped.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
-            modality: The data modality of this index. Currently, Atlas supports either `text` or `embedding` indices.
+            modality: The data modality of this index. Currently, Atlas supports either `text`, `image`, or `embedding` indices.
             projection: Options for configuring the 2D projection algorithm
             topic_model: Options for configuring the topic model
             duplicate_detection: Options for configuring semantic duplicate detection
@@ -1149,8 +1149,13 @@ class AtlasDataset(AtlasClass):
                         f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}"
                     )
 
-            if indexed_field is None:
+            if indexed_field is None and self.modality == "text":
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
+
+            if self.modality == "image":
+                indexed_field = "_blob_hash"
+                if indexed_field is not None:
+                    logger.warning("Ignoring indexed_field for image datasets. Only _blob_hash is supported.")
 
             if indexed_field not in self.dataset_fields:
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
