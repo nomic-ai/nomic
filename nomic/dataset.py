@@ -1041,7 +1041,7 @@ class AtlasDataset(AtlasClass):
             name: The name of the index and the map.
             indexed_field: For text datasets, name the data field corresponding to the text to be mapped.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
-            modality: The data modality of this index. Currently, Atlas supports either `text` or `embedding` indices.
+            modality: The data modality of this index. Currently, Atlas supports either `text`, `image`, or `embedding` indices.
             projection: Options for configuring the 2D projection algorithm
             topic_model: Options for configuring the topic model
             duplicate_detection: Options for configuring semantic duplicate detection
