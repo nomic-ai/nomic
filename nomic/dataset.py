@@ -1149,8 +1149,13 @@ class AtlasDataset(AtlasClass):
                         f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}"
                     )
 
-            if indexed_field is None:
+            if indexed_field is None and self.modality == "text":
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
+
+            if self.modality == "image":
+                indexed_field = "_blob_hash"
+                if indexed_field is not None:
+                    logger.warning("Ignoring indexed_field for image datasets. Only _blob_hash is supported.")
 
             if indexed_field not in self.dataset_fields:
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
