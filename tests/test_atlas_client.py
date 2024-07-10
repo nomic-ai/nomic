@@ -315,7 +315,7 @@ def test_map_embeddings():
     while map.dataset.is_locked:
         time.sleep(10)
         num_tries += 1
-        if num_tries > 5:
+        if num_tries > 10:
             raise TimeoutError('Timed out while waiting for project to unlock')
 
     retrieved_embeddings = map.embeddings.latent
