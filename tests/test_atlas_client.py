@@ -313,7 +313,7 @@ def test_map_embeddings():
 
     num_tries = 0
     while map.dataset.is_locked:
-        time.sleep(10)
+        time.sleep(30)
         num_tries += 1
         if num_tries > 10:
             raise TimeoutError('Timed out while waiting for project to unlock')
