@@ -1064,7 +1064,7 @@ class AtlasDataset(AtlasClass):
         elif isinstance(topic_model, NomicTopicOptions):
             pass
         elif topic_model:
-            topic_model = NomicTopicOptions()
+            topic_model = NomicTopicOptions(topic_label_field=indexed_field)
         else:
             topic_model = NomicTopicOptions(build_topic_model=False)
 
@@ -1168,7 +1168,9 @@ class AtlasDataset(AtlasClass):
                     topic_field = None
                     topic_model.build_topic_model = False
                 else:
-                    topic_field = topic_model.topic_label_field
+                    topic_field = (
+                        topic_model.topic_label_field if topic_field.topic_label_field != indexed_field else None
+                    )
             else:
                 topic_field = topic_model.topic_label_field
 
