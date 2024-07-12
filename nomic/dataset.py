@@ -1169,7 +1169,7 @@ class AtlasDataset(AtlasClass):
                     topic_model.build_topic_model = False
                 else:
                     topic_field = (
-                        topic_model.topic_label_field if topic_field.topic_label_field != indexed_field else None
+                        topic_model.topic_label_field if topic_model.topic_label_field != indexed_field else None
                     )
             else:
                 topic_field = topic_model.topic_label_field
