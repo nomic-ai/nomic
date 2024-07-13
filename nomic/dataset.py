@@ -1086,6 +1086,9 @@ class AtlasDataset(AtlasClass):
         else:
             embedding_model = NomicEmbedOptions()
 
+        if modality is None:
+            modality = self.meta["modality"]
+
         colorable_fields = []
 
         for field in self.dataset_fields:
@@ -1093,7 +1096,7 @@ class AtlasDataset(AtlasClass):
                 colorable_fields.append(field)
 
         build_template = {}
-        if self.modality == "embedding":
+        if modality == "embedding":
             if topic_model.topic_label_field is None:
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
@@ -1135,7 +1138,7 @@ class AtlasDataset(AtlasClass):
                 ),
             }
 
-        elif self.modality == "text" or self.modality == "image":
+        elif modality == "text" or modality == "image":
             # find the index id of the index with name reuse_embeddings_from_index
             reuse_embedding_from_index_id = None
             indices = self.indices
@@ -1149,10 +1152,10 @@ class AtlasDataset(AtlasClass):
                         f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}"
                     )
 
-            if indexed_field is None and self.modality == "text":
+            if indexed_field is None and modality == "text":
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
-            if self.modality == "image":
+            if modality == "image":
                 indexed_field = "_blob_hash"
                 if indexed_field is not None:
                     logger.warning("Ignoring indexed_field for image datasets. Only _blob_hash is supported.")
@@ -1160,7 +1163,7 @@ class AtlasDataset(AtlasClass):
             if indexed_field not in self.dataset_fields:
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
 
-            if self.modality == "image":
+            if modality == "image":
                 if topic_model.topic_label_field is None:
                     print(
                         "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
