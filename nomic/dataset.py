@@ -1356,7 +1356,7 @@ class AtlasDataset(AtlasClass):
         Args:
             data: A pandas DataFrame, list of dictionaries, or pyarrow Table matching the dataset schema.
             embeddings: A numpy array of embeddings: each row corresponds to a row in the table. Use if you already have embeddings for your datapoints.
-            blobs: A list of image paths, bytes, or PIL Images. Use if you want to add images to your dataset.
+            blobs: A list of image paths, bytes, or PIL Images. Use if you want to create an AtlasDataset using image embeddings over your images.
             pbar: (Optional). A tqdm progress bar to update.
         """
         if embeddings is not None:
