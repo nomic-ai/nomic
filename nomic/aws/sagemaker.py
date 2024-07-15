@@ -4,7 +4,7 @@ import json
 import logging
 import multiprocessing as mp
 from pathlib import PosixPath
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import boto3
 import PIL
@@ -187,7 +187,22 @@ def embed_text(
     }
 
 
-def preprocess_image(images: List[Union[str, "PIL.Image.Image", bytes]]) -> List[bytes]:
+# only way I could get sagemaker with multipart to work
+def prepare_multipart_request(images: List[Tuple[str, bytes]]) -> Tuple[bytes, bytes]:
+    # Prepare the multipart body
+    boundary = b"---------------------------" + str(hash(tuple(images))).encode("utf-8")
+    body = b""
+    for i, (name, img_bytes) in enumerate(images):
+        body += b"--" + boundary + b"\r\n"
+        body += f'Content-Disposition: form-data; name="{name}"; filename="image_{i}.jpg"\r\n'.encode("utf-8")
+        body += b"Content-Type: image/jpeg\r\n\r\n"
+        body += img_bytes + b"\r\n"
+    body += b"--" + boundary + b"--\r\n"
+
+    return body, boundary
+
+
+def preprocess_image(images: List[Union[str, "PIL.Image.Image", bytes]]) -> Tuple[bytes, bytes]:
     """
     Preprocess a list of images for embedding using a sagemaker model.
 
@@ -210,17 +225,22 @@ def preprocess_image(images: List[Union[str, "PIL.Image.Image", bytes]]) -> List
         image = image.convert("RGB")
         buffered = io.BytesIO()
         image.save(buffered, format="JPEG")
-        encoded_image = buffered.getvalue()
-        encoded_images.append(encoded_image)
-    return encoded_images
+        encoded_images.append(("image_data", buffered.getvalue()))
+
+    body, boundary = prepare_multipart_request(encoded_images)
+    return body, boundary
 
 
-def sagemaker_image_request(image: Union[str, bytes, "PIL.Image.Image"], sagemaker_endpoint: str, region_name: str):
-    preprocessed_image = preprocess_image([image])
+def sagemaker_image_request(
+    images: List[Union[str, bytes, "PIL.Image.Image"]], sagemaker_endpoint: str, region_name: str
+):
+    body, boundary = preprocess_image(images)
 
     client = boto3.client("sagemaker-runtime", region_name=region_name)
     response = client.invoke_endpoint(
-        EndpointName=sagemaker_endpoint, Body=preprocessed_image[0], ContentType="image/jpeg"
+        EndpointName=sagemaker_endpoint,
+        Body=body,
+        ContentType=f'multipart/form-data; boundary={boundary.decode("utf-8")}',
     )
 
     return parse_sagemaker_response(response)
@@ -230,21 +250,18 @@ def embed_image(
     images: List[Union[str, "PIL.Image.Image", bytes]],
     sagemaker_endpoint: str,
     region_name: str,
-    model_name="nomic-embed-vision-v1",
+    model_name="nomic-embed-vision-v1.5",
+    batch_size=16,
 ) -> dict:
     embeddings = []
 
-    max_workers = mp.cpu_count()
     pbar = tqdm(total=len(images))
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = []
-        for image in images:
-            future = executor.submit(sagemaker_image_request, image, sagemaker_endpoint, region_name)
-            future.add_done_callback(lambda p: pbar.update())
-            futures.append(future)
-
-        for future in concurrent.futures.as_completed(futures):
-            embeddings.extend(future.result())
+    for i in range(0, len(images), batch_size):
+        batch = images[i : i + batch_size]
+        embeddings.extend(
+            sagemaker_image_request(batch, sagemaker_endpoint=sagemaker_endpoint, region_name=region_name)
+        )
+        pbar.update(len(batch))
 
     return {
         "embeddings": embeddings,
@@ -260,7 +277,7 @@ def batch_transform_image(
     arn: Optional[str] = None,
     role: Optional[str] = None,
     max_payload: Optional[int] = 6,
-    instance_type: str = "ml.p3.2xlarge",
+    instance_type: str = "ml.g4dn.xlarge",
     n_instances: int = 1,
     wait: bool = True,
     logs: bool = True,
