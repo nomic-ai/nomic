@@ -190,7 +190,7 @@ def embed_text(
 # only way I could get sagemaker with multipart to work
 def prepare_multipart_request(images: List[Tuple[str, bytes]]) -> Tuple[bytes, bytes]:
     # Prepare the multipart body
-    boundary = b"---------------------------" + str(hash(tuple(images))).encode("utf-8")
+    boundary = b"---------------------------Boundary"
     body = b""
     for i, (name, img_bytes) in enumerate(images):
         body += b"--" + boundary + b"\r\n"
