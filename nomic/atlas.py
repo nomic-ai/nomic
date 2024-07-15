@@ -38,7 +38,7 @@ def map_data(
 
     Args:
         data: An ordered collection of the datapoints you are structuring. Can be a list of dictionaries, Pandas Dataframe or PyArrow Table.
-        blobs: A list of image paths, bytes, or PIL images to add to your image dataset.
+        blobs: A list of image paths, bytes, or PIL images to add to your image dataset that are stored locally.
         embeddings: An [N,d] numpy array containing the N embeddings to add.
         identifier: A name for your dataset that is used to generate the dataset identifier. A unique name will be chosen if not supplied.
         description: The description of your dataset
