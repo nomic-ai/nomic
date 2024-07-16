@@ -1089,6 +1089,11 @@ class AtlasDataset(AtlasClass):
         if modality is None:
             modality = self.meta["modality"]
 
+        if modality == "image":
+            indexed_field = "_blob_hash"
+            if indexed_field is not None:
+                logger.warning("Ignoring indexed_field for image datasets. Only _blob_hash is supported.")
+
         colorable_fields = []
 
         for field in self.dataset_fields:
@@ -1154,11 +1159,6 @@ class AtlasDataset(AtlasClass):
 
             if indexed_field is None and modality == "text":
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
-
-            if modality == "image":
-                indexed_field = "_blob_hash"
-                if indexed_field is not None:
-                    logger.warning("Ignoring indexed_field for image datasets. Only _blob_hash is supported.")
 
             if indexed_field not in self.dataset_fields:
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
