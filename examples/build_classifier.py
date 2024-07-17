@@ -13,11 +13,11 @@ class SemanticSearchClassifier:
         self.text_emb: np.ndarray = np.array(text_emb, dtype=np.float16)
 
         
-    def predict(self, images: List[Union[str, Image.Image]]) -> bool:
-        image_emb = embed.image(images)["embeddings"]
-        image_emb = np.array(image_emb, dtype=np.float16)
+    def predict(self, image: List[Union[str, Image.Image]]) -> List[bool]:
+        image_emb = embed.image(image)["embeddings"]
+        image_emb = np.array(image_emb)
 
-        similarity = np.dot(self.text_emb, image_emb.T)
+        similarity = np.dot(self.text_emb, image_emb)
         return np.squeeze(similarity > self.threshold).tolist()
 
 print(f"Building classifier")        
