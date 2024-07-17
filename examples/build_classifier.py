@@ -9,7 +9,7 @@ class SemanticSearchClassifier:
     def __init__(self, threshold: float, text_query: str):
         self.threshold = threshold
 
-        text_emb = embed.text([text_query], task_type="search_query")["embeddings"]
+        text_emb = embed.text([text_query], task_type="search_query", model="nomic-embed-text-v1.5")["embeddings"]
         self.text_emb: np.ndarray = np.array(text_emb, dtype=np.float16)
 
         
