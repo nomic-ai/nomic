@@ -17,7 +17,7 @@ class SemanticSearchClassifier:
         image_emb = embed.image(image)["embeddings"]
         image_emb = np.array(image_emb)
 
-        similarity = np.dot(self.text_emb, image_emb)
+        similarity = np.dot(self.text_emb, image_emb.T)
         return np.squeeze(similarity > self.threshold).tolist()
 
 print(f"Building classifier")        
