@@ -6,9 +6,9 @@ from typing import Union, List
 
 
 class ImageClassifierFromTextQuery:
-    '''Builds an image classifier that returns True when the image contains the text query
-    This is determined by the embedding similarity score between the image and the text query
-    If this similarity score is above the provided threshold (default 0.5), return True. Otherwise, return False.
+    '''Builds an image classifier that returns True when the image is similar to a text query.
+    This is determined by the embedding similarity score between the image and the text query.
+    If this similarity score is above the provided threshold, return True. Otherwise, return False.
     '''
     def __init__(self, text_query: str, threshold: float):
         self.threshold = threshold
