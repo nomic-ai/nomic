@@ -1,17 +1,20 @@
-import numpy as np
-from nomic import embed
-from typing import Union, List
 from datasets import load_dataset
+from nomic import embed
+import numpy as np
 from PIL import Image
+from typing import Union, List
 
 
-class SemanticSearchClassifier:
-    def __init__(self, threshold: float, text_query: str):
+class ImageClassifierFromTextQuery:
+    '''Builds an image classifier that returns True when the image contains the text query
+    This is determined by the embedding similarity score between the image and the text query
+    If this similarity score is above the provided threshold (default 0.5), return True. Otherwise, return False.
+    '''
+    def __init__(self, text_query: str, threshold: float):
         self.threshold = threshold
 
         text_emb = embed.text([text_query], task_type="search_query", model="nomic-embed-text-v1.5")["embeddings"]
-        self.text_emb: np.ndarray = np.array(text_emb, dtype=np.float16)
-
+        self.text_emb: np.ndarray = np.array(text_emb)
         
     def predict(self, image: List[Union[str, Image.Image]]) -> List[bool]:
         image_emb = embed.image(image)["embeddings"]
@@ -21,7 +24,7 @@ class SemanticSearchClassifier:
         return np.squeeze(similarity > self.threshold).tolist()
 
 print(f"Building classifier")        
-classifier = SemanticSearchClassifier(threshold=0.058, text_query="a tiny white ball")
+classifier = ImageClassifierFromTextQuery(text_query="a tiny white ball", threshold=0.058)
 
 print(f"Loading dataset")
 dataset = load_dataset('frgfm/imagenette', '160px')['train']
@@ -37,10 +40,8 @@ for i, pred in enumerate(predictions):
     print(f"Prediction for image {ids[i]}: {pred}")
 
     
-label_mapping = {0: "baseball", 1: "cricket", 2: "hockey"}
 sport_dataset = load_dataset('nihaludeen/sports_classification', split="train")
 sport_images = sport_dataset["image"]
-sport_labels = sport_dataset["label"]
 predictions = classifier.predict(sport_images)
 positive_predictions = [i for i, pred in enumerate(predictions) if pred]
 sport_images[positive_predictions[0]].show() 
