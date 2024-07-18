@@ -136,7 +136,7 @@ def text(
 def text(
     texts: list[str],
     *,
-    model: str = "nomic-embed-text-v1",
+    model: str = "nomic-embed-text-v1.5",
     task_type: str = "search_document",
     dimensionality: int | None = None,
     long_text_mode: str = "truncate",
@@ -311,7 +311,7 @@ def free_embedding_model() -> None:
 def image_api_request(
     images: Optional[List[Tuple[str, bytes]]] = None,
     urls: Optional[List[str]] = None,
-    model: str = "nomic-embed-vision-v1",
+    model: str = "nomic-embed-vision-v1.5",
 ):
     global atlas_class
 

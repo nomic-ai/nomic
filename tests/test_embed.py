@@ -4,7 +4,7 @@ from nomic import embed
 
 parametrize = pytest.mark.parametrize
 
-DEFAULT_MODEL = 'nomic-embed-text-v1'
+DEFAULT_MODEL = 'nomic-embed-text-v1.5'
 
 
 def _test_local(text='x', n_tokens=1, dimensionality=None, **kwargs):
