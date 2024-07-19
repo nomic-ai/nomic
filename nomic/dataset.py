@@ -1165,11 +1165,14 @@ class AtlasDataset(AtlasClass):
 
             if modality == "image":
                 if topic_model.topic_label_field is None:
-                    print(
-                        "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
-                    )
+                    if topic_model.build_topic_model:
+                        logger.warning(
+                            "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
+                        )
+                        topic_model.build_topic_model = False
+
                     topic_field = None
-                    topic_model.build_topic_model = False
+
                 else:
                     topic_field = (
                         topic_model.topic_label_field if topic_model.topic_label_field != indexed_field else None
@@ -1403,6 +1406,7 @@ class AtlasDataset(AtlasClass):
 
         # TODO: add support for other modalities
         images = []
+        urls = []
         for uuid, blob in tqdm(zip(ids, blobs), total=len(ids), desc="Loading images"):
             if isinstance(blob, str) and os.path.exists(blob):
                 # Auto resize to max 512x512
@@ -1412,6 +1416,8 @@ class AtlasDataset(AtlasClass):
                 buffered = BytesIO()
                 image.save(buffered, format="JPEG")
                 images.append((uuid, buffered.getvalue()))
+            elif isinstance(blob, str) and (blob.startswith("http://") or blob.startswith("https://")):
+                urls.append((uuid, blob))
             elif isinstance(blob, bytes):
                 images.append((uuid, blob))
             elif isinstance(blob, Image.Image):
@@ -1423,22 +1429,40 @@ class AtlasDataset(AtlasClass):
             else:
                 raise ValueError(f"Invalid blob type for {uuid}. Must be a path to an image, bytes, or PIL Image.")
 
-        batch_size = 40
-        num_workers = 10
+        if len(images) == 0 and len(urls) == 0:
+            raise ValueError("No valid images found in the blobs list.")
+        if len(images) > 0 and len(urls) > 0:
+            raise ValueError("Cannot mix local and remote blobs in the same batch.")
+
+        if urls:
+            batch_size = 10
+            num_workers = 10
+        else:
+            batch_size = 40
+            num_workers = 10
 
         def send_request(i):
             image_batch = images[i : i + batch_size]
-            ids = [uuid for uuid, _ in image_batch]
-            blobs = [("blobs", blob) for _, blob in image_batch]
+            urls_batch = urls[i : i + batch_size]
+
+            if image_batch:
+                blobs = [("blobs", blob) for _, blob in image_batch]
+                ids = [uuid for uuid, _ in image_batch]
+            else:
+                blobs = []
+                ids = [uuid for uuid, _ in urls_batch]
+                urls_batch = [url for _, url in urls_batch]
+
             response = requests.post(
                 self.atlas_api_path + blob_upload_endpoint,
                 headers=self.header,
-                data={"dataset_id": self.id},
+                data={"dataset_id": self.id, "urls": urls_batch},
                 files=blobs,
             )
             if response.status_code != 200:
                 raise Exception(response.text)
-            return {uuid: blob_hash for uuid, blob_hash in zip(ids, response.json()["hashes"])}
+            id2hash = {uuid: blob_hash for uuid, blob_hash in zip(ids, response.json()["hashes"])}
+            return id2hash
 
         # if this method is being called internally, we pass a global progress bar
         if pbar is None:
@@ -1447,6 +1471,7 @@ class AtlasDataset(AtlasClass):
         hash_schema = pa.schema([(self.id_field, pa.string()), ("_blob_hash", pa.string())])
         returned_ids = []
         returned_hashes = []
+        failed_ids = []
 
         succeeded = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -1456,12 +1481,22 @@ class AtlasDataset(AtlasClass):
                 response = future.result()
                 # add hash to data as _blob_hash
                 for uuid, blob_hash in response.items():
+                    if blob_hash is None:
+                        failed_ids.append(uuid)
+                        continue
+
                     returned_ids.append(uuid)
                     returned_hashes.append(blob_hash)
 
                 # A successful upload.
                 succeeded += len(response)
                 pbar.update(len(response))
+
+        # remove all rows that failed to upload
+        if len(failed_ids) > 0:
+            logger.info(f"Failed to upload {len(failed_ids)} blobs.")
+            logger.info(f"Filtering out {failed_ids} from the dataset.")
+            data = pc.filter(data, ~pc.is_in(data[self.id_field], failed_ids)) # type: ignore
 
         hash_tb = pa.Table.from_pydict({self.id_field: returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
         merged_data = data.join(right_table=hash_tb, keys=self.id_field)  # type: ignore
