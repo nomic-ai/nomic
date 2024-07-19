@@ -1090,9 +1090,9 @@ class AtlasDataset(AtlasClass):
             modality = self.meta["modality"]
 
         if modality == "image":
-            indexed_field = "_blob_hash"
             if indexed_field is not None:
                 logger.warning("Ignoring indexed_field for image datasets. Only _blob_hash is supported.")
+            indexed_field = "_blob_hash"
 
         colorable_fields = []
 
