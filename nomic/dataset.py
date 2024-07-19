@@ -126,11 +126,11 @@ class AtlasClass(object):
         """
 
         user = self._get_current_user()
-        
+
         for organization in user["organizations"]:
             if organization["plan_type"] == "enterprise":
                 return organization
-        
+
         if user["default_organization"]:
             for organization in user["organizations"]:
                 if organization["organization_id"] == user["default_organization"]:
