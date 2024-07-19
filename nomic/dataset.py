@@ -1497,7 +1497,7 @@ class AtlasDataset(AtlasClass):
             failed_ids_array = pa.array(failed_ids, type=pa.string())
             logger.info(f"Failed to upload {len(failed_ids)} blobs.")
             logger.info(f"Filtering out {failed_ids} from the dataset.")
-            data = pc.filter(data, pc.invert(pc.is_in(data[self.id_field], failed_ids_array)))
+            data = pc.filter(data, pc.invert(pc.is_in(data[self.id_field], failed_ids_array))) # type: ignore
 
         hash_tb = pa.Table.from_pydict({self.id_field: returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
         merged_data = data.join(right_table=hash_tb, keys=self.id_field)  # type: ignore
