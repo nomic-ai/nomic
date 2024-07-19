@@ -126,6 +126,14 @@ class AtlasClass(object):
         """
 
         user = self._get_current_user()
+        
+        # first check to see whether user has membership to any enterprise organizations 
+        # if so, override the default organization with the first one that is found
+        for organization in user["organizations"]:
+            if organization["plan_type"] == "enterprise":
+                return organization
+        
+        # if no enterprise organization is found, then use the standard default organization
         if user["default_organization"]:
             for organization in user["organizations"]:
                 if organization["organization_id"] == user["default_organization"]:
