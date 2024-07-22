@@ -87,7 +87,7 @@ jobs:
             --repo-url $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME \
             --target-branch $CIRCLE_BRANCH \
             --config-file .circleci/release/release-please-config.json \
-            --manifest-file .circleci/release/release-please-manifest.json
+            --manifest-file .circleci/release/.release-please-manifest.json
 
   github-release:
     docker:
@@ -101,7 +101,7 @@ jobs:
             --repo-url $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME \
             --target-branch $CIRCLE_BRANCH \
             --config-file .circleci/release/release-please-config.json \
-            --manifest-file .circleci/release/release-please-manifest.json
+            --manifest-file .circleci/release/.release-please-manifest.json
 
 workflows:
   version: 2
