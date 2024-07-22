@@ -1,45 +1,42 @@
 version: 2.1
 
 commands:
-    prep:
-      steps:
-        - checkout
-        - run:
-            name: Install python3 and pip3
-            command: sudo apt-get update && sudo apt-get -y install python3 python3-pip
-        - run:
-            name: Install AWS CLI
-            command: sudo pip3 install awscli --upgrade
-    build:
-      steps:
-        - run:
-            name: Build Dev installation
-            command: make dev
+  prep:
+    steps:
+      - checkout
+      - run:
+          name: Install python3 and pip3
+          command: sudo apt-get update && sudo apt-get -y install python3 python3-pip
+      - run:
+          name: Install AWS CLI
+          command: sudo pip3 install awscli --upgrade
 
-    test:
-      steps:
-        - run:
-            name: Create Atlas Client Environment
-            command: make dev
-        - run:
-            name: Run Isort
-            command: make isort_ci | cat
-        - run:
-            name: Run Black
-            command: make black_ci | cat
-        - run:
-            name: Run Pyright
-            command: make pyright_ci | cat
-        - run:
-            name: Authenticate with Nomic
-            command: source env/bin/activate && nomic login staging $NOMIC_API_KEY
-        - run:
-            name: Run Unit Tests
-            command: make test | cat
-#        - run:
-#            name: Run Integration Tests
-#            command: make mock | cat
+  build:
+    steps:
+      - run:
+          name: Build Dev installation
+          command: make dev
 
+  test:
+    steps:
+      - run:
+          name: Create Atlas Client Environment
+          command: make dev
+      - run:
+          name: Run Isort
+          command: make isort_ci | cat
+      - run:
+          name: Run Black
+          command: make black_ci | cat
+      - run:
+          name: Run Pyright
+          command: make pyright_ci | cat
+      - run:
+          name: Authenticate with Nomic
+          command: source env/bin/activate && nomic login staging $NOMIC_API_KEY
+      - run:
+          name: Run Unit Tests
+          command: make test | cat
 
 jobs:
   build_test:
@@ -57,7 +54,6 @@ jobs:
     steps:
       - prep
       - build
-#        - test
 
   build_deploy_pypi:
     docker:
@@ -65,71 +61,84 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install dependencies
+          name: Check if release commit and deploy to PyPI
           command: |
-            sudo apt-get update
-            sudo apt-get install build-essential
-            pip install setuptools twine
-      - run:
-          name: Build Python package
-          command: |
-            python setup.py sdist
-      - run:
-          name: Upload Python package
-          command: |
-            twine upload dist/* --username __token__ --password $PYPI_CRED
+            if [[ $(git log -1 --pretty=%B) == "chore(main): release"* ]]; then
+              sudo apt-get update
+              sudo apt-get install build-essential
+              pip install setuptools twine
+              python setup.py sdist
+              twine upload dist/* --username __token__ --password $PYPI_CRED
+            else
+              echo "Skipping PyPI deployment as this is not a release commit"
+            fi
       - store_artifacts:
           path: dist
+
+  release-pr:
+    docker:
+      - image: cimg/node:20.2.0
+    steps:
+      - checkout
+      - run: npm ci
+      - run: |
+          npx release-please release-pr \
+            --token $GITHUB_TOKEN \
+            --repo-url $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME \
+            --target-branch $CIRCLE_BRANCH \
+            --config-file .circleci/release/release-please-config.json \
+            --manifest-file .circleci/release/release-please-manifest.json
+
+  github-release:
+    docker:
+      - image: cimg/node:20.2.0
+    steps:
+      - checkout
+      - run: npm ci
+      - run: |
+          npx release-please github-release \
+            --token $GITHUB_TOKEN \
+            --repo-url $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME \
+            --target-branch $CIRCLE_BRANCH \
+            --config-file .circleci/release/release-please-config.json \
+            --manifest-file .circleci/release/release-please-manifest.json
 
 workflows:
   version: 2
 
-  commit:
+  Lint-test-build:
     jobs:
-      - build_test:
+      - build_test
+
+  Prepare release:
+    jobs:
+      - release-pr:
           filters:
             branches:
-              ignore:
+              only:
+                - main
+                - /hotfix.*/
+
+  GitHub release:
+    jobs:
+      - github-release:
+          filters:
+            branches:
+              only:
+                - main
+                - /hotfix.*/
+
+  deploy:
+    jobs:
+      - build_test_deploy:
+          filters:
+            branches:
+              only: 
                 - main
                 - prod
-
-  deploy_dev:
-    jobs:
-      - build_test_deploy:
-          filters:
-            branches:
-              only: main
-
-  deploy_prod:
-    jobs:
-      - build_test_deploy:
-          filters:
-            branches:
-              only: prod
-  
-  deploy_pypi:
-    jobs:
-      - pypi-hold:
-          type: approval
-          filters:
-            branches:
-              only: main
       - build_deploy_pypi:
+          requires:
+            - build_test_deploy
           filters:
             branches:
               only: main
-          requires:
-            - pypi-hold
-
-#
-#  daily:
-#    jobs:
-#      - build_test_deploy
-#    triggers:
-#      - schedule:
-#          # Build at UTC 11:30pm.
-#          cron: "30 23 * * *"
-#          filters:
-#            branches:
-#              only:
-#                - master
