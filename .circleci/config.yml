@@ -80,13 +80,20 @@ jobs:
       - image: cimg/node:20.2.0
     steps:
       - checkout
-      - run: |
-          npx release-please release-pr \
-            --token $GITHUB_TOKEN \
-            --repo-url $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME \
-            --target-branch $CIRCLE_BRANCH \
-            --config-file .circleci/release/release-please-config.json \
-            --manifest-file .circleci/release/.release-please-manifest.json
+      - run:
+          name: Check commit message and run release-please if not a release commit
+          command: |
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            if [[ "$COMMIT_MSG" != "chore(main): release"* && "$COMMIT_MSG" != "chore: release"* ]]; then
+              npx release-please release-pr \
+                --token $GITHUB_TOKEN \
+                --repo-url $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME \
+                --target-branch $CIRCLE_BRANCH \
+                --config-file .circleci/release/release-please-config.json \
+                --manifest-file .circleci/release/.release-please-manifest.json
+            else
+              echo "Skipping release-please as this is a release commit"
+            fi
 
   github-release:
     docker:
