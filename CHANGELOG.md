@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.1](https://github.com/nomic-ai/nomic/compare/v3.1.0...v3.1.1) (2024-07-22)
+
+
+### Bug Fixes
+
+* release-please releases twice, check if commit message is chore(main) ([#332](https://github.com/nomic-ai/nomic/issues/332)) ([c5ab322](https://github.com/nomic-ai/nomic/commit/c5ab3228553669d2262bc6b20b08804382ff8a72))
+
 ## [3.1.0](https://github.com/nomic-ai/nomic/compare/v3.0.45...v3.1.0) (2024-07-22)
 
 
