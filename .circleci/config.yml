@@ -80,7 +80,6 @@ jobs:
       - image: cimg/node:20.2.0
     steps:
       - checkout
-      - run: npm ci
       - run: |
           npx release-please release-pr \
             --token $GITHUB_TOKEN \
@@ -94,7 +93,6 @@ jobs:
       - image: cimg/node:20.2.0
     steps:
       - checkout
-      - run: npm ci
       - run: |
           npx release-please github-release \
             --token $GITHUB_TOKEN \
