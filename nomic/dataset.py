@@ -1421,7 +1421,7 @@ class AtlasDataset(AtlasClass):
             elif isinstance(blob, bytes):
                 images.append((uuid, blob))
             elif isinstance(blob, Image.Image):
-                blob = blob.convert("RGB") # type: ignore
+                blob = blob.convert("RGB")  # type: ignore
                 if blob.height > 512 or blob.width > 512:
                     blob = blob.resize((512, 512))
                 buffered = BytesIO()
