@@ -1409,7 +1409,7 @@ class AtlasDataset(AtlasClass):
         # TODO: add support for other modalities
         images = []
         for uuid, blob in tqdm(zip(ids, blobs), total=len(ids), desc="Loading images"):
-            if (isinstance(blob, str) or isinstance(blob, Path)) and os.path.exists(blob):
+            if Path(blob).exists():
                 # Auto resize to max 512x512
                 image = Image.open(blob)
                 image = image.convert("RGB")
@@ -1421,7 +1421,7 @@ class AtlasDataset(AtlasClass):
             elif isinstance(blob, bytes):
                 images.append((uuid, blob))
             elif isinstance(blob, Image.Image):
-                image = image.convert("RGB")
+                image = image.convert("RGB") # type: ignore
                 if blob.height > 512 or blob.width > 512:
                     blob = blob.resize((512, 512))
                 buffered = BytesIO()
