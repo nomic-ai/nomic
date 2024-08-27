@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.2](https://github.com/nomic-ai/nomic/compare/v3.1.1...v3.1.2) (2024-08-27)
+
+
+### Bug Fixes
+
+* upload failure due to non-rgb image ([#335](https://github.com/nomic-ai/nomic/issues/335)) ([3358a0e](https://github.com/nomic-ai/nomic/commit/3358a0e5952f863fe3c08a45c13e8d546000cdf3))
+
 ## [3.1.1](https://github.com/nomic-ai/nomic/compare/v3.1.0...v3.1.1) (2024-07-22)
 
 
