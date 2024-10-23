@@ -38,7 +38,6 @@ def parse_sagemaker_response(response):
     return resp["embeddings"]
 
 
-
 def batch_transform_text(
     s3_input_path: str,
     s3_output_path: str,
@@ -138,7 +137,6 @@ def embed_text(
         logger.warning("No texts to embed.")
         return None
 
-        
     assert task_type in [
         "search_query",
         "search_document",
