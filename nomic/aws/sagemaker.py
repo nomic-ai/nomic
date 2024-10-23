@@ -38,26 +38,6 @@ def parse_sagemaker_response(response):
     return resp["embeddings"]
 
 
-def preprocess_texts(texts: List[str], task_type: str = "search_document"):
-    """
-    Preprocess a list of texts for embedding using a sagemaker model.
-
-    Args:
-        texts: List of texts to be embedded.
-        task_type: The task type to use when embedding. One of `search_query`, `search_document`, `classification`, `clustering`
-
-    Returns:
-        List of texts formatted for sagemaker embedding.
-    """
-    assert task_type in [
-        "search_query",
-        "search_document",
-        "classification",
-        "clustering",
-    ], f"Invalid task type: {task_type}"
-    return [f"{task_type}: {text}" for text in texts]
-
-
 def batch_transform_text(
     s3_input_path: str,
     s3_output_path: str,
@@ -157,7 +137,13 @@ def embed_text(
         logger.warning("No texts to embed.")
         return None
 
-    texts = preprocess_texts(texts, task_type)
+    assert task_type in [
+        "search_query",
+        "search_document",
+        "classification",
+        "clustering",
+    ], f"Invalid task type: {task_type}"
+
     assert dimensionality in (
         64,
         128,
@@ -175,6 +161,7 @@ def embed_text(
                 "texts": texts[i : i + batch_size],
                 "binary": binary,
                 "dimensionality": dimensionality,
+                "task_type": task_type,
             }
         )
         response = client.invoke_endpoint(EndpointName=sagemaker_endpoint, Body=batch, ContentType="application/json")
