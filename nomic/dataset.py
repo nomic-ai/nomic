@@ -217,7 +217,7 @@ class AtlasClass(object):
         )
 
         if response.status_code == 403:
-            raise ValueError(response.json()['detail'])
+            raise ValueError(response.json()["detail"])
 
         if response.status_code != 200:
             return None
