@@ -48,7 +48,7 @@ setup(
             "pylint",
             "pytest",
             "isort",
-            "pyright==1.1.359",
+            "pyright<=1.1.377",
             "myst-parser",
             "mkdocs-material",
             "mkautodoc",
