@@ -833,6 +833,9 @@ class AtlasDataset(AtlasClass):
         organization_id = self._get_organization_by_slug(slug=identifier)
         project_slug = identifier.split("/")[1]
 
+        if "/" in identifier:
+            org_name = identifier.split("/")[0]
+            logger.info(f"Organization name: `{org_name}`")
         # supported_modalities = ['text', 'embedding']
         # if modality not in supported_modalities:
         #     msg = 'Tried to create dataset with modality: {}, but Atlas only supports: {}'.format(
