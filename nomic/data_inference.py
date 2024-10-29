@@ -115,5 +115,9 @@ class NomicEmbedOptions(BaseModel):
     """
 
     model: Literal[
-        "nomic-embed-text-v1", "nomic-embed-vision-v1", "nomic-embed-text-v1.5", "nomic-embed-vision-v1.5", "gte-multilingual-base"
+        "nomic-embed-text-v1",
+        "nomic-embed-vision-v1",
+        "nomic-embed-text-v1.5",
+        "nomic-embed-vision-v1.5",
+        "gte-multilingual-base",
     ] = "nomic-embed-text-v1.5"
