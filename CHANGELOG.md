@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.3](https://github.com/nomic-ai/nomic/compare/v3.1.2...v3.1.3) (2024-10-23)
+
+
+### Bug Fixes
+
+* task type sagemaker ([#338](https://github.com/nomic-ai/nomic/issues/338)) ([609009f](https://github.com/nomic-ai/nomic/commit/609009f4321e02476a645066454e6369cf68f4c4))
+
 ## [3.1.2](https://github.com/nomic-ai/nomic/compare/v3.1.1...v3.1.2) (2024-08-27)
 
 
