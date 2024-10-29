@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/nomic-ai/nomic/compare/v3.1.3...v3.2.0) (2024-10-29)
+
+
+### Features
+
+* handle unique org for apikeys ([#340](https://github.com/nomic-ai/nomic/issues/340)) ([9e4701c](https://github.com/nomic-ai/nomic/commit/9e4701cc9b8d8aa946557fd3e417e655f19699f6))
+
 ## [3.1.3](https://github.com/nomic-ai/nomic/compare/v3.1.2...v3.1.3) (2024-10-23)
 
 

@@ -140,6 +140,9 @@ class AtlasClass(object):
             if organization["user_id"] == user["sub"] and organization["access_role"] == "OWNER":
                 return organization
 
+        for organization in user["organizations"]:
+            if organization["user_id"] == user["sub"]:
+                return organization
         return {}
 
     def _delete_project_by_id(self, project_id):
@@ -212,6 +215,9 @@ class AtlasClass(object):
             self.atlas_api_path + f"/v1/project/{organization_slug}/{project_slug}",
             headers=self.header,
         )
+
+        if response.status_code == 403:
+            raise ValueError(response.json()["detail"])
 
         if response.status_code != 200:
             return None
@@ -827,6 +833,9 @@ class AtlasDataset(AtlasClass):
         organization_id = self._get_organization_by_slug(slug=identifier)
         project_slug = identifier.split("/")[1]
 
+        if "/" in identifier:
+            org_name = identifier.split("/")[0]
+            logger.info(f"Organization name: `{org_name}`")
         # supported_modalities = ['text', 'embedding']
         # if modality not in supported_modalities:
         #     msg = 'Tried to create dataset with modality: {}, but Atlas only supports: {}'.format(
