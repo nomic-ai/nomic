@@ -81,6 +81,11 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Configure Git for CircleCI bot
+          command: |
+            git config --global user.name "circleci[bot]"
+            git config --global user.email "circleci[bot]@users.noreply.github.com"
+      - run:
           name: Check commit message and run release-please if not a release commit
           command: |
             COMMIT_MSG=$(git log -1 --pretty=%B)
