@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/nomic-ai/nomic/compare/v3.2.0...v3.3.0) (2024-10-30)
+
+
+### Features
+
+* gte-multilingual-base as option ([#343](https://github.com/nomic-ai/nomic/issues/343)) ([1443c84](https://github.com/nomic-ai/nomic/commit/1443c8418528207c63d5a1a8d1c3151f4fd99d64))
+
 ## [3.2.0](https://github.com/nomic-ai/nomic/compare/v3.1.3...v3.2.0) (2024-10-29)
 
 
