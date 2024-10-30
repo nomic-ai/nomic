@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.3.0](https://github.com/nomic-ai/nomic/compare/v3.2.0...v3.3.0) (2024-10-30)
+
+
+### Features
+
+* gte-multilingual-base as option ([#343](https://github.com/nomic-ai/nomic/issues/343)) ([1443c84](https://github.com/nomic-ai/nomic/commit/1443c8418528207c63d5a1a8d1c3151f4fd99d64))
+
+
+### Bug Fixes
+
+* try on release-pr ([59388fd](https://github.com/nomic-ai/nomic/commit/59388fd6099173d487d0e93ef8067241ca0114dd))
+* try to use circleci bot? ([13eee22](https://github.com/nomic-ai/nomic/commit/13eee225f353a073b4620c6a23443cf13a158981))
+* try to use gh actions bot ([53b8aa4](https://github.com/nomic-ai/nomic/commit/53b8aa4ed9c7299388e04e68b51db685787968a3))
+
 ## [3.2.0](https://github.com/nomic-ai/nomic/compare/v3.1.3...v3.2.0) (2024-10-29)
 
 
