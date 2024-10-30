@@ -86,7 +86,7 @@ jobs:
             COMMIT_MSG=$(git log -1 --pretty=%B)
             if [[ "$COMMIT_MSG" != "chore(main): release"* && "$COMMIT_MSG" != "chore: release"* ]]; then
               npx release-please release-pr \
-                --token $GITHUB_TOKEN \
+                --token "github-actions[bot]:$GITHUB_TOKEN" \
                 --repo-url $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME \
                 --target-branch $CIRCLE_BRANCH \
                 --config-file .circleci/release/release-please-config.json \
@@ -102,7 +102,7 @@ jobs:
       - checkout
       - run: |
           npx release-please github-release \
-            --token $GITHUB_TOKEN \
+            --token "github-actions[bot]:$GITHUB_TOKEN" \
             --repo-url $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME \
             --target-branch $CIRCLE_BRANCH \
             --config-file .circleci/release/release-please-config.json \
@@ -123,6 +123,7 @@ workflows:
               only:
                 - main
                 - /hotfix.*/
+                - test-build
 
   GitHub release:
     jobs:
