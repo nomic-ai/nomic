@@ -15,6 +15,7 @@ setup(
     url="https://github.com/nomic-ai/nomic",
     description=description,
     long_description=long_description,
+    long_description_content_type="text/markdown",
     packages=find_packages(include=["nomic", "nomic.*"]),
     author_email="support@nomic.ai",
     author="nomic.ai",
