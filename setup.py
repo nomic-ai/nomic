@@ -6,12 +6,15 @@ from setuptools import setup, find_packages
 
 description = "The official Nomic python client."
 
+with open("README.md") as f:
+    long_description = f.read()
+
 setup(
     name="nomic",
     version="3.3.0",
     url="https://github.com/nomic-ai/nomic",
     description=description,
-    long_description=description,
+    long_description=long_description,
     packages=find_packages(include=["nomic", "nomic.*"]),
     author_email="support@nomic.ai",
     author="nomic.ai",
