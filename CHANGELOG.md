@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.1](https://github.com/nomic-ai/nomic/compare/v3.3.0...v3.3.1) (2024-11-08)
+
+
+### Bug Fixes
+
+* include readme as long description in setup.py ([#349](https://github.com/nomic-ai/nomic/issues/349)) ([4d315e9](https://github.com/nomic-ai/nomic/commit/4d315e913dc4776d249b63eb3030cfcefac5d22d))
+
 ## [3.3.0](https://github.com/nomic-ai/nomic/compare/v3.2.0...v3.3.0) (2024-10-30)
 
 
