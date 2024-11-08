@@ -6,8 +6,20 @@ from setuptools import setup, find_packages
 
 description = "The official Nomic python client."
 
+# Read README.md and remove tables and images
 with open("README.md") as f:
-    long_description = f.read()
+    content = f.read()
+    # Remove table sections including content
+    while "<table>" in content and "</table>" in content:
+        start = content.find("<table>")
+        end = content.find("</table>") + 8
+        content = content[:start] + content[end:]
+    # Remove img tags and content
+    while "<img" in content and ">" in content:
+        start = content.find("<img")
+        end = content.find(">", start) + 1
+        content = content[:start] + content[end:]
+    long_description = content
 
 setup(
     name="nomic",
@@ -15,6 +27,7 @@ setup(
     url="https://github.com/nomic-ai/nomic",
     description=description,
     long_description=long_description,
+    long_description_content_type="text/markdown",
     packages=find_packages(include=["nomic", "nomic.*"]),
     author_email="support@nomic.ai",
     author="nomic.ai",
