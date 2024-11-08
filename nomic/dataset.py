@@ -1688,42 +1688,9 @@ class AtlasDataset(AtlasClass):
 
         """
 
-        # Validate data
-        if self.modality == "embedding" and embeddings is None:
-            msg = "Please specify embeddings for updating an embedding project"
-            raise ValueError(msg)
-
-        if self.modality == "text" and embeddings is not None:
-            msg = "Please dont specify embeddings for updating a text project"
-            raise ValueError(msg)
-
-        if embeddings is not None and len(data) != embeddings.shape[0]:
-            msg = (
-                "Expected data and embeddings to be the same length but found lengths {} and {} respectively.".format()
-            )
-            raise ValueError(msg)
-
-        shard_size = 2000  # TODO someone removed shard size from params and didn't update
-        # Add new data
-        logger.info("Uploading data to Nomic's neural database Atlas.")
-        with tqdm(total=len(data) // shard_size) as pbar:
-            for i in range(0, len(data), MAX_MEMORY_CHUNK):
-                if self.modality == "embedding" and embeddings is not None:
-                    self._add_embeddings(
-                        embeddings=embeddings[i : i + MAX_MEMORY_CHUNK, :],
-                        data=data[i : i + MAX_MEMORY_CHUNK],
-                        pbar=pbar,
-                    )
-                else:
-                    self._add_text(
-                        data=data[i : i + MAX_MEMORY_CHUNK],
-                        pbar=pbar,
-                    )
-        logger.info("Upload succeeded.")
-
-        # Update maps
-        # finally, update all the indices
-        return self.update_indices()
+        raise DeprecationWarning(
+            f"The function AtlasDataset.update_maps is deprecated. Use AtlasDataset.add_data() instead."
+        )
 
     def update_indices(self, rebuild_topic_models: bool = False):
         """
@@ -1734,10 +1701,6 @@ class AtlasDataset(AtlasClass):
             rebuild_topic_models: (Default False) - If true, will create new topic models when updating these indices.
         """
 
-        response = requests.post(
-            self.atlas_api_path + "/v1/project/update_indices",
-            headers=self.header,
-            json={"project_id": self.id, "rebuild_topic_models": rebuild_topic_models},
+        raise DeprecationWarning(
+            f"The function AtlasDataset.update_indices is deprecated. Use AtlasDataset.add_data() instead."
         )
-
-        logger.info(f"Updating maps in dataset `{self.identifier}`")
