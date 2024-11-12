@@ -1374,9 +1374,7 @@ class AtlasDataset(AtlasClass):
             pbar: (Optional). A tqdm progress bar to update.
         """
         if isinstance(data, DataFrame):
-            logger.info(
-                "DataFrame index was reset with pandas.DataFrame.reset_index() during upload to Atlas"
-            )
+            logger.info("DataFrame index was reset with pandas.DataFrame.reset_index() during upload to Atlas")
             data = data.reset_index()
 
         if embeddings is not None:
