@@ -10,11 +10,13 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+import sys
 
 import numpy as np
 import pyarrow as pa
 import requests
 from loguru import logger
+import pandas
 from pandas import DataFrame
 from PIL import Image
 from pyarrow import compute as pc
@@ -1520,7 +1522,10 @@ class AtlasDataset(AtlasClass):
         tb: pa.Table
 
         if isinstance(data, DataFrame):
-            tb = pa.Table.from_pandas(data)
+            logger.warning(
+                "Note: converting your data from Pandas DataFrame to PyArrow table means its index was reset"
+            )
+            tb = pa.Table.from_pandas(data, preserve_index=False)
         elif isinstance(data, list):
             tb = pa.Table.from_pylist(data)
         elif isinstance(data, pa.Table):
