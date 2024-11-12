@@ -1520,10 +1520,10 @@ class AtlasDataset(AtlasClass):
         tb: pa.Table
 
         if isinstance(data, DataFrame):
-            logger.warning(
-                "Note: converting your data from Pandas DataFrame to PyArrow table means its index was reset"
+            logger.info(
+                "DataFrame index was reset with pandas.DataFrame.reset_index() when uploading to Atlas"
             )
-            tb = pa.Table.from_pandas(data, preserve_index=False)
+            tb = pa.Table.from_pandas(data.reset_index())
         elif isinstance(data, list):
             tb = pa.Table.from_pylist(data)
         elif isinstance(data, pa.Table):
