@@ -1373,6 +1373,12 @@ class AtlasDataset(AtlasClass):
             blobs: A list of image paths, bytes, or PIL Images. Use if you want to create an AtlasDataset using image embeddings over your images. Note: Blobs are stored locally only.
             pbar: (Optional). A tqdm progress bar to update.
         """
+        if isinstance(data, DataFrame):
+            logger.info(
+                "DataFrame index was reset with pandas.DataFrame.reset_index() during upload to Atlas"
+            )
+            data = data.reset_index()
+
         if embeddings is not None:
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         elif isinstance(data, pa.Table) and "_embeddings" in data.column_names:  # type: ignore
@@ -1520,10 +1526,7 @@ class AtlasDataset(AtlasClass):
         tb: pa.Table
 
         if isinstance(data, DataFrame):
-            logger.info(
-                "DataFrame index was reset with pandas.DataFrame.reset_index() when uploading to Atlas"
-            )
-            tb = pa.Table.from_pandas(data.reset_index())
+            tb = pa.Table.from_pandas(data)
         elif isinstance(data, list):
             tb = pa.Table.from_pylist(data)
         elif isinstance(data, pa.Table):
