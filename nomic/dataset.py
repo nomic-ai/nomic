@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import pyarrow as pa
 import requests
 from loguru import logger
-import pandas as pd
 from pandas import DataFrame
 from PIL import Image
 from pyarrow import compute as pc
@@ -1374,7 +1374,7 @@ class AtlasDataset(AtlasClass):
             blobs: A list of image paths, bytes, or PIL Images. Use if you want to create an AtlasDataset using image embeddings over your images. Note: Blobs are stored locally only.
             pbar: (Optional). A tqdm progress bar to update.
         """
-        if isinstance(data, pd.DataFrame):
+        if isinstance(data, DataFrame):
             cols_before = set(data.columns)
             for col in cols_before:
                 if col.starts_with("_"):
