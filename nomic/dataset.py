@@ -15,6 +15,7 @@ import numpy as np
 import pyarrow as pa
 import requests
 from loguru import logger
+import pandas as pd
 from pandas import DataFrame
 from PIL import Image
 from pyarrow import compute as pc
@@ -1373,9 +1374,15 @@ class AtlasDataset(AtlasClass):
             blobs: A list of image paths, bytes, or PIL Images. Use if you want to create an AtlasDataset using image embeddings over your images. Note: Blobs are stored locally only.
             pbar: (Optional). A tqdm progress bar to update.
         """
-        if isinstance(data, DataFrame):
-            logger.info("DataFrame index was reset with pandas.DataFrame.reset_index() during upload to Atlas")
-            data = data.reset_index()
+        if isinstance(data, pd.DataFrame):
+            cols_before = set(data.columns)
+            for col in cols_before:
+                if col.starts_with("_"):
+                    raise ValueError(f"You are attempting to upload a pandas dataframe with the column name {col}, but columns beginning with '_' are reserved for Atlas internal use. Please rename your column and try again.")
+            data = pa.Table.from_pandas(data)
+            for newcol in set(data.column_names).difference(cols_before):
+                logger.warning(f"Dropping column {newcol} added in pandas conversion to pyarrow")
+                data = data.drop([newcol])
 
         if embeddings is not None:
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
