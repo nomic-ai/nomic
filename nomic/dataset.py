@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import pyarrow as pa
 import requests
 from loguru import logger
@@ -1373,6 +1374,18 @@ class AtlasDataset(AtlasClass):
             blobs: A list of image paths, bytes, or PIL Images. Use if you want to create an AtlasDataset using image embeddings over your images. Note: Blobs are stored locally only.
             pbar: (Optional). A tqdm progress bar to update.
         """
+        if isinstance(data, DataFrame):
+            cols_before = set(data.columns)
+            for col in cols_before:
+                if col.startswith("_"):
+                    raise ValueError(
+                        f"You are attempting to upload a pandas dataframe with the column name {col}, but columns beginning with '_' are reserved for Atlas internal use. Please rename your column and try again."
+                    )
+            data = pa.Table.from_pandas(data)
+            for newcol in set(data.column_names).difference(cols_before):
+                logger.warning(f"Dropping column {newcol} added in pandas conversion to pyarrow")
+                data = data.drop([newcol])
+
         if embeddings is not None:
             self._add_embeddings(data=data, embeddings=embeddings, pbar=pbar)
         elif isinstance(data, pa.Table) and "_embeddings" in data.column_names:  # type: ignore
