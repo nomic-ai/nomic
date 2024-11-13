@@ -1377,7 +1377,7 @@ class AtlasDataset(AtlasClass):
         if isinstance(data, DataFrame):
             cols_before = set(data.columns)
             for col in cols_before:
-                if col.starts_with("_"):
+                if col.startswith("_"):
                     raise ValueError(
                         f"You are attempting to upload a pandas dataframe with the column name {col}, but columns beginning with '_' are reserved for Atlas internal use. Please rename your column and try again."
                     )
