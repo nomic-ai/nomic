@@ -23,7 +23,7 @@ with open("README.md") as f:
 
 setup(
     name="nomic",
-    version="3.3.2",
+    version="3.3.3",
     url="https://github.com/nomic-ai/nomic",
     description=description,
     long_description=long_description,
