@@ -1378,7 +1378,9 @@ class AtlasDataset(AtlasClass):
             cols_before = set(data.columns)
             for col in cols_before:
                 if col.starts_with("_"):
-                    raise ValueError(f"You are attempting to upload a pandas dataframe with the column name {col}, but columns beginning with '_' are reserved for Atlas internal use. Please rename your column and try again.")
+                    raise ValueError(
+                        f"You are attempting to upload a pandas dataframe with the column name {col}, but columns beginning with '_' are reserved for Atlas internal use. Please rename your column and try again."
+                    )
             data = pa.Table.from_pandas(data)
             for newcol in set(data.column_names).difference(cols_before):
                 logger.warning(f"Dropping column {newcol} added in pandas conversion to pyarrow")
