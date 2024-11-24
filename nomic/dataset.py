@@ -1,6 +1,7 @@
 import base64
 import concurrent
 import concurrent.futures
+import importlib.metadata
 import io
 import json
 import os
@@ -72,13 +73,23 @@ class AtlasClass(object):
         token = self.credentials["token"]
         self.token = token
 
-        self.header = {"Authorization": f"Bearer {token}"}
+        try:
+            version = importlib.metadata.version("nomic")
+        except Exception:
+            version = "unknown"
+
+        self.header = {
+            "Authorization": f"Bearer {token}",
+            "User-Agent": f"py-nomic/{version}"
+        }
 
         if self.token:
             response = requests.get(
                 self.atlas_api_path + "/v1/user",
                 headers=self.header,
             )
+            if "X-AtlasWarning" in response.headers:
+                logger.warning(response.headers["X-AtlasWarning"])
             response = validate_api_http_response(response)
             if not response.status_code == 200:
                 logger.warning(str(response))
