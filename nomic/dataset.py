@@ -664,14 +664,18 @@ class AtlasProjection:
         sidecar_suffix = "feather"
         if sidecar_name != "":
             sidecar_suffix = f"{sidecar_name}.feather"
-        for key in tqdm(self._manifest["key"].to_pylist()):
-            sidecar_path = self.tile_destination / f"{key}.{sidecar_suffix}"
-            sidecar_url = (
-                self.dataset.atlas_api_path
-                + f"/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/{key}.{sidecar_suffix}"
-            )
-            download_feather(sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite)
-            downloaded_files.append(sidecar_path)
+        with concurrent.futures.ThreadPoolExecutor(16) as ex:
+            futures = []
+            for key in tqdm(self._manifest["key"].to_pylist()):
+                sidecar_path = self.tile_destination / f"{key}.{sidecar_suffix}"
+                sidecar_url = (
+                    self.dataset.atlas_api_path
+                    + f"/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/{key}.{sidecar_suffix}"
+                )
+                futures.append(ex.submit(download_feather, sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite))
+                downloaded_files.append(sidecar_path)
+            for f in futures:
+                f.result()
         return downloaded_files
 
     @property
