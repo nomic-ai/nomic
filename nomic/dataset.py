@@ -6,12 +6,12 @@ import json
 import os
 import re
 import time
+import unicodedata
 from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
-import unicodedata
 
 import numpy as np
 import pandas as pd
