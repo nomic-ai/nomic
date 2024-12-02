@@ -1074,6 +1074,7 @@ class AtlasDataset(AtlasClass):
         else:
             projection = NomicProjectOptions()
 
+        topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
             topic_model = NomicTopicOptions(**topic_model)
         elif isinstance(topic_model, NomicTopicOptions):
@@ -1117,7 +1118,7 @@ class AtlasDataset(AtlasClass):
 
         build_template = {}
         if modality == "embedding":
-            if topic_model.topic_label_field is None:
+            if (not topic_model_was_false) and topic_model.topic_label_field is None:
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                 )
