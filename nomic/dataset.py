@@ -672,7 +672,11 @@ class AtlasProjection:
                     self.dataset.atlas_api_path
                     + f"/v1/project/{self.dataset.id}/index/projection/{self.id}/quadtree/{key}.{sidecar_suffix}"
                 )
-                futures.append(ex.submit(download_feather, sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite))
+                futures.append(
+                    ex.submit(
+                        download_feather, sidecar_url, sidecar_path, headers=self.dataset.header, overwrite=overwrite
+                    )
+                )
                 downloaded_files.append(sidecar_path)
             for f in futures:
                 f.result()
