@@ -78,10 +78,7 @@ class AtlasClass(object):
         except Exception:
             version = "unknown"
 
-        self.header = {
-            "Authorization": f"Bearer {token}",
-            "User-Agent": f"py-nomic/{version}"
-        }
+        self.header = {"Authorization": f"Bearer {token}", "User-Agent": f"py-nomic/{version}"}
 
         if self.token:
             response = requests.get(
