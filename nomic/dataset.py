@@ -4,7 +4,9 @@ import concurrent.futures
 import io
 import json
 import os
+import re
 import time
+import unicodedata
 from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
@@ -753,6 +755,12 @@ class AtlasDataset(AtlasClass):
         * **dataset_id** - An alternative way to load a dataset is by passing the dataset_id directly. This only works if a dataset exists.
         """
         assert identifier is not None or dataset_id is not None, "You must pass a dataset identifier"
+        # Normalize identifier.
+        if identifier is not None:
+            identifier = unicodedata.normalize("NFD", identifier)  # normalize accents
+            identifier = identifier.lower().replace(" ", "-").replace("_", "-")
+            identifier = re.sub(r"[^a-z0-9-]", "", identifier)
+            identifier = re.sub(r"-+", "-", identifier)
 
         super().__init__()
 
