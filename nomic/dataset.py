@@ -664,7 +664,7 @@ class AtlasProjection:
         sidecar_suffix = "feather"
         if sidecar_name != "":
             sidecar_suffix = f"{sidecar_name}.feather"
-        with concurrent.futures.ThreadPoolExecutor(16) as ex:
+        with concurrent.futures.ThreadPoolExecutor(4) as ex:
             futures = []
             for key in tqdm(self._manifest["key"].to_pylist()):
                 sidecar_path = self.tile_destination / f"{key}.{sidecar_suffix}"
