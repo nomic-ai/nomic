@@ -1628,6 +1628,7 @@ class AtlasDataset(AtlasClass):
             close_pbar = True
             pbar = tqdm(total=int(len(data)) // shard_size)
         failed = 0
+        failed_reqs = 0
         succeeded = 0
         errors_504 = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -1676,6 +1677,11 @@ class AtlasDataset(AtlasClass):
                                 failed += shard_size
                                 pbar.update(1)
                                 response.close()
+                            failed_reqs += 1
+                            if failed_reqs > 10:
+                                raise RuntimeError(
+                                    f"{self.identifier}: Too many upload requests have failed at this time. Please try again later."
+                                )
                     else:
                         # A successful upload.
                         succeeded += shard_size
