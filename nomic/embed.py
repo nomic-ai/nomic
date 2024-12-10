@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import PIL
 import PIL.Image
 import requests
+from tqdm import tqdm
 
 from .dataset import AtlasClass
 from .settings import *
@@ -286,18 +287,28 @@ def _text_embed4all(
         limits = {"cpu": 16, "kompute": 32, "metal": 1024}
         return n_tokens > limits[backend]
 
-    output = _embed4all.embed(
-        texts,
-        prefix=task_type,
-        dimensionality=dimensionality,
-        long_text_mode=long_text_mode,
-        return_dict=True,
-        atlas=True,
-        cancel_cb=cancel_cb if dynamic_mode else None,
-    )
-    ntok = output["n_prompt_tokens"]
+    pb = tqdm(total=len(texts), desc="Embedding texts", unit="inputs")
+    output_embeddings = []
+    ntok = 0
+    batch_size = 64
+    for start in range(0, len(texts), batch_size):
+        end = min(len(texts), start + batch_size)
+        b = end - start
+        out = _embed4all.embed(
+            texts,
+            prefix=task_type,
+            dimensionality=dimensionality,
+            long_text_mode=long_text_mode,
+            return_dict=True,
+            atlas=True,
+            cancel_cb=cancel_cb if dynamic_mode else None,
+        )
+        ntok += out["n_prompt_tokens"]
+        output_embeddings.extend(out["embeddings"])
+        pb.update(b)
+    pb.close()
     usage = {"prompt_tokens": ntok, "total_tokens": ntok}
-    return {"embeddings": output["embeddings"], "usage": usage, "model": model, "inference_mode": "local"}
+    return {"embeddings": output_embeddings, "usage": usage, "model": model, "inference_mode": "local"}
 
 
 def free_embedding_model() -> None:
