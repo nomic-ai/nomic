@@ -295,7 +295,7 @@ def _text_embed4all(
         end = min(len(texts), start + batch_size)
         b = end - start
         out = _embed4all.embed(
-            texts,
+            texts[start:end],
             prefix=task_type,
             dimensionality=dimensionality,
             long_text_mode=long_text_mode,
