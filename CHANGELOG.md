@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.4](https://github.com/nomic-ai/nomic/compare/v3.3.3...v3.3.4) (2024-12-11)
+
+
+### Bug Fixes
+
+* internal schema attr does not exist when loading existing AtlasDataset ([#365](https://github.com/nomic-ai/nomic/issues/365)) ([f102513](https://github.com/nomic-ai/nomic/commit/f102513a889bd6afb5be336eec16d96966f89d56))
+
 ## [3.3.3](https://github.com/nomic-ai/nomic/compare/v3.3.2...v3.3.3) (2024-11-13)
 
 
