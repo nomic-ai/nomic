@@ -773,10 +773,13 @@ class AtlasDataset(AtlasClass):
         assert identifier is not None or dataset_id is not None, "You must pass a dataset identifier"
         # Normalize identifier.
         if identifier is not None:
-            identifier = unicodedata.normalize("NFD", identifier)  # normalize accents
+            s = identifier.split("/", 1)
+            identifier = unicodedata.normalize("NFD", s[-1])  # normalize accents
             identifier = identifier.lower().replace(" ", "-").replace("_", "-")
             identifier = re.sub(r"[^a-z0-9-]", "", identifier)
             identifier = re.sub(r"-+", "-", identifier)
+            if len(s) == 2:
+                identifier = f"{s[0]}/{identifier}"
 
         super().__init__()
 
