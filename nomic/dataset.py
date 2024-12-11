@@ -785,6 +785,8 @@ class AtlasDataset(AtlasClass):
                 f"Passing organization_name has been removed in Nomic Python client 3.0. Instead identify your dataset with `organization_name/project_name` (e.g. sterling-cooper/november-ads)."
             )
 
+        # Set this before possible early return.
+        self._schema = None
         if dataset_id is not None:
             self.meta = self._get_project_by_id(dataset_id)
             return
@@ -817,7 +819,6 @@ class AtlasDataset(AtlasClass):
             )
 
         self.meta = self._get_project_by_id(project_id=dataset_id)
-        self._schema = None
 
     def delete(self):
         """
