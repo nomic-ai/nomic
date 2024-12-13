@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0](https://github.com/nomic-ai/nomic/compare/v3.3.4...v3.4.0) (2024-12-13)
+
+
+### Features
+
+* show progress bar when embedding using local model ([#363](https://github.com/nomic-ai/nomic/issues/363)) ([98dfece](https://github.com/nomic-ai/nomic/commit/98dfecedbbb595f04ad9aa0a7f14466e55dfeaa1))
+
 ## [3.3.4](https://github.com/nomic-ai/nomic/compare/v3.3.3...v3.3.4) (2024-12-12)
 
 
