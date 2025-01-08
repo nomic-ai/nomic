@@ -44,6 +44,7 @@ def map_data(
         description: The description of your dataset
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         is_public: Should the dataset be accessible outside your Nomic Atlas organization.
+        indexed_field: The text field from the dataset that will be used to create embeddings, which determines the layout of the data map in Atlas. Required for text data but won't have an impact if uploading embeddings or image blobs.
         projection: Options to adjust Nomic Project - the dimensionality algorithm organizing your dataset.
         topic_model: Options to adjust Nomic Topic - the topic model organizing your dataset.
         duplicate_detection: Options to adjust Nomic Duplicates - the duplicate detection algorithm.
