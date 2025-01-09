@@ -1376,9 +1376,7 @@ class AtlasDataset(AtlasClass):
 
         """
 
-        raise DeprecationWarning(
-            f"The function AtlasDataset.delete_data is deprecated."
-        )
+        raise DeprecationWarning(f"The function AtlasDataset.delete_data is deprecated.")
 
     def add_data(
         self,
