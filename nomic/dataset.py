@@ -1373,7 +1373,6 @@ class AtlasDataset(AtlasClass):
 
         Returns:
             True if data deleted successfully.
-
         """
 
         raise DeprecationWarning(f"The function AtlasDataset.delete_data is deprecated.")
