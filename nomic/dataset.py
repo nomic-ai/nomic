@@ -1717,7 +1717,7 @@ class AtlasDataset(AtlasClass):
         """
         Utility method to update a project's maps by adding the given data.
 
-        .. deprecated:: 3.4.0
+        .. deprecated:: 3.3.1
             Args:
                 data: An [N,] element list of dictionaries containing metadata for each embedding.
                 embeddings: An [N, d] matrix of embeddings for updating embedding dataset. Leave as None to update text dataset.
@@ -1735,7 +1735,7 @@ class AtlasDataset(AtlasClass):
         Rebuilds all maps in a dataset with the latest state dataset data state. Maps will not be rebuilt to
         reflect the additions, deletions or updates you have made to your data until this method is called.
 
-        .. deprecated:: 3.4.0
+        .. deprecated:: 3.3.1
             Args:
                 rebuild_topic_models: (Default False) - If true, will create new topic models when updating these indices.
         """
