@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.1](https://github.com/nomic-ai/nomic/compare/v3.4.0...v3.4.1) (2025-01-22)
+
+
+### Bug Fixes
+
+* adding deprecations to docstrings ([#370](https://github.com/nomic-ai/nomic/issues/370)) ([58e7a5c](https://github.com/nomic-ai/nomic/commit/58e7a5ceea3bb259f4d60d04c8ccfaf0030c834d))
+
 ## [3.4.0](https://github.com/nomic-ai/nomic/compare/v3.3.4...v3.4.0) (2025-01-22)
 
 
