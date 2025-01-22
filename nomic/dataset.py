@@ -1367,26 +1367,15 @@ class AtlasDataset(AtlasClass):
         """
         Deletes the specified datapoints from the dataset.
 
+        .. deprecated:: 3.4.0
         Args:
             ids: A list of data ids to delete
 
         Returns:
             True if data deleted successfully.
-
         """
-        if not isinstance(ids, list):
-            raise ValueError("You must specify a list of ids when deleting datums.")
 
-        response = requests.post(
-            self.atlas_api_path + "/v1/project/data/delete",
-            headers=self.header,
-            json={"project_id": self.id, "datum_ids": ids},
-        )
-
-        if response.status_code == 200:
-            return True
-        else:
-            raise Exception(response.text)
+        raise DeprecationWarning(f"The function AtlasDataset.delete_data is deprecated.")
 
     def add_data(
         self,
@@ -1728,11 +1717,12 @@ class AtlasDataset(AtlasClass):
         """
         Utility method to update a project's maps by adding the given data.
 
-        Args:
-            data: An [N,] element list of dictionaries containing metadata for each embedding.
-            embeddings: An [N, d] matrix of embeddings for updating embedding dataset. Leave as None to update text dataset.
-            shard_size: Data is uploaded in parallel by many threads. Adjust the number of datums to upload by each worker.
-            num_workers: The number of workers to use when sending data.
+        .. deprecated:: 3.3.1
+            Args:
+                data: An [N,] element list of dictionaries containing metadata for each embedding.
+                embeddings: An [N, d] matrix of embeddings for updating embedding dataset. Leave as None to update text dataset.
+                shard_size: Data is uploaded in parallel by many threads. Adjust the number of datums to upload by each worker.
+                num_workers: The number of workers to use when sending data.
 
         """
 
@@ -1745,8 +1735,9 @@ class AtlasDataset(AtlasClass):
         Rebuilds all maps in a dataset with the latest state dataset data state. Maps will not be rebuilt to
         reflect the additions, deletions or updates you have made to your data until this method is called.
 
-        Args:
-            rebuild_topic_models: (Default False) - If true, will create new topic models when updating these indices.
+        .. deprecated:: 3.3.1
+            Args:
+                rebuild_topic_models: (Default False) - If true, will create new topic models when updating these indices.
         """
 
         raise DeprecationWarning(
