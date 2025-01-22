@@ -64,7 +64,9 @@ def map_data(
 
     if blobs is not None:
         if embeddings is not None:
-            raise ValueError("You cannot pass both `blobs` and `embeddings` to map_data(). To create a map of images, include `blobs` and not `embeddings`. To create a map of embeddings with images as metadata, include your images as a field in your `data`.")
+            raise ValueError(
+                "You cannot pass both `blobs` and `embeddings` to map_data(). To create a map of images, include `blobs` and not `embeddings`. To create a map of embeddings with images as metadata, include your images as a field in your `data`."
+            )
         # change this when we support other modalities
         modality = "image"
         indexed_field = "_blob_hash"
