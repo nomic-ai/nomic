@@ -11,7 +11,6 @@
 ### Bug Fixes
 
 * added missing docstring description for indexed_field in map_data ([#369](https://github.com/nomic-ai/nomic/issues/369)) ([4dfc34c](https://github.com/nomic-ai/nomic/commit/4dfc34c65980ce3cb75e1ebba1758e701a4b1cc7))
-* ValueError returned when calling map_data on blobs and embeddings ([2f860b4](https://github.com/nomic-ai/nomic/commit/2f860b474c977a64d02654dca53fae90a3624689))
 * ValueError returned when calling map_data on blobs and embeddings ([#373](https://github.com/nomic-ai/nomic/issues/373)) ([2f860b4](https://github.com/nomic-ai/nomic/commit/2f860b474c977a64d02654dca53fae90a3624689))
 
 ## [3.3.4](https://github.com/nomic-ai/nomic/compare/v3.3.3...v3.3.4) (2024-12-12)
