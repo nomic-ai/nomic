@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.2](https://github.com/nomic-ai/nomic/compare/v3.4.1...v3.4.2) (2025-01-27)
+
+
+### Documentation
+
+* replace mention of default org with org tied to your api key ([#375](https://github.com/nomic-ai/nomic/issues/375)) ([af54791](https://github.com/nomic-ai/nomic/commit/af547914f43324ec28e21050deb9f27b3ebfdc8b))
+
 ## [3.4.1](https://github.com/nomic-ai/nomic/compare/v3.4.0...v3.4.1) (2025-01-22)
 
 
