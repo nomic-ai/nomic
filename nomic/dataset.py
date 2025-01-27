@@ -764,7 +764,7 @@ class AtlasDataset(AtlasClass):
 
         **Parameters:**
 
-        * **identifier** - The dataset identifier in the form `dataset` or `organization/dataset`. If no organization is passed, your default organization will be used.
+        * **identifier** - The dataset identifier in the form `dataset` or `organization/dataset`. If no organization is passed, the organization tied to the API key you logged in to Nomic with will be used.
         * **description** - A description for the dataset.
         * **unique_id_field** - The field that uniquely identifies each data point.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
