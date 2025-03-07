@@ -35,7 +35,7 @@ from .data_inference import (
 )
 from .data_operations import AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
 from .settings import *
-from .utils import assert_valid_project_id, download_feather
+from .utils import assert_valid_project_id, download_feather, resize_pil
 
 
 class AtlasUser:
@@ -1454,7 +1454,7 @@ class AtlasDataset(AtlasClass):
                 image = Image.open(blob)
                 image = image.convert("RGB")
                 if image.height > 512 or image.width > 512:
-                    image = image.resize((512, 512))
+                    image = resize_pil(image)
                 buffered = BytesIO()
                 image.save(buffered, format="JPEG")
                 images.append((uuid, buffered.getvalue()))
@@ -1463,7 +1463,7 @@ class AtlasDataset(AtlasClass):
             elif isinstance(blob, Image.Image):
                 blob = blob.convert("RGB")  # type: ignore
                 if blob.height > 512 or blob.width > 512:
-                    blob = blob.resize((512, 512))
+                    blob = resize_pil(blob)
                 buffered = BytesIO()
                 blob.save(buffered, format="JPEG")
                 images.append((uuid, buffered.getvalue()))

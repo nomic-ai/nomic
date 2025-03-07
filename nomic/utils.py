@@ -288,3 +288,13 @@ def download_feather(
     if not download_success or schema is None:
         raise ValueError(f"Failed to download feather file from {url} after {num_attempts} attempts.")
     return schema
+
+def resize_pil(img):
+    width, height = img.size
+    # if image is too large, downsample before sending over the wire
+    max_width = 512
+    max_height = 512
+    if width > max_width or height > max_height:
+        downsize_factor = max(width // max_width, height // max_height)
+        img = img.resize((width // downsize_factor, height // downsize_factor))
+    return img
