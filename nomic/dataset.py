@@ -805,8 +805,6 @@ class AtlasDataset(AtlasClass):
             dataset_id = dataset["id"]
 
         if dataset_id is None:  # if there is no existing project, make a new one.
-            if unique_id_field is None:  # if not all parameters are specified, we weren't trying to make a project
-                raise ValueError(f"Dataset `{identifier}` does not exist.")
 
             # if modality is None:
             #     raise ValueError("You must specify a modality when creating a new dataset.")
@@ -840,7 +838,7 @@ class AtlasDataset(AtlasClass):
         self,
         identifier: str,
         description: Optional[str],
-        unique_id_field: str,
+        unique_id_field: Optional[str],
         is_public: bool = True,
     ):
         """
@@ -872,8 +870,6 @@ class AtlasDataset(AtlasClass):
         #     )
         #     raise ValueError(msg)
 
-        if unique_id_field is None:
-            raise ValueError("You must specify a unique id field")
         if description is None:
             description = ""
         response = requests.post(
