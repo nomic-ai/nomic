@@ -50,12 +50,23 @@ class AtlasMapDuplicates:
         duplicate_sidecar = self._duplicate_column[1]
         self.duplicate_field = self._duplicate_column[0].lstrip("_")
         self.cluster_field = self._cluster_column[0].lstrip("_")
+        datum_id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
         logger.info("Loading duplicates")
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
-            tb = feather.read_table(
-                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
-            )
+            try:
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+                )
+            except Exception as e:
+                suffix = ".feather"
+                if datum_id_sidecar != "":
+                    suffix = f".{datum_id_sidecar}.feather"
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(suffix),
+                    columns=[self.id_field],
+                    memory_map=True,
+                )
             path = self.projection.tile_destination
 
             if duplicate_sidecar == "":
@@ -74,7 +85,11 @@ class AtlasMapDuplicates:
         Downloads the feather tree for duplicates.
         """
         logger.info("Downloading duplicates")
-        self.projection._download_sidecar("datum_id", overwrite=False)
+        try:
+            self.projection._download_sidecar("datum_id", overwrite=False)
+        except Exception as e:
+            id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
+            self.projection._download_sidecar(id_sidecar, overwrite=False)
         assert self._cluster_column[1] == self._duplicate_column[1], "Cluster and duplicate should be in same sidecar"
         self.projection._download_sidecar(self._duplicate_column[1], overwrite=False)
 
@@ -149,11 +164,22 @@ class AtlasMapTopics:
         # Should just be one sidecar
         topic_sidecar = set([sidecar for _, sidecar in self._topic_columns]).pop()
         logger.info("Loading topics")
+        datum_id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
-            tb = feather.read_table(
-                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
-            )
+            try:
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+                )
+            except Exception:
+                suffix = ".feather"
+                if datum_id_sidecar != "":
+                    suffix = f".{datum_id_sidecar}.feather"
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(suffix),
+                    columns=[self.id_field],
+                    memory_map=True,
+                )
             path = self.projection.tile_destination
             if topic_sidecar == "":
                 path = path / Path(key).with_suffix(".feather")
@@ -187,7 +213,11 @@ class AtlasMapTopics:
         Downloads the feather tree for topics.
         """
         logger.info("Downloading topics")
-        self.projection._download_sidecar("datum_id", overwrite=False)
+        try:
+            self.projection._download_sidecar("datum_id", overwrite=False)
+        except Exception as e:
+            id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
+            self.projection._download_sidecar(id_sidecar, overwrite=False)
         topic_sidecars = set([sidecar for _, sidecar in self._topic_columns])
         assert len(topic_sidecars) == 1, "Multiple topic sidecars found."
         self.projection._download_sidecar(topic_sidecars.pop(), overwrite=False)
@@ -480,11 +510,23 @@ class AtlasMapEmbeddings:
 
         tbs = []
         coord_sidecar = self.projection._get_sidecar_from_field("x")
+        datum_id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
-            tb = feather.read_table(
-                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
-            )
+            tb = None
+            try:
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+                )
+            except Exception as e:
+                suffix = ".feather"
+                if datum_id_sidecar != "":
+                    suffix = f".{datum_id_sidecar}.feather"
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(suffix),
+                    columns=[self.id_field],
+                    memory_map=True,
+                )
             path = self.projection.tile_destination
             if coord_sidecar == "":
                 path = path / Path(key).with_suffix(".feather")
@@ -538,7 +580,11 @@ class AtlasMapEmbeddings:
         logger.info("Downloading projected embeddings")
         # Note that y coord should be in same sidecar
         coord_sidecar = self.projection._get_sidecar_from_field("x")
-        self.projection._download_sidecar("datum_id", overwrite=False)
+        try:
+            self.projection._download_sidecar("datum_id", overwrite=False)
+        except Exception as e:
+            id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
+            self.projection._download_sidecar(id_sidecar, overwrite=False)
         return self.projection._download_sidecar(coord_sidecar, overwrite=False)
 
     def _download_latent(self) -> List[Path]:
@@ -675,7 +721,7 @@ class AtlasMapTags:
         try:
             self.projection._download_sidecar("datum_id")
         except Exception:
-            raise ValueError("Failed to fetch datum ids which is required to load tags.")
+            id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
         self.auto_cleanup = auto_cleanup
 
     @property
@@ -691,9 +737,20 @@ class AtlasMapTags:
             self._download_tag(tag["tag_name"], overwrite=overwrite)
         tbs = []
         logger.info("Loading tags")
+        datum_id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
-            datum_id_path = self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather")
-            tb = feather.read_table(datum_id_path, memory_map=True)
+            try:
+                datum_id_path = self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather")
+                tb = feather.read_table(datum_id_path, memory_map=True)
+            except Exception:
+                suffix = ".feather"
+                if datum_id_sidecar != "":
+                    suffix = f".{datum_id_sidecar}.feather"
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(suffix),
+                    columns=[self.id_field],
+                    memory_map=True,
+                )
             for tag in tags:
                 tag_definition_id = tag["tag_definition_id"]
                 path = self.projection.tile_destination / Path(key).with_suffix(f"._tag.{tag_definition_id}.feather")
@@ -748,11 +805,19 @@ class AtlasMapTags:
         """
         tag_paths = self._download_tag(tag_name, overwrite=overwrite)
         datum_ids = []
+        datum_id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
         for path in tag_paths:
             tb = feather.read_table(path)
             last_coord = path.name.split(".")[0]
-            tile_path = path.with_name(last_coord + ".datum_id.feather")
-            tile_tb = feather.read_table(tile_path).select([self.id_field])
+            try:
+                tile_path = path.with_name(last_coord + ".datum_id.feather")
+                tile_tb = feather.read_table(tile_path).select([self.id_field])
+            except Exception:
+                suffix = ".feather"
+                if datum_id_sidecar != "":
+                    suffix = f".{datum_id_sidecar}.feather"
+                tile_path = path.with_name(last_coord + suffix)
+                tile_tb = feather.read_table(tile_path).select([self.id_field])
 
             if "all_set" in tb.column_names:
                 if tb["all_set"][0].as_py() == True:
@@ -872,9 +937,18 @@ class AtlasMapData:
         logger.info("Loading data")
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
-            tb = feather.read_table(
-                self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
-            )
+            try:
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(".datum_id.feather"), memory_map=True
+                )
+            except Exception:
+                datum_id_sidecar = self.projection._get_sidecar_from_field(self.id_field)
+                suffix = ".feather"
+                if datum_id_sidecar != "":
+                    suffix = f".{datum_id_sidecar}.feather"
+                tb = feather.read_table(
+                    self.projection.tile_destination / Path(key).with_suffix(suffix), memory_map=True
+                )
             for sidecar in sidecars_to_load:
                 path = self.projection.tile_destination
                 if sidecar == "":
@@ -883,7 +957,7 @@ class AtlasMapData:
                     path = path / Path(key).with_suffix(f".{sidecar}.feather")
                 carfile = feather.read_table(path, memory_map=True)
                 for col in carfile.column_names:
-                    if col in self.fields:
+                    if col in self.fields and col != self.id_field:
                         tb = tb.append_column(col, carfile[col])
             tbs.append(tb)
 
