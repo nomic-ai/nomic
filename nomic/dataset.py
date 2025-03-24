@@ -700,6 +700,7 @@ class AtlasProjection:
     def datum_id_field(self):
         return self.dataset.meta["unique_id_field"]
 
+
 class AtlasDataStream(AtlasClass):
     def __init__(self, name: Optional[str] = "contrastors"):
         super().__init__()
