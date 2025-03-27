@@ -174,7 +174,7 @@ def test_topics():
     )
 
     map = dataset.maps[0]
-    wait_for_projection_ready(dataset, map.projection_id)
+    wait_for_projection_ready(dataset)
 
     assert len(map.topics.metadata) > 0
 
@@ -214,7 +214,7 @@ def test_data():
     )
 
     map = dataset.maps[0]
-    wait_for_projection_ready(dataset, map.projection_id)
+    wait_for_projection_ready(dataset)
 
     df = map.data.df
     assert len(df) > 0
@@ -339,7 +339,7 @@ def test_map_embeddings():
     )
 
     map = dataset.maps[0]
-    wait_for_projection_ready(dataset, map.projection_id)
+    wait_for_projection_ready(dataset)
 
     retrieved_embeddings = map.embeddings.latent
 
@@ -351,7 +351,7 @@ def test_map_embeddings():
 
     dataset.create_index()
     map = dataset.maps[0]  # Get the new map after create_index
-    wait_for_projection_ready(dataset, map.projection_id)
+    wait_for_projection_ready(dataset)
 
     neighbors, _ = map.embeddings.vector_search(queries=np.random.rand(1, 10), k=2)
     assert len(neighbors[0]) == 2
