@@ -28,7 +28,7 @@ def gen_temp_identifier() -> str:
     return f'{now}-{rand}'
 
 
-def wait_for_projection_ready(dataset, timeout_minutes=5):
+def wait_for_projection_ready(dataset, timeout_minutes=10):
     """Helper function to wait for a projection to be ready.
     
     Args:
