@@ -28,6 +28,32 @@ def gen_temp_identifier() -> str:
     return f'{now}-{rand}'
 
 
+def wait_for_projection_ready(dataset, timeout_minutes=5):
+    """Helper function to wait for a projection to be ready.
+    
+    Args:
+        dataset: The AtlasDataset instance
+        timeout_minutes: Number of minutes to wait before timing out
+        
+    Raises:
+        TimeoutError: If projection is not ready within timeout period
+    """
+    num_tries = 0
+    while True:
+        response = requests.get(
+            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{dataset.maps[0].projection_id}",
+            headers=dataset.header
+        )
+        if response.status_code == 200:
+            response_json = response.json()
+            if "ready" in response_json and response_json["ready"]:
+                break
+        time.sleep(5)
+        num_tries += 1
+        if num_tries > timeout_minutes * 12:  # 12 tries per minute (5 second intervals)
+            raise TimeoutError(f"Timed out waiting for projection to be ready after {timeout_minutes} minutes")
+
+
 def test_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
@@ -148,19 +174,7 @@ def test_topics():
     )
 
     map = dataset.maps[0]
-    # Wait for projection to be ready
-    num_tries = 0
-    while True:
-        response = requests.get(
-            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{map.projection_id}",
-            headers=dataset.header
-        )
-        if response.status_code == 200 and response.json()["ready"]:
-            break
-        time.sleep(5)
-        num_tries += 1
-        if num_tries > 60:  # 5 minutes timeout
-            raise TimeoutError("Timed out waiting for projection to be ready")
+    wait_for_projection_ready(dataset, map.projection_id)
 
     assert len(map.topics.metadata) > 0
 
@@ -200,19 +214,7 @@ def test_data():
     )
 
     map = dataset.maps[0]
-    # Wait for projection to be ready
-    num_tries = 0
-    while True:
-        response = requests.get(
-            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{map.projection_id}",
-            headers=dataset.header
-        )
-        if response.status_code == 200 and response.json()["ready"]:
-            break
-        time.sleep(5)
-        num_tries += 1
-        if num_tries > 60:  # 5 minutes timeout
-            raise TimeoutError("Timed out waiting for projection to be ready")
+    wait_for_projection_ready(dataset, map.projection_id)
 
     df = map.data.df
     assert len(df) > 0
@@ -337,19 +339,7 @@ def test_map_embeddings():
     )
 
     map = dataset.maps[0]
-    # Wait for projection to be ready
-    num_tries = 0
-    while True:
-        response = requests.get(
-            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{map.projection_id}",
-            headers=dataset.header
-        )
-        if response.status_code == 200 and response.json()["ready"]:
-            break
-        time.sleep(5)
-        num_tries += 1
-        if num_tries > 60:  # 5 minutes timeout
-            raise TimeoutError("Timed out waiting for projection to be ready")
+    wait_for_projection_ready(dataset, map.projection_id)
 
     retrieved_embeddings = map.embeddings.latent
 
@@ -360,20 +350,8 @@ def test_map_embeddings():
     assert isinstance(map.topics.hierarchy, dict)
 
     dataset.create_index()
-    # Wait for new projection to be ready after create_index
-    num_tries = 0
     map = dataset.maps[0]  # Get the new map after create_index
-    while True:
-        response = requests.get(
-            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{map.projection_id}",
-            headers=dataset.header
-        )
-        if response.status_code == 200 and response.json()["ready"]:
-            break
-        time.sleep(5)
-        num_tries += 1
-        if num_tries > 60:  # 5 minutes timeout
-            raise TimeoutError("Timed out waiting for projection to be ready")
+    wait_for_projection_ready(dataset, map.projection_id)
 
     neighbors, _ = map.embeddings.vector_search(queries=np.random.rand(1, 10), k=2)
     assert len(neighbors[0]) == 2
