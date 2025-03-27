@@ -147,15 +147,28 @@ def test_topics():
         topic_model=dict(topic_label_field='text'),
     )
 
-    with dataset.wait_for_dataset_lock():
+    map = dataset.maps[0]
+    # Wait for projection to be ready
+    num_tries = 0
+    while True:
+        response = requests.get(
+            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{map.projection_id}",
+            headers=dataset.header
+        )
+        if response.status_code == 200 and response.json()["ready"]:
+            break
         time.sleep(5)
-        assert len(dataset.maps[0].topics.metadata) > 0
+        num_tries += 1
+        if num_tries > 60:  # 5 minutes timeout
+            raise TimeoutError("Timed out waiting for projection to be ready")
 
-        q = np.random.random((3, 10))
-        assert len(dataset.maps[0].topics.vector_search_topics(q, depth=1, k=3)['topics']) == 3
-        assert isinstance(dataset.maps[0].topics.group_by_topic(topic_depth=1), list)
+    assert len(map.topics.metadata) > 0
 
-        dataset.delete()
+    q = np.random.random((3, 10))
+    assert len(map.topics.vector_search_topics(q, depth=1, k=3)['topics']) == 3
+    assert isinstance(map.topics.group_by_topic(topic_depth=1), list)
+
+    dataset.delete()
 
 
 def test_tagging_private():
@@ -186,13 +199,27 @@ def test_data():
         topic_model=dict(build_topic_model=True, community_description_target_field='text'),
     )
 
-    with dataset.wait_for_dataset_lock():
-        df = dataset.maps[0].data.df
-        assert len(df) > 0
-        # all uploaded columns, including the id column, should be in the downloaded data
-        for column in all_columns:
-            assert column in df.columns
-        dataset.delete()
+    map = dataset.maps[0]
+    # Wait for projection to be ready
+    num_tries = 0
+    while True:
+        response = requests.get(
+            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{map.projection_id}",
+            headers=dataset.header
+        )
+        if response.status_code == 200 and response.json()["ready"]:
+            break
+        time.sleep(5)
+        num_tries += 1
+        if num_tries > 60:  # 5 minutes timeout
+            raise TimeoutError("Timed out waiting for projection to be ready")
+
+    df = map.data.df
+    assert len(df) > 0
+    # all uploaded columns, including the id column, should be in the downloaded data
+    for column in all_columns:
+        assert column in df.columns
+    dataset.delete()
 
 
 words = [
@@ -310,28 +337,46 @@ def test_map_embeddings():
     )
 
     map = dataset.maps[0]
-
+    # Wait for projection to be ready
     num_tries = 0
-    while map.dataset.is_locked:
-        time.sleep(30)
+    while True:
+        response = requests.get(
+            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{map.projection_id}",
+            headers=dataset.header
+        )
+        if response.status_code == 200 and response.json()["ready"]:
+            break
+        time.sleep(5)
         num_tries += 1
-        if num_tries > 10:
-            raise TimeoutError('Timed out while waiting for project to unlock')
+        if num_tries > 60:  # 5 minutes timeout
+            raise TimeoutError("Timed out waiting for projection to be ready")
 
     retrieved_embeddings = map.embeddings.latent
 
     assert dataset.total_datums == num_embeddings
     assert retrieved_embeddings.shape[0] == num_embeddings
-    map = dataset.maps[0]
 
     assert len(map.topics.df) == 20
-
     assert isinstance(map.topics.hierarchy, dict)
 
     dataset.create_index()
-    with dataset.wait_for_dataset_lock():
-        neighbors, _ = map.embeddings.vector_search(queries=np.random.rand(1, 10), k=2)
-        assert len(neighbors[0]) == 2
+    # Wait for new projection to be ready after create_index
+    num_tries = 0
+    map = dataset.maps[0]  # Get the new map after create_index
+    while True:
+        response = requests.get(
+            dataset.atlas_api_path + f"/v1/project/{dataset.id}/index/projection/{map.projection_id}",
+            headers=dataset.header
+        )
+        if response.status_code == 200 and response.json()["ready"]:
+            break
+        time.sleep(5)
+        num_tries += 1
+        if num_tries > 60:  # 5 minutes timeout
+            raise TimeoutError("Timed out waiting for projection to be ready")
+
+    neighbors, _ = map.embeddings.vector_search(queries=np.random.rand(1, 10), k=2)
+    assert len(neighbors[0]) == 2
 
     for map in dataset.projections:
         assert map.map_link
