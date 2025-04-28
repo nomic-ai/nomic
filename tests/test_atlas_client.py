@@ -50,7 +50,7 @@ def wait_for_projection_ready(dataset, timeout_minutes=10):
                 break
         time.sleep(5)
         num_tries += 1
-        if num_tries > timeout_minutes * 12:  # 12 tries per minute (5 second intervals)
+        if num_tries > timeout_minutes * 12:
             raise TimeoutError(f"Timed out waiting for projection to be ready after {timeout_minutes} minutes")
 
 
