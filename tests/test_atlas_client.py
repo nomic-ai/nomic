@@ -572,4 +572,3 @@ def test_map_embeddings_legacy_dict_with_explicit_algorithm():
     projection = dataset.maps[0]
     _wait_for_projection_completion(projection)
     dataset.delete()
-
