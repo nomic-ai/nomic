@@ -1101,7 +1101,7 @@ class AtlasDataset(AtlasClass):
         projection_algorithm = "nomic-project"
         nomic_projection = None
         umap_projection = None
-        
+
         if isinstance(projection, UMAPOptions):
             projection_algorithm = "umap"
             umap_projection = projection
@@ -1168,13 +1168,13 @@ class AtlasDataset(AtlasClass):
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                 )
-            
+
             # Set up projection hyperparameters based on the type of projection
             if projection_algorithm == "umap" and umap_projection is not None:
                 projection_hyperparameters = {
                     "n_neighbors": umap_projection.n_neighbors,
                     "min_dist": umap_projection.min_dist,
-                    "n_epochs": umap_projection.n_epochs
+                    "n_epochs": umap_projection.n_epochs,
                 }
             elif nomic_projection is not None:
                 projection_hyperparameters = {
@@ -1187,7 +1187,7 @@ class AtlasDataset(AtlasClass):
                 }
             else:
                 projection_hyperparameters = {}
-                
+
             build_template = {
                 "project_id": self.id,
                 "index_name": name,
@@ -1255,7 +1255,7 @@ class AtlasDataset(AtlasClass):
                 projection_hyperparameters = {
                     "n_neighbors": umap_projection.n_neighbors,
                     "min_dist": umap_projection.min_dist,
-                    "n_epochs": umap_projection.n_epochs
+                    "n_epochs": umap_projection.n_epochs,
                 }
             elif nomic_projection is not None:
                 projection_hyperparameters = {
@@ -1268,7 +1268,7 @@ class AtlasDataset(AtlasClass):
                 }
             else:
                 projection_hyperparameters = {}
-                
+
             build_template = {
                 "project_id": self.id,
                 "index_name": name,
