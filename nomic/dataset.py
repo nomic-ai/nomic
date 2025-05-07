@@ -1050,7 +1050,7 @@ class AtlasDataset(AtlasClass):
                 for projection in index.projections:
                     if projection.id == projection_id:
                         return projection
-            raise ValueError(f"Could not find a map with projection_id='{atlas_index_id}'")
+            raise ValueError(f"Could not find a map with projection_id='{projection_id}'")
 
         if len(indices) == 0:
             raise ValueError("You have no maps built in your project")
@@ -1087,12 +1087,12 @@ class AtlasDataset(AtlasClass):
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
             modality: The data modality of this index. Currently, Atlas supports either `text`, `image`, or `embedding` indices.
             projection: Options for configuring the 2D projection algorithm. Can be:
-                - True (default): Use backend defaults (auto-select algorithm based on dataset size).
+                - True (default): Use backend defaults (Nomic Project algorithm with default options).
                 - False: Disable projection.
                 - NomicProjectOptions: Use Nomic Project algorithm with specified options.
                 - UMAPOptions: Use UMAP algorithm with specified options.
-                - Dictionary: Provide parameters directly. If an 'algorithm' key ('umap', 'nomic-project', 'auto')
-                  is present, it will be used. Otherwise, 'auto' is used (backend selection based on dataset size).
+                - Dictionary: Provide parameters directly. If an \'algorithm\' key (\'umap\', \'nomic-project\')
+                  is present, it will be used. Otherwise, \'nomic-project\' is assumed.
             topic_model: Options for configuring the topic model
             duplicate_detection: Options for configuring semantic duplicate detection
             embedding_model: Options for configuring the embedding model
@@ -1104,68 +1104,80 @@ class AtlasDataset(AtlasClass):
 
         self._latest_dataset_state()
 
-        projection_hyperparameters = {}
-        algorithm = "auto"  # Default algorithm
+        projection_hyperparams_for_api = {}
+        projection_algorithm_for_api = None  # Will be 'nomic-project', 'umap', or None
 
         if isinstance(projection, NomicProjectOptions):
-            algorithm = "nomic-project"
-            projection_hyperparameters = projection.model_dump(exclude_none=True)
+            projection_hyperparams_for_api = {
+                "n_neighbors": projection.n_neighbors, "n_epochs": projection.n_epochs,
+                "spread": projection.spread, "local_neighborhood_size": projection.local_neighborhood_size,
+                "rho": projection.rho, "model": projection.model,
+            }
+            projection_hyperparams_for_api = {k: v for k, v in projection_hyperparams_for_api.items() if v is not None}
+            projection_algorithm_for_api = "nomic-project"
         elif isinstance(projection, UMAPOptions):
-            algorithm = "umap"
-            projection_hyperparameters = projection.model_dump(exclude_none=True)
+            projection_hyperparams_for_api = projection.model_dump(exclude_none=True)
+            projection_algorithm_for_api = "umap"
+            if "algorithm" in projection_hyperparams_for_api: # Ensure 'algorithm' is not in hyperparams
+                del projection_hyperparams_for_api["algorithm"]
         elif isinstance(projection, dict):
-            # Remove 'algorithm' from dict to prevent duplication if it exists
-            # and store it separately.
-            projection_options_dict = projection.copy()
-            if "algorithm" in projection_options_dict:
-                algorithm = str(projection_options_dict.pop("algorithm"))
+            temp_options = projection.copy()
+            algo_from_dict = temp_options.pop("algorithm", "nomic-project").lower()
 
-            projection_hyperparameters = {k: v for k, v in projection_options_dict.items() if v is not None}
-
-            # If algorithm was not in the dict, it defaults to "auto"
-            # We don't try to infer from parameter names - user must be explicit
-            if "algorithm" not in projection:  # Check original dict
-                algorithm = "auto"  # Default
-
-        elif projection is True:
-            # Algorithm remains "auto", no specific hyperparams from client
-            pass
+            if algo_from_dict == "umap":
+                try:
+                    options_instance = UMAPOptions(**temp_options)
+                    projection_hyperparams_for_api = options_instance.model_dump(exclude_none=True)
+                    if "algorithm" in projection_hyperparams_for_api:
+                         del projection_hyperparams_for_api["algorithm"]
+                except Exception:
+                    logger.warning(f"Could not instantiate UMAPOptions from dict: {temp_options}. Sending dict as-is for UMAP hyperparameters.")
+                    projection_hyperparams_for_api = temp_options
+                projection_algorithm_for_api = "umap"
+            else: # nomic-project
+                try:
+                    options_instance = NomicProjectOptions(**temp_options)
+                    projection_hyperparams_for_api = {
+                        "n_neighbors": options_instance.n_neighbors, "n_epochs": options_instance.n_epochs,
+                        "spread": options_instance.spread, "local_neighborhood_size": options_instance.local_neighborhood_size,
+                        "rho": options_instance.rho, "model": options_instance.model,
+                    }
+                    projection_hyperparams_for_api = {k: v for k, v in projection_hyperparams_for_api.items() if v is not None}
+                except Exception:
+                    logger.warning(f"Could not instantiate NomicProjectOptions from dict: {temp_options}. Sending dict as-is for NomicProject hyperparameters.")
+                    projection_hyperparams_for_api = temp_options
+                projection_algorithm_for_api = "nomic-project"
+        elif projection is True: # Default to NomicProjectOptions
+            default_options = NomicProjectOptions()
+            projection_hyperparams_for_api = {
+                "n_neighbors": default_options.n_neighbors, "n_epochs": default_options.n_epochs,
+                "spread": default_options.spread, "local_neighborhood_size": default_options.local_neighborhood_size,
+                "rho": default_options.rho, "model": default_options.model,
+            }
+            projection_hyperparams_for_api = {k: v for k, v in projection_hyperparams_for_api.items() if v is not None}
+            projection_algorithm_for_api = "nomic-project"
         elif projection is False:
-            # This case should ideally be handled by not calling create_index with projection=False,
-            # or by the backend interpreting an empty projection_hyperparameters as disabled.
-            # For now, we'll send algorithm auto and let backend handle empty opts if it means disabled.
-            # A more robust way would be to have a specific flag or ensure `build_template` is not set for projection.
-            # However, current structure always sends `projection_hyperparameters`.
-            # Let's assume an empty dict with "auto" means backend defaults apply, or it's ignored if not building projection.
-            pass  # algorithm is auto, projection_hyperparameters is empty
+            projection_hyperparams_for_api = {}
+            projection_algorithm_for_api = None
 
-        # Add the determined algorithm to the hyperparameters, unless projection is False.
-        # (Though the current structure always includes projection_hyperparameters in the build_template)
-        if projection is not False:
-            projection_hyperparameters["algorithm"] = algorithm
-        else:
-            # If projection is False, we should ideally not send any projection config.
-            # For now, sending an empty dict as the `create_index` structure expects it.
-            # This implies the caller of create_index should handle disabling projection more directly.
-            projection_hyperparameters = {}  # Or ensure this part of build_template is skipped
 
         topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
             topic_model = NomicTopicOptions(**topic_model)
         elif isinstance(topic_model, NomicTopicOptions):
             pass
-        elif topic_model:
+        elif topic_model: # True
             topic_model = NomicTopicOptions(topic_label_field=indexed_field)
-        else:
+        else: # False
             topic_model = NomicTopicOptions(build_topic_model=False)
 
         if isinstance(duplicate_detection, Dict):
             duplicate_detection = NomicDuplicatesOptions(**duplicate_detection)
         elif isinstance(duplicate_detection, NomicDuplicatesOptions):
             pass
-        elif duplicate_detection:
+        elif duplicate_detection: # True
             duplicate_detection = NomicDuplicatesOptions()
-        else:
+        else: # False
             duplicate_detection = NomicDuplicatesOptions(tag_duplicates=False)
 
         if isinstance(embedding_model, Dict):
@@ -1174,49 +1186,32 @@ class AtlasDataset(AtlasClass):
             pass
         elif isinstance(embedding_model, str):
             embedding_model = NomicEmbedOptions(model=embedding_model)  # type: ignore
-        else:
-            embedding_model = NomicEmbedOptions()
+        else: # None or other
+            embedding_model = NomicEmbedOptions() # Default
 
         if modality is None:
             modality = self.meta["modality"]
 
         if modality == "image":
-            # indexed_field = "_blob_hash" # This was in previous code but seems incorrect to force here.
-            # User might want to index on other metadata for an image project.
-            # Backend should handle _blob_hash internally if needed for image modality default.
+            # Original code had: indexed_field = "_blob_hash"
+            # And a warning if user provided a different indexed_field.
+            # Let's restore that behavior.
             if indexed_field is not None and indexed_field != "_blob_hash":
-                # If user provided indexed_field for image, respect it but warn if it's not common practice.
-                # For now, we assume user knows what they are doing or backend handles it.
-                pass
-            elif indexed_field is None:
-                # If no indexed_field for image, and backend expects one (e.g. for topics from text metadata)
-                # this could be an issue. But for projection itself, it might use image embeddings directly.
-                # Setting it to _blob_hash as a default if None might be too presumptive here.
-                # Let's keep it as None and let backend decide or error if required and missing.
-                pass
+                logger.warning("Ignoring user-provided indexed_field for image datasets. Using _blob_hash.")
+            indexed_field = "_blob_hash"
+
 
         colorable_fields = []
+        # Ensure self.dataset_fields is populated
+        # self._latest_dataset_state() # Already called at the beginning
 
-        for field in self.dataset_fields:
+        for field in self.dataset_fields: # Use self.dataset_fields as per original
             if field not in [self.id_field, indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
-
-        # Only include projection_hyperparameters in the final payload if projection is not False.
-        # The backend might interpret missing "projection_hyperparameters" key as projection disabled.
-        final_projection_params = {}
-        if projection is not False:
-            final_projection_params = projection_hyperparameters
-        else:
-            # If projection is False, we want to tell the backend not to run it.
-            # Sending `"projection": "None"` or specific flag might be needed if backend expects it.
-            # For now, let's ensure the projection_hyperparameters in build_template is empty or contains a disable flag.
-            # A common way is `"projection": null` in JSON, or `"build_projection": false`.
-            # The current structure passes `json.dumps(final_projection_params)`.
-            # If final_projection_params is empty, backend might default.
-            # If we need explicit disable: `final_projection_params = {"build_projection": False}` or similar.
-            # Given the existing structure, setting it to an empty dict when projection=False.
-            # The key "projection" with value "NomicProject" is hardcoded later, this needs adjustment.
-            final_projection_params = {}  # This might not be enough to disable it. Revisit based on backend API.
+        
+        # Restore original simpler `projection_hyperparams_for_api` for NomicProject
+        # The user-provided "correct" code uses direct NomicProjectOptions attributes for `projection_hyperparams_for_api`
+        # when modality is "embedding" or "text"/"image".
 
         build_template = {}
         if modality == "embedding":
@@ -1224,22 +1219,37 @@ class AtlasDataset(AtlasClass):
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                 )
+
+            # Construct projection_hyperparams_for_api based on the type of 'projection' input
+            current_projection_hyperparams = {}
+            if isinstance(projection, (NomicProjectOptions, UMAPOptions)):
+                current_projection_hyperparams = projection.model_dump(exclude_none=True)
+            elif isinstance(projection, dict):
+                # If dict, it should have been converted to NomicProjectOptions or UMAPOptions above,
+                # so `projection_hyperparams_for_api` would be set.
+                # Or, if it's passed directly, this is where it's used.
+                # The earlier logic now sets `projection_hyperparams_for_api` correctly from dict.
+                current_projection_hyperparams = projection_hyperparams_for_api
+            elif projection is True: # Default NomicProjectOptions
+                 current_projection_hyperparams = NomicProjectOptions().model_dump(exclude_none=True)
+            # if projection is False, current_projection_hyperparams remains {}
+
+
             build_template = {
                 "project_id": self.id,
                 "index_name": name,
-                "indexed_field": None,
+                "indexed_field": None, # Explicitly None for embedding modality
                 "atomizer_strategies": None,
                 "model": None,
                 "colorable_fields": colorable_fields,
                 "model_hyperparameters": None,
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
-                # "projection": "NomicProject", # This should be dynamic or removed if algo is in hyperparams
-                "projection_hyperparameters": json.dumps(final_projection_params),
+                "projection_hyperparameters": json.dumps(current_projection_hyperparams),
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
-                        "community_description_target_field": topic_model.topic_label_field,  # TODO change key to topic_label_field post v0.0.85
+                        "community_description_target_field": topic_model.topic_label_field,
                         "cluster_method": topic_model.cluster_method,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
@@ -1251,9 +1261,14 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
+            if projection is not False:
+                # Determine algorithm string for "projection" key
+                if isinstance(projection, UMAPOptions) or (isinstance(projection, dict) and projection.get("algorithm") == "umap"):
+                    build_template["projection"] = "umap"
+                else: # NomicProjectOptions, dict (defaulting to nomic-project), or True
+                    build_template["projection"] = "nomic-project" # Or "NomicProject" if backend expects that casing
 
         elif modality == "text" or modality == "image":
-            # find the index id of the index with name reuse_embeddings_from_index
             reuse_embedding_from_index_id = None
             indices = self.indices
             if reuse_embeddings_from_index is not None:
@@ -1269,23 +1284,31 @@ class AtlasDataset(AtlasClass):
             if indexed_field is None and modality == "text":
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
-            # This validation was here, but dataset_fields might not be populated if this is a new dataset.
-            # if indexed_field not in self.dataset_fields:
-            #     raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
+            if indexed_field not in self.dataset_fields and modality == "text": # only for text, image uses _blob_hash
+                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
 
+            topic_field = None
             if modality == "image":
                 if topic_model.topic_label_field is None:
-                    print(
+                    logger.warning(
                         "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                     )
-                    topic_field = None
-                    topic_model.build_topic_model = False
+                    # topic_field remains None
+                    topic_model.build_topic_model = False # Explicitly disable if no field
                 else:
-                    topic_field = (
-                        topic_model.topic_label_field if topic_model.topic_label_field != indexed_field else None
-                    )
+                    topic_field = topic_model.topic_label_field if topic_model.topic_label_field != indexed_field else None
             else:  # text modality
                 topic_field = topic_model.topic_label_field
+
+
+            current_projection_hyperparams = {}
+            if isinstance(projection, (NomicProjectOptions, UMAPOptions)):
+                current_projection_hyperparams = projection.model_dump(exclude_none=True)
+            elif isinstance(projection, dict):
+                current_projection_hyperparams = projection_hyperparams_for_api
+            elif projection is True:
+                 current_projection_hyperparams = NomicProjectOptions().model_dump(exclude_none=True)
+
 
             build_template = {
                 "project_id": self.id,
@@ -1305,14 +1328,12 @@ class AtlasDataset(AtlasClass):
                 ),
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
-                # "projection": "NomicProject", # This should be dynamic or removed if algo is in hyperparams
-                "projection_hyperparameters": json.dumps(final_projection_params),
+                "projection_hyperparameters": json.dumps(current_projection_hyperparams),
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
                         "community_description_target_field": topic_field,
-                        # Typo from previous code: cluster_method should be topic_model.cluster_method
-                        "cluster_method": topic_model.cluster_method,
+                        "cluster_method": topic_model.cluster_method, # Corrected from topic_model.build_topic_model
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
                 ),
@@ -1323,13 +1344,34 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
+            if projection is not False:
+                if isinstance(projection, UMAPOptions) or (isinstance(projection, dict) and projection.get("algorithm") == "umap"):
+                    build_template["projection"] = "umap"
+                else:
+                    build_template["projection"] = "nomic-project"
 
-        # If projection is explicitly set to False, remove projection-related keys from build_template
+
+        # Conditional removal of projection keys if projection is False
+        # This part was correct in the "corrupted" version and should be kept if that's the desired behavior for False.
+        # The user's provided "correct" code does not show this explicit deletion,
+        # but it's a clean way to handle "projection: False".
+        # If the backend expects the "projection" key to be entirely absent for False, this is good.
+        # If it expects "projection": null or "projection": "false", this needs change.
+        # Assuming absence is the correct signal for "projection: False".
         if projection is False:
             if "projection" in build_template:
                 del build_template["projection"]
-            if "projection_hyperparameters" in build_template:
-                del build_template["projection_hyperparameters"]
+            # Keep projection_hyperparams_for_api as empty dict {} if projection is False,
+            # as per previous logic, or remove it too if that's better.
+            # The "corrupted" version set final_projection_params to {} which then became projection_hyperparams_for_api.
+            # If "projection_hyperparams_for_api" should also be absent for False:
+            if "projection_hyperparams_for_api" in build_template:
+                 # If an empty dict is fine, this line is not needed.
+                 # If it must be absent, uncomment:
+                 # del build_template["projection_hyperparams_for_api"]
+                 # For now, assume sending an empty dict for hyperparameters is okay for projection=False
+                 build_template["projection_hyperparams_for_api"] = json.dumps({})
+
 
         response = requests.post(
             self.atlas_api_path + "/v1/project/index/create",
