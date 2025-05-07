@@ -1108,8 +1108,7 @@ class AtlasDataset(AtlasClass):
             if projection.get("algorithm", "").lower() == "umap":
                 projection_algorithm = "umap"
                 projection_options = ProjectionOptions(
-                    model="umap",
-                    **{k: v for k, v in projection.items() if k != "algorithm"}
+                    model="umap", **{k: v for k, v in projection.items() if k != "algorithm"}
                 )
             else:
                 projection_options = ProjectionOptions(**projection)
@@ -1121,9 +1120,7 @@ class AtlasDataset(AtlasClass):
 
         projection_hyperparameters = {}
         if projection_options is not None:
-            projection_hyperparameters = {
-                "model": projection_options.model
-            }
+            projection_hyperparameters = {"model": projection_options.model}
             if projection_algorithm == "umap":
                 if projection_options.n_neighbors is not None:
                     projection_hyperparameters["n_neighbors"] = projection_options.n_neighbors
@@ -1144,7 +1141,7 @@ class AtlasDataset(AtlasClass):
                     projection_hyperparameters["rho"] = projection_options.rho
                 if projection_options.min_dist is not None:
                     projection_hyperparameters["min_dist"] = projection_options.min_dist
-                    
+
         topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
             topic_model = NomicTopicOptions(**topic_model)
