@@ -29,9 +29,8 @@ from .cli import refresh_bearer_token, validate_api_http_response
 from .data_inference import (
     NomicDuplicatesOptions,
     NomicEmbedOptions,
-    NomicProjectOptions,
     NomicTopicOptions,
-    UMAPOptions,
+    ProjectionOptions,
     convert_pyarrow_schema_for_atlas,
 )
 from .data_operations import AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
@@ -1072,7 +1071,7 @@ class AtlasDataset(AtlasClass):
         name: Optional[str] = None,
         indexed_field: Optional[str] = None,
         modality: Optional[str] = None,
-        projection: Union[bool, Dict, NomicProjectOptions, UMAPOptions] = True,
+        projection: Union[bool, Dict, ProjectionOptions] = True,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
@@ -1099,44 +1098,53 @@ class AtlasDataset(AtlasClass):
         self._latest_dataset_state()
 
         projection_algorithm = "nomic-project"
-        nomic_projection = None
-        umap_projection = None
+        projection_options = None
 
-        if isinstance(projection, UMAPOptions):
-            projection_algorithm = "umap"
-            umap_projection = projection
-        elif isinstance(projection, NomicProjectOptions):
-            nomic_projection = projection
+        if isinstance(projection, ProjectionOptions):
+            projection_options = projection
+            if projection.model == "umap":
+                projection_algorithm = "umap"
         elif isinstance(projection, Dict):
             if projection.get("algorithm", "").lower() == "umap":
                 projection_algorithm = "umap"
-                try:
-                    umap_projection = UMAPOptions(**{k: v for k, v in projection.items() if k != "algorithm"})
-                except Exception as e:
-                    raise ValueError(f"Could not instantiate UMAPOptions from dict: {e}")
+                projection_options = ProjectionOptions(
+                    model="umap",
+                    **{k: v for k, v in projection.items() if k != "algorithm"}
+                )
             else:
-                nomic_projection = NomicProjectOptions(**projection)
+                projection_options = ProjectionOptions(**projection)
+                if projection_options.model == "umap":
+                    projection_algorithm = "umap"
         elif projection is True:
-            nomic_projection = NomicProjectOptions()
+            projection_options = ProjectionOptions()
         # If projection is False, keep both projection objects as None
 
         projection_hyperparameters = {}
-        if projection_algorithm == "umap" and umap_projection is not None:
+        if projection_options is not None:
             projection_hyperparameters = {
-                "n_neighbors": umap_projection.n_neighbors,
-                "min_dist": umap_projection.min_dist,
-                "n_epochs": umap_projection.n_epochs,
+                "model": projection_options.model
             }
-        elif nomic_projection is not None:
-            projection_hyperparameters = {
-                "n_neighbors": nomic_projection.n_neighbors,
-                "n_epochs": nomic_projection.n_epochs,
-                "spread": nomic_projection.spread,
-                "local_neighborhood_size": nomic_projection.local_neighborhood_size,
-                "rho": nomic_projection.rho,
-                "model": nomic_projection.model,
-            }
-
+            if projection_algorithm == "umap":
+                if projection_options.n_neighbors is not None:
+                    projection_hyperparameters["n_neighbors"] = projection_options.n_neighbors
+                if projection_options.min_dist is not None:
+                    projection_hyperparameters["min_dist"] = projection_options.min_dist
+                if projection_options.n_epochs is not None:
+                    projection_hyperparameters["n_epochs"] = projection_options.n_epochs
+            else:  # nomic-project
+                if projection_options.n_neighbors is not None:
+                    projection_hyperparameters["n_neighbors"] = projection_options.n_neighbors
+                if projection_options.n_epochs is not None:
+                    projection_hyperparameters["n_epochs"] = projection_options.n_epochs
+                if projection_options.spread is not None:
+                    projection_hyperparameters["spread"] = projection_options.spread
+                if projection_options.local_neighborhood_size is not None:
+                    projection_hyperparameters["local_neighborhood_size"] = projection_options.local_neighborhood_size
+                if projection_options.rho is not None:
+                    projection_hyperparameters["rho"] = projection_options.rho
+                if projection_options.min_dist is not None:
+                    projection_hyperparameters["min_dist"] = projection_options.min_dist
+                    
         topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
             topic_model = NomicTopicOptions(**topic_model)
