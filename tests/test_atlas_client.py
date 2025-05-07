@@ -435,7 +435,7 @@ def test_map_embeddings_explicit_umap():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection=UMAPOptions(n_neighbors=5, min_dist=0.01, metric="cosine", n_epochs=25, spread=0.5),
+        projection=UMAPOptions(n_neighbors=5, min_dist=0.01, n_epochs=25),
     )
     assert dataset.id is not None
     projection = dataset.maps[0]

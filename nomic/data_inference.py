@@ -94,16 +94,12 @@ class UMAPOptions(BaseModel):
     Args:
         n_neighbors: The number of neighbors to consider for each point. Default: `None` (UMAP default, typically 15).
         n_epochs: Number of training epochs for UMAP optimizer. Default: `None` (UMAP default, auto-calibrated).
-        spread: Determines how clumped embedded points are. Default: `None` (UMAP default, typically 1.0).
         min_dist: Controls how tightly UMAP is allowed to pack points together. Affects the size of clusters. Default: `None` (UMAP default, typically 0.1).
-        metric: The metric to use to compute distances in high dimensional space (e.g., 'euclidean', 'cosine'). Default: `None` (UMAP default, typically 'euclidean').
     """
 
     n_neighbors: Optional[int] = Field(default=None, description="Number of neighbors for the UMAP algorithm.")
     n_epochs: Optional[int] = Field(default=None, description="Number of epochs for training the UMAP model.")
-    spread: Optional[float] = Field(default=None, description="Spread of the point layout.")
     min_dist: Optional[float] = Field(default=None, description="Minimum distance between points.")
-    metric: Optional[str] = Field(default=None, description="Distance metric (e.g., 'euclidean', 'cosine').")
 
 
 class NomicTopicOptions(BaseModel):

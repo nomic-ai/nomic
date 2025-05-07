@@ -1099,38 +1099,26 @@ class AtlasDataset(AtlasClass):
         self._latest_dataset_state()
 
         projection_algorithm = "nomic-project"
+        nomic_projection = None
+        umap_projection = None
+        
         if isinstance(projection, UMAPOptions):
             projection_algorithm = "umap"
-            projection_params = projection.model_dump(exclude_none=True)
+            umap_projection = projection
+        elif isinstance(projection, NomicProjectOptions):
+            nomic_projection = projection
         elif isinstance(projection, Dict):
             if projection.get("algorithm", "").lower() == "umap":
                 projection_algorithm = "umap"
                 try:
-                    projection = UMAPOptions(**projection)
-                    projection_params = projection.model_dump(exclude_none=True)
-                except Exception:
-                    logger.warning(f"Could not instantiate UMAPOptions from dict. Using dict as-is.")
-                    projection_params = {k: v for k, v in projection.items() if k != "algorithm"}
+                    umap_projection = UMAPOptions(**{k: v for k, v in projection.items() if k != "algorithm"})
+                except Exception as e:
+                    raise ValueError(f"Could not instantiate UMAPOptions from dict: {e}")
             else:
-                projection = NomicProjectOptions(**projection)
-                projection_params = {
-                    "n_neighbors": projection.n_neighbors,
-                    "n_epochs": projection.n_epochs,
-                    "spread": projection.spread,
-                    "local_neighborhood_size": projection.local_neighborhood_size,
-                    "rho": projection.rho,
-                    "model": projection.model,
-                }
-        else:
-            projection = NomicProjectOptions()
-            projection_params = {
-                "n_neighbors": projection.n_neighbors,
-                "n_epochs": projection.n_epochs,
-                "spread": projection.spread,
-                "local_neighborhood_size": projection.local_neighborhood_size,
-                "rho": projection.rho,
-                "model": projection.model,
-            }
+                nomic_projection = NomicProjectOptions(**projection)
+        elif projection is True:
+            nomic_projection = NomicProjectOptions()
+        # If projection is False, keep both projection objects as None
 
         topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
@@ -1180,6 +1168,26 @@ class AtlasDataset(AtlasClass):
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                 )
+            
+            # Set up projection hyperparameters based on the type of projection
+            if projection_algorithm == "umap" and umap_projection is not None:
+                projection_hyperparameters = {
+                    "n_neighbors": umap_projection.n_neighbors,
+                    "min_dist": umap_projection.min_dist,
+                    "n_epochs": umap_projection.n_epochs
+                }
+            elif nomic_projection is not None:
+                projection_hyperparameters = {
+                    "n_neighbors": nomic_projection.n_neighbors,
+                    "n_epochs": nomic_projection.n_epochs,
+                    "spread": nomic_projection.spread,
+                    "local_neighborhood_size": nomic_projection.local_neighborhood_size,
+                    "rho": nomic_projection.rho,
+                    "model": nomic_projection.model,
+                }
+            else:
+                projection_hyperparameters = {}
+                
             build_template = {
                 "project_id": self.id,
                 "index_name": name,
@@ -1190,8 +1198,7 @@ class AtlasDataset(AtlasClass):
                 "model_hyperparameters": None,
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
-                "projection": projection_algorithm,
-                "projection_hyperparameters": json.dumps(projection_params),
+                "projection_hyperparameters": json.dumps(projection_hyperparameters),
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
@@ -1207,9 +1214,8 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
-            if projection is False:
-                del build_template["projection"]
-                build_template["projection_hyperparameters"] = json.dumps({})
+            if projection is not False:
+                build_template["projection"] = projection_algorithm
 
         elif modality == "text" or modality == "image":
             reuse_embedding_from_index_id = None
@@ -1244,6 +1250,25 @@ class AtlasDataset(AtlasClass):
             else:
                 topic_field = topic_model.topic_label_field
 
+            # Set up projection hyperparameters based on the type of projection
+            if projection_algorithm == "umap" and umap_projection is not None:
+                projection_hyperparameters = {
+                    "n_neighbors": umap_projection.n_neighbors,
+                    "min_dist": umap_projection.min_dist,
+                    "n_epochs": umap_projection.n_epochs
+                }
+            elif nomic_projection is not None:
+                projection_hyperparameters = {
+                    "n_neighbors": nomic_projection.n_neighbors,
+                    "n_epochs": nomic_projection.n_epochs,
+                    "spread": nomic_projection.spread,
+                    "local_neighborhood_size": nomic_projection.local_neighborhood_size,
+                    "rho": nomic_projection.rho,
+                    "model": nomic_projection.model,
+                }
+            else:
+                projection_hyperparameters = {}
+                
             build_template = {
                 "project_id": self.id,
                 "index_name": name,
@@ -1262,8 +1287,7 @@ class AtlasDataset(AtlasClass):
                 ),
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
-                "projection": projection_algorithm,
-                "projection_hyperparameters": json.dumps(projection_params),
+                "projection_hyperparameters": json.dumps(projection_hyperparameters),
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
@@ -1279,9 +1303,8 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
-            if projection is False:
-                del build_template["projection"]
-                build_template["projection_hyperparameters"] = json.dumps({})
+            if projection is not False:
+                build_template["projection"] = projection_algorithm
 
         response = requests.post(
             self.atlas_api_path + "/v1/project/index/create",

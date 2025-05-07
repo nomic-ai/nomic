@@ -51,17 +51,7 @@ def map_data(
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         is_public: Should the dataset be accessible outside your Nomic Atlas organization.
         indexed_field: The text field from the dataset that will be used to create embeddings, which determines the layout of the data map in Atlas. Required for text data but won't have an impact if uploading embeddings or image blobs.
-        projection: Options for configuring the 2D projection algorithm. Can be:
-            - True (default): Use backend defaults (auto-select algorithm based on dataset size).
-            - False: Disable projection.
-            - NomicProjectOptions: Use Nomic Project algorithm with specified options. e.g., `NomicProjectOptions(n_neighbors=10, model="nomic-project-v2")`
-            - UMAPOptions: Use UMAP algorithm with specified options. e.g., `UMAPOptions(n_neighbors=15, min_dist=0.1, metric="cosine")`
-            - Dictionary: Provide parameters directly.
-                - If an 'algorithm' key ('umap', 'nomic-project', 'auto') is present, it will be used.
-                - If no 'algorithm' key is present, 'auto' is used (the backend selects the algorithm).
-                Example: `{'n_neighbors': 20, 'spread': 0.5}` (uses 'auto' algorithm with these generic params)
-                Example: `{'algorithm': 'umap', 'n_neighbors': 5, 'min_dist': 0.1}`
-                Example: `{'algorithm': 'nomic-project', 'model': 'nomic-project-v2', 'rho': 0.5}`
+        projection: Options for configuring the 2D projection algorithm.
         topic_model: Options to adjust Nomic Topic - the topic model organizing your dataset.
         duplicate_detection: Options to adjust Nomic Duplicates - the duplicate detection algorithm.
         embedding_model: Options to adjust the embedding model used to embed your dataset.
