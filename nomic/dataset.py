@@ -1120,6 +1120,23 @@ class AtlasDataset(AtlasClass):
             nomic_projection = NomicProjectOptions()
         # If projection is False, keep both projection objects as None
 
+        projection_hyperparameters = {}
+        if projection_algorithm == "umap" and umap_projection is not None:
+            projection_hyperparameters = {
+                "n_neighbors": umap_projection.n_neighbors,
+                "min_dist": umap_projection.min_dist,
+                "n_epochs": umap_projection.n_epochs,
+            }
+        elif nomic_projection is not None:
+            projection_hyperparameters = {
+                "n_neighbors": nomic_projection.n_neighbors,
+                "n_epochs": nomic_projection.n_epochs,
+                "spread": nomic_projection.spread,
+                "local_neighborhood_size": nomic_projection.local_neighborhood_size,
+                "rho": nomic_projection.rho,
+                "model": nomic_projection.model,
+            }
+
         topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
             topic_model = NomicTopicOptions(**topic_model)
@@ -1169,25 +1186,6 @@ class AtlasDataset(AtlasClass):
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                 )
 
-            # Set up projection hyperparameters based on the type of projection
-            if projection_algorithm == "umap" and umap_projection is not None:
-                projection_hyperparameters = {
-                    "n_neighbors": umap_projection.n_neighbors,
-                    "min_dist": umap_projection.min_dist,
-                    "n_epochs": umap_projection.n_epochs,
-                }
-            elif nomic_projection is not None:
-                projection_hyperparameters = {
-                    "n_neighbors": nomic_projection.n_neighbors,
-                    "n_epochs": nomic_projection.n_epochs,
-                    "spread": nomic_projection.spread,
-                    "local_neighborhood_size": nomic_projection.local_neighborhood_size,
-                    "rho": nomic_projection.rho,
-                    "model": nomic_projection.model,
-                }
-            else:
-                projection_hyperparameters = {}
-
             build_template = {
                 "project_id": self.id,
                 "index_name": name,
@@ -1202,7 +1200,7 @@ class AtlasDataset(AtlasClass):
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
-                        "community_description_target_field": topic_model.topic_label_field,
+                        "community_description_target_field": topic_model.topic_label_field,  # TODO change key to topic_label_field post v0.0.85
                         "cluster_method": topic_model.cluster_method,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
@@ -1233,12 +1231,12 @@ class AtlasDataset(AtlasClass):
             if indexed_field is None and modality == "text":
                 raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
-            if indexed_field not in self.dataset_fields and modality == "text":
+            if indexed_field not in self.dataset_fields:
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
 
             if modality == "image":
                 if topic_model.topic_label_field is None:
-                    logger.warning(
+                    print(
                         "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                     )
                     topic_field = None
@@ -1249,25 +1247,6 @@ class AtlasDataset(AtlasClass):
                     )
             else:
                 topic_field = topic_model.topic_label_field
-
-            # Set up projection hyperparameters based on the type of projection
-            if projection_algorithm == "umap" and umap_projection is not None:
-                projection_hyperparameters = {
-                    "n_neighbors": umap_projection.n_neighbors,
-                    "min_dist": umap_projection.min_dist,
-                    "n_epochs": umap_projection.n_epochs,
-                }
-            elif nomic_projection is not None:
-                projection_hyperparameters = {
-                    "n_neighbors": nomic_projection.n_neighbors,
-                    "n_epochs": nomic_projection.n_epochs,
-                    "spread": nomic_projection.spread,
-                    "local_neighborhood_size": nomic_projection.local_neighborhood_size,
-                    "rho": nomic_projection.rho,
-                    "model": nomic_projection.model,
-                }
-            else:
-                projection_hyperparameters = {}
 
             build_template = {
                 "project_id": self.id,
@@ -1292,7 +1271,7 @@ class AtlasDataset(AtlasClass):
                     {
                         "build_topic_model": topic_model.build_topic_model,
                         "community_description_target_field": topic_field,
-                        "cluster_method": topic_model.cluster_method,
+                        "cluster_method": topic_model.build_topic_model,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
                 ),
