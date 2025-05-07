@@ -1118,9 +1118,9 @@ class AtlasDataset(AtlasClass):
             projection_options = ProjectionOptions()
         # If projection is False, keep both projection objects as None
 
-        projection_hyperparameters = {}
+        projection_hyperparameters: Dict[str, Union[str, int, float, None]] = {}
         if projection_options is not None:
-            projection_hyperparameters = {"model": projection_options.model}
+            projection_hyperparameters["model"] = projection_options.model
             if projection_algorithm == "umap":
                 if projection_options.n_neighbors is not None:
                     projection_hyperparameters["n_neighbors"] = projection_options.n_neighbors

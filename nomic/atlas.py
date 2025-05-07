@@ -172,7 +172,7 @@ def map_data(
         name=index_name,
         indexed_field=indexed_field,
         modality=modality,
-        projection=projection,
+        projection=projection,  # type: ignore[arg-type]
         topic_model=topic_model,
         duplicate_detection=duplicate_detection,
         embedding_model=embedding_model,
