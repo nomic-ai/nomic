@@ -586,7 +586,7 @@ def test_map_embeddings_explicit_projection_options():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection=ProjectionOptions(n_neighbors=5, min_dist=0.01, n_epochs=25, algorithm="umap"), # Explicitly UMAP
+        projection=ProjectionOptions(n_neighbors=5, min_dist=0.01, n_epochs=25, algorithm="umap"),  # Explicitly UMAP
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -600,7 +600,9 @@ def test_map_embeddings_explicit_projection_options():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection=ProjectionOptions(n_neighbors=7, model="nomic-project-v1", n_epochs=20, spread=0.6, algorithm="nomic-project"), # Explicitly Nomic
+        projection=ProjectionOptions(
+            n_neighbors=7, model="nomic-project-v1", n_epochs=20, spread=0.6, algorithm="nomic-project"
+        ),  # Explicitly Nomic
     )
     assert dataset_nomic.id is not None
     projection_nomic = dataset_nomic.maps[0]
@@ -623,7 +625,7 @@ def test_map_text_explicit_projection_options():
         indexed_field="text_field",
         data=data,
         is_public=True,
-        projection=ProjectionOptions(n_neighbors=5, min_dist=0.05, n_epochs=30, algorithm="umap"), # Explicitly UMAP
+        projection=ProjectionOptions(n_neighbors=5, min_dist=0.05, n_epochs=30, algorithm="umap"),  # Explicitly UMAP
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -638,7 +640,12 @@ def test_map_text_explicit_projection_options():
         data=data,
         is_public=True,
         projection=ProjectionOptions(
-            n_epochs=30, spread=0.5, model="nomic-project-v2", rho=0.5, local_neighborhood_size=32, algorithm="nomic-project" # Explicitly Nomic
+            n_epochs=30,
+            spread=0.5,
+            model="nomic-project-v2",
+            rho=0.5,
+            local_neighborhood_size=32,
+            algorithm="nomic-project",  # Explicitly Nomic
         ),
     )
     assert dataset_nomic.id is not None
