@@ -17,9 +17,8 @@ from tqdm import tqdm
 from .data_inference import (
     NomicDuplicatesOptions,
     NomicEmbedOptions,
-    NomicProjectOptions,
     NomicTopicOptions,
-    UMAPOptions,
+    ProjectionOptions
 )
 from .dataset import AtlasDataset, AtlasDataStream
 from .settings import *
@@ -35,7 +34,7 @@ def map_data(
     id_field: Optional[str] = None,
     is_public: bool = True,
     indexed_field: Optional[str] = None,
-    projection: Union[bool, Dict, NomicProjectOptions, UMAPOptions] = True,
+    projection: Union[bool, Dict, ProjectionOptions] = True,
     topic_model: Union[bool, Dict, NomicTopicOptions] = True,
     duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
     embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
