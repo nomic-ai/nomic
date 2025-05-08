@@ -11,7 +11,7 @@ import pyarrow as pa
 import pytest
 
 from nomic import AtlasDataset, atlas
-from nomic.data_inference import NomicProjectOptions, UMAPOptions
+from nomic.data_inference import NomicProjectOptions, UMAPOptions, ProjectionOptions
 
 
 def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
@@ -572,3 +572,76 @@ def test_map_embeddings_legacy_dict_with_explicit_algorithm():
     projection = dataset.maps[0]
     _wait_for_projection_completion(projection)
     dataset.delete()
+
+
+def test_map_embeddings_explicit_projection_options():
+    num_embeddings = 50
+    embeddings = np.random.rand(num_embeddings, 10)
+    data = [{"id": str(i)} for i in range(num_embeddings)]
+
+    dataset_identifier = f"unittest-projection-opts-embeddings-{gen_temp_identifier()}"
+    dataset = atlas.map_data(
+        identifier=dataset_identifier,
+        id_field="id",
+        embeddings=embeddings,
+        data=data,
+        is_public=True,
+        projection=ProjectionOptions(n_neighbors=5, min_dist=0.01, n_epochs=25, algorithm="umap"), # Explicitly UMAP
+    )
+    assert dataset.id is not None
+    projection = dataset.maps[0]
+    _wait_for_projection_completion(projection)
+    dataset.delete()
+
+    dataset_identifier_nomic = f"unittest-projection-opts-embeddings-nomic-{gen_temp_identifier()}"
+    dataset_nomic = atlas.map_data(
+        identifier=dataset_identifier_nomic,
+        id_field="id",
+        embeddings=embeddings,
+        data=data,
+        is_public=True,
+        projection=ProjectionOptions(n_neighbors=7, model="nomic-project-v1", n_epochs=20, spread=0.6, algorithm="nomic-project"), # Explicitly Nomic
+    )
+    assert dataset_nomic.id is not None
+    projection_nomic = dataset_nomic.maps[0]
+    _wait_for_projection_completion(projection_nomic)
+    dataset_nomic.delete()
+
+
+def test_map_text_explicit_projection_options():
+    size = 50
+    data = pd.DataFrame(
+        {
+            "text_field": [words[i % len(words)] for i in range(size)],
+            "id": [str(i) for i in range(size)],
+        }
+    )
+    dataset_identifier = f"unittest-projection-opts-text-{gen_temp_identifier()}"
+    dataset = atlas.map_data(
+        identifier=dataset_identifier,
+        id_field="id",
+        indexed_field="text_field",
+        data=data,
+        is_public=True,
+        projection=ProjectionOptions(n_neighbors=5, min_dist=0.05, n_epochs=30, algorithm="umap"), # Explicitly UMAP
+    )
+    assert dataset.id is not None
+    projection = dataset.maps[0]
+    _wait_for_projection_completion(projection)
+    dataset.delete()
+
+    dataset_identifier_nomic = f"unittest-projection-opts-text-nomic-{gen_temp_identifier()}"
+    dataset_nomic = atlas.map_data(
+        identifier=dataset_identifier_nomic,
+        id_field="id",
+        indexed_field="text_field",
+        data=data,
+        is_public=True,
+        projection=ProjectionOptions(
+            n_epochs=30, spread=0.5, model="nomic-project-v2", rho=0.5, local_neighborhood_size=32, algorithm="nomic-project" # Explicitly Nomic
+        ),
+    )
+    assert dataset_nomic.id is not None
+    projection_nomic = dataset_nomic.maps[0]
+    _wait_for_projection_completion(projection_nomic)
+    dataset_nomic.delete()
