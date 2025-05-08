@@ -62,13 +62,13 @@ class ProjectionOptions(BaseModel):
     Generic options for 2D Dimensionality Reduction
 
     Args:
-        model: The projection model to use. Options: "umap" or "nomic-project-v1" or "nomic-project-v2". Default: None (Auto-inferred).
-        n_neighbors: The number of neighbors to use for the projection algorithm. Default: None (Auto-inferred).
-        n_epochs: How many dataset passes to train the projection model. Default: None (Auto-inferred).
-        min_dist: Controls how tightly points are packed together. Default: None (Auto-inferred, typically 0.1).
-        spread: Nomic Project specific: Determines how tight together points appear. Default: None (Auto-inferred).
-        local_neighborhood_size: Nomic Project v2 specific: Controls the local neighborhood size. Default: None (Auto-inferred).
-        rho: Nomic Project v2 specific: Controls the spread in local structure. Default: None (Auto-inferred).
+        model: The projection model to use. 
+        n_neighbors: The number of neighbors to use for the projection algorithm. 
+        n_epochs: How many dataset passes to train the projection model. 
+        min_dist: Controls how tightly points are packed together. 
+        spread: Nomic Project specific: Determines how tight together points appear. 
+        local_neighborhood_size: Nomic Project v2 specific: Controls the local neighborhood size. 
+        rho: Nomic Project v2 specific: Controls the spread in local structure. 
     """
 
     model: Optional[str] = Field(
