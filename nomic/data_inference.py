@@ -94,13 +94,13 @@ class NomicProjectOptions(BaseModel):
     Options for Nomic Project 2D Dimensionality Reduction Model
 
     Args:
-        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction. Default: `None` (Auto-inferred).
-        n_epochs: How many dataset passes to train the projection model. Default: `None` (Auto-inferred).
-        model: The Nomic Project model version to use. Possible values: `None` or `nomic-project-v1` or `nomic-project-v2`. Default: `None` (Auto-inferred by backend).
-        local_neighborhood_size: Only used when `model` is `nomic-project-v2`. Controls the size of the neighborhood used in the local structure optimizing step of `nomic-project-v2` algorithm. Min value: `max(n_neighbors, 1)`; max value: `128`. Default: `None` (Auto-inferred).
-        spread: Determines how tight together points appear. Larger values result in a more spread out point layout. Min value: `0`. It is recommended leaving this value as the default `None` (Auto-inferred).
-        rho: Only used when `model` is `nomic-project-v2`. Controls the spread in the local structure optimizing step of `nomic-project-v2`. Min value: `0`; max value: `1`. It is recommended to leave this value as the default `None` (Auto-inferred).
-        min_dist: Controls how tightly points are packed together. Affects the size of clusters. Default: `None` (Auto-inferred, typically 0.1).
+        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction.
+        n_epochs: How many dataset passes to train the projection model.
+        model: The Nomic Project model version to use. 
+        local_neighborhood_size: Only used when `model` is `nomic-project-v2`. Controls the size of the neighborhood used in the local structure optimizing step of `nomic-project-v2` algorithm. Min value: `max(n_neighbors, 1)`; max value: `128`.
+        spread: Determines how tight together points appear. Larger values result in a more spread out point layout. Min value: `0`. It is recommended leaving this value as the default `None`
+        rho: Only used when `model` is `nomic-project-v2`. Controls the spread in the local structure optimizing step of `nomic-project-v2`. Min value: `0`; max value: `1`. It is recommended to leave this value as the default `None`
+        min_dist: Controls how tightly points are packed together. Affects the size of clusters. 
     """
 
     n_neighbors: Optional[int] = Field(default=None, description="Number of neighbors for the projection algorithm.")
@@ -126,9 +126,9 @@ class UMAPOptions(BaseModel):
     Options for UMAP 2D Dimensionality Reduction Algorithm
 
     Args:
-        n_neighbors: The number of neighbors to consider for each point. Default: `None` (UMAP default, typically 15).
-        n_epochs: Number of training epochs for UMAP optimizer. Default: `None` (UMAP default, auto-calibrated).
-        min_dist: Controls how tightly UMAP is allowed to pack points together. Affects the size of clusters. Default: `None` (UMAP default, typically 0.1).
+        n_neighbors: The number of neighbors to consider for each point. 
+        n_epochs: Number of training epochs for UMAP optimizer. 
+        min_dist: Controls how tightly UMAP is allowed to pack points together. Affects the size of clusters. 
     """
 
     n_neighbors: Optional[int] = Field(default=None, description="Number of neighbors for the UMAP algorithm.")
