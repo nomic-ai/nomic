@@ -14,12 +14,7 @@ from PIL import Image
 from pyarrow import Table
 from tqdm import tqdm
 
-from .data_inference import (
-    NomicDuplicatesOptions,
-    NomicEmbedOptions,
-    NomicTopicOptions,
-    ProjectionOptions
-)
+from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicTopicOptions, ProjectionOptions
 from .dataset import AtlasDataset, AtlasDataStream
 from .settings import *
 from .utils import arrow_iterator, b64int, get_random_name
