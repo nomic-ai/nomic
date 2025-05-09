@@ -1167,6 +1167,7 @@ class AtlasDataset(AtlasClass):
                 "model_hyperparameters": None,
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
+                "projection": "NomicProject",
                 "projection_hyperparameters": json.dumps(projection_hyperparameters),
                 "topic_model_hyperparameters": json.dumps(
                     {
@@ -1183,11 +1184,6 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
-            if projection is not None and projection_options is not None:
-                build_template["projection"] = (
-                    projection_options.model if projection_options.model else "nomic-project-v2"
-                )
-                build_template["projection_hyperparameters"] = json.dumps(projection_hyperparameters)
 
         elif modality == "text" or modality == "image":
             reuse_embedding_from_index_id = None
@@ -1240,6 +1236,7 @@ class AtlasDataset(AtlasClass):
                 ),
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
+                "projection": "NomicProject",
                 "projection_hyperparameters": json.dumps(projection_hyperparameters),
                 "topic_model_hyperparameters": json.dumps(
                     {
@@ -1256,11 +1253,6 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
-            if projection is not None and projection_options is not None:
-                build_template["projection"] = (
-                    projection_options.model if projection_options.model else "nomic-project-v2"
-                )
-                build_template["projection_hyperparameters"] = json.dumps(projection_hyperparameters)
 
         response = requests.post(
             self.atlas_api_path + "/v1/project/index/create",
