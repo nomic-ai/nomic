@@ -1105,11 +1105,8 @@ class AtlasDataset(AtlasClass):
             projection_options = ProjectionOptions(**projection)
         elif projection is True:
             projection_options = ProjectionOptions()
-        # If projection is False, projection_options remains None
 
-        projection_hyperparameters: Dict[str, Union[str, int, float, None]] = {}
-        if projection_options is not None:
-            projection_hyperparameters = projection_options.model_dump()
+        projection_hyperparameters = projection_options.model_dump()
 
         topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
