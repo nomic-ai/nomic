@@ -29,8 +29,8 @@ from .cli import refresh_bearer_token, validate_api_http_response
 from .data_inference import (
     NomicDuplicatesOptions,
     NomicEmbedOptions,
-    NomicProjectOptions,
     NomicTopicOptions,
+    ProjectionOptions,
     convert_pyarrow_schema_for_atlas,
 )
 from .data_operations import AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
@@ -1049,7 +1049,7 @@ class AtlasDataset(AtlasClass):
                 for projection in index.projections:
                     if projection.id == projection_id:
                         return projection
-            raise ValueError(f"Could not find a map with projection_id='{atlas_index_id}'")
+            raise ValueError(f"Could not find a map with projection_id='{projection_id}'")
 
         if len(indices) == 0:
             raise ValueError("You have no maps built in your project")
@@ -1071,7 +1071,7 @@ class AtlasDataset(AtlasClass):
         name: Optional[str] = None,
         indexed_field: Optional[str] = None,
         modality: Optional[str] = None,
-        projection: Union[bool, Dict, NomicProjectOptions] = True,
+        projection: Union[Dict, ProjectionOptions, None] = None,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
@@ -1085,7 +1085,7 @@ class AtlasDataset(AtlasClass):
             indexed_field: For text datasets, name the data field corresponding to the text to be mapped.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
             modality: The data modality of this index. Currently, Atlas supports either `text`, `image`, or `embedding` indices.
-            projection: Options for configuring the 2D projection algorithm
+            projection: Options for configuring the 2D projection algorithm or None to let cloud decide
             topic_model: Options for configuring the topic model
             duplicate_detection: Options for configuring semantic duplicate detection
             embedding_model: Options for configuring the embedding model
@@ -1097,10 +1097,16 @@ class AtlasDataset(AtlasClass):
 
         self._latest_dataset_state()
 
-        if isinstance(projection, Dict):
-            projection = NomicProjectOptions(**projection)
-        else:
-            projection = NomicProjectOptions()
+        projection_options: Optional[ProjectionOptions] = None
+
+        if isinstance(projection, ProjectionOptions):
+            projection_options = projection
+        elif isinstance(projection, dict):
+            projection_options = ProjectionOptions(**projection)
+
+        projection_hyperparameters: dict = {}
+        if projection_options is not None:
+            projection_hyperparameters = projection_options.model_dump()
 
         topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
@@ -1134,9 +1140,9 @@ class AtlasDataset(AtlasClass):
             modality = self.meta["modality"]
 
         if modality == "image":
+            if indexed_field is not None and indexed_field != "_blob_hash":
+                logger.warning("Ignoring user-provided indexed_field for image datasets. Using _blob_hash.")
             indexed_field = "_blob_hash"
-            if indexed_field is not None:
-                logger.warning("Ignoring indexed_field for image datasets. Only _blob_hash is supported.")
 
         colorable_fields = []
 
@@ -1150,6 +1156,7 @@ class AtlasDataset(AtlasClass):
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
                 )
+
             build_template = {
                 "project_id": self.id,
                 "index_name": name,
@@ -1161,20 +1168,11 @@ class AtlasDataset(AtlasClass):
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
                 "projection": "NomicProject",
-                "projection_hyperparameters": json.dumps(
-                    {
-                        "n_neighbors": projection.n_neighbors,
-                        "n_epochs": projection.n_epochs,
-                        "spread": projection.spread,
-                        "local_neighborhood_size": projection.local_neighborhood_size,
-                        "rho": projection.rho,
-                        "model": projection.model,
-                    }
-                ),
+                "projection_hyperparameters": json.dumps(projection_hyperparameters),
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
-                        "community_description_target_field": topic_model.topic_label_field,  # TODO change key to topic_label_field post v0.0.85
+                        "community_description_target_field": topic_model.topic_label_field,
                         "cluster_method": topic_model.cluster_method,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
@@ -1188,7 +1186,6 @@ class AtlasDataset(AtlasClass):
             }
 
         elif modality == "text" or modality == "image":
-            # find the index id of the index with name reuse_embeddings_from_index
             reuse_embedding_from_index_id = None
             indices = self.indices
             if reuse_embeddings_from_index is not None:
@@ -1240,21 +1237,12 @@ class AtlasDataset(AtlasClass):
                 "nearest_neighbor_index": "HNSWIndex",
                 "nearest_neighbor_index_hyperparameters": json.dumps({"space": "l2", "ef_construction": 100, "M": 16}),
                 "projection": "NomicProject",
-                "projection_hyperparameters": json.dumps(
-                    {
-                        "n_neighbors": projection.n_neighbors,
-                        "n_epochs": projection.n_epochs,
-                        "spread": projection.spread,
-                        "local_neighborhood_size": projection.local_neighborhood_size,
-                        "rho": projection.rho,
-                        "model": projection.model,
-                    }
-                ),
+                "projection_hyperparameters": json.dumps(projection_hyperparameters),
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
                         "community_description_target_field": topic_field,
-                        "cluster_method": topic_model.build_topic_model,
+                        "cluster_method": topic_model.cluster_method,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
                 ),

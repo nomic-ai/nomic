@@ -57,25 +57,36 @@ def convert_pyarrow_schema_for_atlas(schema: pa.Schema) -> pa.Schema:
     return pa.schema({**usertypes, **whitelist})
 
 
-class NomicProjectOptions(BaseModel):
+class ProjectionOptions(BaseModel):
     """
-    Options for Nomic 2D Dimensionality Reduction Model
+    Generic options for 2D Dimensionality Reduction
 
     Args:
-        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction. Default: `None` (Auto-inferred).
-        n_epochs: How many dataset passes to train the projection model. Default: `None` (Auto-inferred).
-        model: The model to use when generating the 2D projected embedding space layout. Possible values: `None` or `nomic-project-v1` or `nomic-project-v2`. Default: `None`.
-        local_neighborhood_size: Only used when model is `nomic-project-v2`. Controls the size of the neighborhood used in the local structure optimizing step of `nomic-project-v2` algorithm. Min value: `max(n_neighbors, 1)`; max value: `128`. Default: `None` (Auto-inferred).
-        spread: Determines how tight together points appear. Larger values result a more spread out point layout. Min value: `0`. It is recommended leaving this value as the default `None` (Auto-inferred).
-        rho: Only used when model is nomic-project-v2. Controls the spread in the local structure optimizing step of `nomic-project-v2`. Min value: `0`; max value: `1`. It is recommended to leave this value as the default `None` (Auto-inferred).
+        model: The projection model to use.
+        n_neighbors: The number of neighbors to use for the projection algorithm.
+        n_epochs: How many dataset passes to train the projection model.
+        min_dist: Controls how tightly points are packed together.
+        spread: Nomic Project specific: Determines how tight together points appear.
+        local_neighborhood_size: Nomic Project v2 specific: Controls the local neighborhood size.
+        rho: Nomic Project v2 specific: Controls the spread in local structure.
     """
 
-    n_neighbors: Optional[int] = None
-    n_epochs: Optional[int] = None
-    spread: Optional[float] = None
-    local_neighborhood_size: Optional[int] = None
-    model: Optional[str] = None
-    rho: Optional[float] = None
+    model: Optional[str] = Field(
+        default=None,
+        description="Projection model to use (e.g., 'umap', 'nomic-project-v1', 'nomic-project-v2').",
+    )
+    n_neighbors: Optional[int] = Field(default=None, description="Number of neighbors for the projection algorithm.")
+    n_epochs: Optional[int] = Field(default=None, description="Number of epochs for training the projection model.")
+    min_dist: Optional[float] = Field(default=None, description="Minimum distance between points.")
+    spread: Optional[float] = Field(default=None, description="Nomic Project specific: Spread of the point layout.")
+    local_neighborhood_size: Optional[int] = Field(
+        default=None,
+        description="Nomic Project v2 specific: Local neighborhood size. Only used when model is 'nomic-project-v2'.",
+    )
+    rho: Optional[float] = Field(
+        default=None,
+        description="Nomic Project v2 specific: Rho parameter. Only used when model is 'nomic-project-v2'.",
+    )
 
 
 class NomicTopicOptions(BaseModel):

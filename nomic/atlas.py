@@ -14,7 +14,7 @@ from PIL import Image
 from pyarrow import Table
 from tqdm import tqdm
 
-from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicProjectOptions, NomicTopicOptions
+from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicTopicOptions, ProjectionOptions
 from .dataset import AtlasDataset, AtlasDataStream
 from .settings import *
 from .utils import arrow_iterator, b64int, get_random_name
@@ -29,7 +29,7 @@ def map_data(
     id_field: Optional[str] = None,
     is_public: bool = True,
     indexed_field: Optional[str] = None,
-    projection: Union[bool, Dict, NomicProjectOptions] = True,
+    projection: Optional[Union[Dict, ProjectionOptions]] = None,
     topic_model: Union[bool, Dict, NomicTopicOptions] = True,
     duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
     embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
@@ -45,7 +45,7 @@ def map_data(
         id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
         is_public: Should the dataset be accessible outside your Nomic Atlas organization.
         indexed_field: The text field from the dataset that will be used to create embeddings, which determines the layout of the data map in Atlas. Required for text data but won't have an impact if uploading embeddings or image blobs.
-        projection: Options to adjust Nomic Project - the dimensionality algorithm organizing your dataset.
+        projection: Options for configuring the 2D projection algorithm.
         topic_model: Options to adjust Nomic Topic - the topic model organizing your dataset.
         duplicate_detection: Options to adjust Nomic Duplicates - the duplicate detection algorithm.
         embedding_model: Options to adjust the embedding model used to embed your dataset.
@@ -144,6 +144,8 @@ def map_data(
     # Add data by modality
     logger.info("Uploading data to Atlas.")
     try:
+        if isinstance(data, DataFrame):
+            data = data.to_dict(orient="records")
         if modality == "text":
             dataset.add_data(data=data)
         elif modality == "embedding":
@@ -166,7 +168,7 @@ def map_data(
         name=index_name,
         indexed_field=indexed_field,
         modality=modality,
-        projection=projection,
+        projection=projection,  # type: ignore[arg-type]
         topic_model=topic_model,
         duplicate_detection=duplicate_detection,
         embedding_model=embedding_model,
