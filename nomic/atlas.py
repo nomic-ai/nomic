@@ -144,6 +144,8 @@ def map_data(
     # Add data by modality
     logger.info("Uploading data to Atlas.")
     try:
+        if isinstance(data, DataFrame):
+            data = data.to_dict(orient="records")
         if modality == "text":
             dataset.add_data(data=data)
         elif modality == "embedding":
