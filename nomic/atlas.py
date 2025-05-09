@@ -29,7 +29,7 @@ def map_data(
     id_field: Optional[str] = None,
     is_public: bool = True,
     indexed_field: Optional[str] = None,
-    projection: Union[bool, Dict, ProjectionOptions] = True,
+    projection: Union[Dict, ProjectionOptions] = None,
     topic_model: Union[bool, Dict, NomicTopicOptions] = True,
     duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
     embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,

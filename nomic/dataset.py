@@ -1071,7 +1071,7 @@ class AtlasDataset(AtlasClass):
         name: Optional[str] = None,
         indexed_field: Optional[str] = None,
         modality: Optional[str] = None,
-        projection: Union[bool, Dict, ProjectionOptions] = True,
+        projection: Union[Dict, ProjectionOptions, None] = None,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
         embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
@@ -1085,7 +1085,7 @@ class AtlasDataset(AtlasClass):
             indexed_field: For text datasets, name the data field corresponding to the text to be mapped.
             reuse_embeddings_from_index: the name of the index to reuse embeddings from.
             modality: The data modality of this index. Currently, Atlas supports either `text`, `image`, or `embedding` indices.
-            projection: Options for configuring the 2D projection algorithm
+            projection: Options for configuring the 2D projection algorithm or None to let cloud decide
             topic_model: Options for configuring the topic model
             duplicate_detection: Options for configuring semantic duplicate detection
             embedding_model: Options for configuring the embedding model
@@ -1103,8 +1103,6 @@ class AtlasDataset(AtlasClass):
             projection_options = projection
         elif isinstance(projection, dict):
             projection_options = ProjectionOptions(**projection)
-        elif projection is True:
-            projection_options = ProjectionOptions()
 
         projection_hyperparameters: dict = {}
         if projection_options is not None:
@@ -1185,8 +1183,10 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
-            if projection is not False and projection_options is not None:
-                build_template["projection"] = projection_options.model if projection_options.model else "nomic-project"
+            if projection is not None and projection_options is not None:
+                build_template["projection"] = (
+                    projection_options.model if projection_options.model else "nomic-project-v2"
+                )
                 build_template["projection_hyperparameters"] = json.dumps(projection_hyperparameters)
 
         elif modality == "text" or modality == "image":
@@ -1256,8 +1256,10 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
-            if projection is not False and projection_options is not None:
-                build_template["projection"] = projection_options.model if projection_options.model else "nomic-project"
+            if projection is not None and projection_options is not None:
+                build_template["projection"] = (
+                    projection_options.model if projection_options.model else "nomic-project-v2"
+                )
                 build_template["projection_hyperparameters"] = json.dumps(projection_hyperparameters)
 
         response = requests.post(

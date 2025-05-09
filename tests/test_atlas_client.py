@@ -775,7 +775,6 @@ def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     _wait_for_projection_completion(projection)
     dataset.delete()
 
-    # Test with explicit algorithm="nomic-project"
     dataset_identifier = f"unittest-legacy-dict-algo-nomic-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
@@ -783,7 +782,7 @@ def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection={"model": "nomic-project", "n_neighbors": 11, "n_epochs": 28},
+        projection={"model": "nomic-project-v2", "n_neighbors": 11, "n_epochs": 28},
     )
     assert dataset.id is not None
     projection = dataset.maps[0]

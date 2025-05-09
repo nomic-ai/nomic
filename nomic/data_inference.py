@@ -89,53 +89,6 @@ class ProjectionOptions(BaseModel):
     )
 
 
-class NomicProjectOptions(BaseModel):
-    """
-    Options for Nomic Project 2D Dimensionality Reduction Model
-
-    Args:
-        n_neighbors: The number of neighbors to use when approximating the high dimensional embedding space during reduction.
-        n_epochs: How many dataset passes to train the projection model.
-        model: The Nomic Project model version to use.
-        local_neighborhood_size: Only used when `model` is `nomic-project-v2`. Controls the size of the neighborhood used in the local structure optimizing step of `nomic-project-v2` algorithm. Min value: `max(n_neighbors, 1)`; max value: `128`.
-        spread: Determines how tight together points appear. Larger values result in a more spread out point layout. Min value: `0`. It is recommended leaving this value as the default `None`
-        rho: Only used when `model` is `nomic-project-v2`. Controls the spread in the local structure optimizing step of `nomic-project-v2`. Min value: `0`; max value: `1`. It is recommended to leave this value as the default `None`
-        min_dist: Controls how tightly points are packed together. Affects the size of clusters.
-    """
-
-    n_neighbors: Optional[int] = Field(default=None, description="Number of neighbors for the projection algorithm.")
-    n_epochs: Optional[int] = Field(default=None, description="Number of epochs for training the projection model.")
-    spread: Optional[float] = Field(default=None, description="Spread of the point layout.")
-    local_neighborhood_size: Optional[int] = Field(
-        default=None,
-        description="Nomic Project v2 specific: Local neighborhood size. Only used when model is 'nomic-project-v2'.",
-    )
-    model: Optional[str] = Field(
-        default=None,
-        description="Nomic Project model version (e.g., 'nomic-project-v1', 'nomic-project-v2').",
-    )
-    rho: Optional[float] = Field(
-        default=None,
-        description="Nomic Project v2 specific: Rho parameter. Only used when model is 'nomic-project-v2'.",
-    )
-    min_dist: Optional[float] = Field(default=None, description="Minimum distance between points.")
-
-
-class UMAPOptions(BaseModel):
-    """
-    Options for UMAP 2D Dimensionality Reduction Algorithm
-
-    Args:
-        n_neighbors: The number of neighbors to consider for each point.
-        n_epochs: Number of training epochs for UMAP optimizer.
-        min_dist: Controls how tightly UMAP is allowed to pack points together. Affects the size of clusters.
-    """
-
-    n_neighbors: Optional[int] = Field(default=None, description="Number of neighbors for the UMAP algorithm.")
-    n_epochs: Optional[int] = Field(default=None, description="Number of epochs for training the UMAP model.")
-    min_dist: Optional[float] = Field(default=None, description="Minimum distance between points.")
-
-
 class NomicTopicOptions(BaseModel):
     """
     Options for Nomic Topic Model
