@@ -1097,50 +1097,19 @@ class AtlasDataset(AtlasClass):
 
         self._latest_dataset_state()
 
-        projection_algorithm = "nomic-project"
-        projection_options = None
+        projection_options: Optional[ProjectionOptions] = None
 
         if isinstance(projection, ProjectionOptions):
             projection_options = projection
-            if projection.model == "umap":
-                projection_algorithm = "umap"
-        elif isinstance(projection, Dict):
-            if projection.get("algorithm", "").lower() == "umap":
-                projection_algorithm = "umap"
-                projection_options = ProjectionOptions(
-                    model="umap", **{k: v for k, v in projection.items() if k != "algorithm"}
-                )
-            else:
-                projection_options = ProjectionOptions(**projection)
-                if projection_options.model == "umap":
-                    projection_algorithm = "umap"
+        elif isinstance(projection, dict):
+            projection_options = ProjectionOptions(**projection)
         elif projection is True:
             projection_options = ProjectionOptions()
-        # If projection is False, keep both projection objects as None
+        # If projection is False, projection_options remains None
 
         projection_hyperparameters: Dict[str, Union[str, int, float, None]] = {}
         if projection_options is not None:
-            projection_hyperparameters["model"] = projection_options.model
-            if projection_algorithm == "umap":
-                if projection_options.n_neighbors is not None:
-                    projection_hyperparameters["n_neighbors"] = projection_options.n_neighbors
-                if projection_options.min_dist is not None:
-                    projection_hyperparameters["min_dist"] = projection_options.min_dist
-                if projection_options.n_epochs is not None:
-                    projection_hyperparameters["n_epochs"] = projection_options.n_epochs
-            else:  # nomic-project
-                if projection_options.n_neighbors is not None:
-                    projection_hyperparameters["n_neighbors"] = projection_options.n_neighbors
-                if projection_options.n_epochs is not None:
-                    projection_hyperparameters["n_epochs"] = projection_options.n_epochs
-                if projection_options.spread is not None:
-                    projection_hyperparameters["spread"] = projection_options.spread
-                if projection_options.local_neighborhood_size is not None:
-                    projection_hyperparameters["local_neighborhood_size"] = projection_options.local_neighborhood_size
-                if projection_options.rho is not None:
-                    projection_hyperparameters["rho"] = projection_options.rho
-                if projection_options.min_dist is not None:
-                    projection_hyperparameters["min_dist"] = projection_options.min_dist
+            projection_hyperparameters = projection_options.model_dump()
 
         topic_model_was_false = topic_model is False
         if isinstance(topic_model, Dict):
@@ -1205,7 +1174,7 @@ class AtlasDataset(AtlasClass):
                 "topic_model_hyperparameters": json.dumps(
                     {
                         "build_topic_model": topic_model.build_topic_model,
-                        "community_description_target_field": topic_model.topic_label_field,  # TODO change key to topic_label_field post v0.0.85
+                        "community_description_target_field": topic_model.topic_label_field,
                         "cluster_method": topic_model.cluster_method,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
@@ -1217,8 +1186,9 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
-            if projection is not False:
-                build_template["projection"] = projection_algorithm
+            if projection is not False and projection_options is not None:
+                build_template["projection"] = projection_options.model if projection_options.model else "nomic-project"
+                build_template["projection_hyperparameters"] = json.dumps(projection_hyperparameters)
 
         elif modality == "text" or modality == "image":
             reuse_embedding_from_index_id = None
@@ -1276,7 +1246,7 @@ class AtlasDataset(AtlasClass):
                     {
                         "build_topic_model": topic_model.build_topic_model,
                         "community_description_target_field": topic_field,
-                        "cluster_method": topic_model.build_topic_model,
+                        "cluster_method": topic_model.cluster_method,
                         "enforce_topic_hierarchy": topic_model.enforce_topic_hierarchy,
                     }
                 ),
@@ -1287,8 +1257,9 @@ class AtlasDataset(AtlasClass):
                     }
                 ),
             }
-            if projection is not False:
-                build_template["projection"] = projection_algorithm
+            if projection is not False and projection_options is not None:
+                build_template["projection"] = projection_options.model if projection_options.model else "nomic-project"
+                build_template["projection_hyperparameters"] = json.dumps(projection_hyperparameters)
 
         response = requests.post(
             self.atlas_api_path + "/v1/project/index/create",

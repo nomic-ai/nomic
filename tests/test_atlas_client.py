@@ -12,7 +12,7 @@ import pyarrow as pa
 import pytest
 
 from nomic import AtlasDataset, atlas
-from nomic.data_inference import NomicProjectOptions, ProjectionOptions, UMAPOptions
+from nomic.data_inference import ProjectionOptions
 
 
 def gen_random_datetime(min_year=1900, max_year=datetime.now().year):
@@ -29,7 +29,7 @@ def gen_temp_identifier() -> str:
     return f"{now}-{rand}"
 
 
-def integration_test_map_idless_embeddings():
+def test_integration_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
 
@@ -37,7 +37,7 @@ def integration_test_map_idless_embeddings():
     AtlasDataset(dataset.identifier).delete()
 
 
-def integration_test_map_embeddings_with_errors():
+def test_integration_map_embeddings_with_errors():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
 
@@ -83,7 +83,7 @@ def integration_test_map_embeddings_with_errors():
         pass
 
 
-def integration_test_map_text_errors():
+def test_integration_map_text_errors():
     # no indexed field
     name = f"unittest-dataset-{gen_temp_identifier()}"
     with pytest.raises(Exception):
@@ -301,7 +301,7 @@ def test_weird_inputs():
     dataset.delete()
 
 
-def integration_test_map_embeddings():
+def test_integration_map_embeddings():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{"field": str(uuid.uuid4()), "id": str(uuid.uuid4())} for i in range(len(embeddings))]
@@ -333,7 +333,7 @@ def integration_test_map_embeddings():
     dataset.delete()
 
 
-def integration_test_map_text_pandas():
+def test_integration_map_text_pandas():
     size = 50
     data = pd.DataFrame(
         {
@@ -351,7 +351,7 @@ def integration_test_map_text_pandas():
     dataset.delete()
 
 
-def integration_test_map_text_arrow():
+def test_integration_map_text_arrow():
     size = 50
     data = pa.Table.from_pydict(
         {
@@ -424,7 +424,7 @@ def _wait_for_projection_completion(projection, timeout_seconds=600):
             time.sleep(10)
 
 
-def integration_test_map_embeddings_explicit_umap():
+def test_integration_map_embeddings_explicit_umap():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{"id": str(i)} for i in range(num_embeddings)]
@@ -436,7 +436,7 @@ def integration_test_map_embeddings_explicit_umap():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection=UMAPOptions(n_neighbors=5, min_dist=0.01, n_epochs=25),
+        projection=ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25),
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -446,7 +446,7 @@ def integration_test_map_embeddings_explicit_umap():
 
 @patch("tests.test_atlas_client._wait_for_projection_completion")
 @patch("nomic.atlas.map_data")
-def unit_test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completion):
+def test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completion):
     # Setup mock_map_data
     mock_dataset = MagicMock(spec=AtlasDataset)
     mock_dataset.id = "mock_dataset_id"
@@ -462,7 +462,7 @@ def unit_test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completi
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{"id": str(i)} for i in range(num_embeddings)]
     dataset_identifier = f"unittest-umap-explicit-{gen_temp_identifier()}"
-    umap_options = UMAPOptions(n_neighbors=5, min_dist=0.01, n_epochs=25)
+    umap_options = ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25)
 
     # Call the function that would normally call atlas.map_data
     dataset_out = atlas.map_data(
@@ -483,7 +483,8 @@ def unit_test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completi
     assert called_kwargs["data"] == data
     assert called_kwargs["is_public"] is True
     actual_projection_options = called_kwargs["projection"]
-    assert isinstance(actual_projection_options, UMAPOptions)
+    assert isinstance(actual_projection_options, ProjectionOptions)
+    assert actual_projection_options.model == umap_options.model
     assert actual_projection_options.n_neighbors == umap_options.n_neighbors
     assert actual_projection_options.min_dist == umap_options.min_dist
     assert actual_projection_options.n_epochs == umap_options.n_epochs
@@ -502,7 +503,7 @@ def unit_test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completi
     mock_dataset.delete.assert_called_once()
 
 
-def integration_test_map_text_explicit_umap():
+def test_integration_map_text_explicit_umap():
     size = 50
     data = pd.DataFrame(
         {
@@ -517,7 +518,7 @@ def integration_test_map_text_explicit_umap():
         indexed_field="text_field",
         data=data,
         is_public=True,
-        projection=UMAPOptions(n_neighbors=5, min_dist=0.05, n_epochs=30),
+        projection=ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.05, n_epochs=30),
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -527,7 +528,7 @@ def integration_test_map_text_explicit_umap():
 
 @patch("tests.test_atlas_client._wait_for_projection_completion")
 @patch("nomic.atlas.map_data")
-def unit_test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
+def test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
     mock_dataset = MagicMock(spec=AtlasDataset)
     mock_dataset.id = "mock_dataset_id_text"
     mock_projection_obj = MagicMock()
@@ -541,7 +542,7 @@ def unit_test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
         }
     )
     dataset_identifier = f"unittest-text-umap-{gen_temp_identifier()}"
-    umap_options = UMAPOptions(n_neighbors=5, min_dist=0.05, n_epochs=30)
+    umap_options = ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.05, n_epochs=30)
 
     # Call the function
     dataset_out = atlas.map_data(
@@ -562,7 +563,8 @@ def unit_test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
     assert called_kwargs["data"].equals(data_df)  # Using .equals for DataFrame comparison
     assert called_kwargs["is_public"] is True
     actual_projection_options = called_kwargs["projection"]
-    assert isinstance(actual_projection_options, UMAPOptions)
+    assert isinstance(actual_projection_options, ProjectionOptions)
+    assert actual_projection_options.model == umap_options.model
     assert actual_projection_options.n_neighbors == umap_options.n_neighbors
     assert actual_projection_options.min_dist == umap_options.min_dist
     assert actual_projection_options.n_epochs == umap_options.n_epochs
@@ -579,7 +581,7 @@ def unit_test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
     mock_dataset.delete.assert_called_once()
 
 
-def integration_test_map_embeddings_explicit_nomic_project():
+def test_integration_map_embeddings_explicit_nomic_project():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{"id": str(i)} for i in range(num_embeddings)]
@@ -591,7 +593,7 @@ def integration_test_map_embeddings_explicit_nomic_project():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection=NomicProjectOptions(n_neighbors=7, model="nomic-project-v1", n_epochs=20, spread=0.6),
+        projection=ProjectionOptions(model="nomic-project-v1", n_neighbors=7, n_epochs=20, spread=0.6),
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -601,7 +603,7 @@ def integration_test_map_embeddings_explicit_nomic_project():
 
 @patch("tests.test_atlas_client._wait_for_projection_completion")
 @patch("nomic.atlas.map_data")
-def unit_test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for_completion):
+def test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for_completion):
     mock_dataset = MagicMock(spec=AtlasDataset)
     mock_dataset.id = "mock_dataset_id_nomic_embed"
     mock_projection_obj = MagicMock()
@@ -612,7 +614,7 @@ def unit_test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{"id": str(i)} for i in range(num_embeddings)]
     dataset_identifier = f"unittest-nomic-explicit-{gen_temp_identifier()}"
-    nomic_options = NomicProjectOptions(n_neighbors=7, model="nomic-project-v1", n_epochs=20, spread=0.6)
+    nomic_options = ProjectionOptions(model="nomic-project-v1", n_neighbors=7, n_epochs=20, spread=0.6)
 
     dataset_out = atlas.map_data(
         identifier=dataset_identifier,
@@ -631,7 +633,7 @@ def unit_test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for
     assert called_kwargs["is_public"] is True
 
     actual_projection_options = called_kwargs["projection"]
-    assert isinstance(actual_projection_options, NomicProjectOptions)
+    assert isinstance(actual_projection_options, ProjectionOptions)
     assert actual_projection_options.n_neighbors == nomic_options.n_neighbors
     assert actual_projection_options.model == nomic_options.model
     assert actual_projection_options.n_epochs == nomic_options.n_epochs
@@ -647,7 +649,7 @@ def unit_test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for
     mock_dataset.delete.assert_called_once()
 
 
-def integration_test_map_text_explicit_nomic_project():
+def test_integration_map_text_explicit_nomic_project():
     size = 50
     data = pd.DataFrame(
         {
@@ -662,8 +664,8 @@ def integration_test_map_text_explicit_nomic_project():
         indexed_field="text_field",
         data=data,
         is_public=True,
-        projection=NomicProjectOptions(
-            n_epochs=30, spread=0.5, model="nomic-project-v2", rho=0.5, local_neighborhood_size=32
+        projection=ProjectionOptions(
+            model="nomic-project-v2", n_epochs=30, spread=0.5, rho=0.5, local_neighborhood_size=32
         ),
     )
     assert dataset.id is not None
@@ -674,7 +676,7 @@ def integration_test_map_text_explicit_nomic_project():
 
 @patch("tests.test_atlas_client._wait_for_projection_completion")
 @patch("nomic.atlas.map_data")
-def unit_test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion):
+def test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion):
     mock_dataset = MagicMock(spec=AtlasDataset)
     mock_dataset.id = "mock_dataset_id_nomic_text"
     mock_projection_obj = MagicMock()
@@ -689,8 +691,8 @@ def unit_test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_compl
         }
     )
     dataset_identifier = f"unittest-text-nomic-{gen_temp_identifier()}"
-    nomic_options = NomicProjectOptions(
-        n_epochs=30, spread=0.5, model="nomic-project-v2", rho=0.5, local_neighborhood_size=32
+    nomic_options = ProjectionOptions(
+        model="nomic-project-v2", n_epochs=30, spread=0.5, rho=0.5, local_neighborhood_size=32
     )
 
     dataset_out = atlas.map_data(
@@ -710,7 +712,7 @@ def unit_test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_compl
     assert called_kwargs["is_public"] is True
 
     actual_projection_options = called_kwargs["projection"]
-    assert isinstance(actual_projection_options, NomicProjectOptions)
+    assert isinstance(actual_projection_options, ProjectionOptions)
     assert actual_projection_options.n_epochs == nomic_options.n_epochs
     assert actual_projection_options.spread == nomic_options.spread
     assert actual_projection_options.model == nomic_options.model
@@ -727,7 +729,7 @@ def unit_test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_compl
     mock_dataset.delete.assert_called_once()
 
 
-def integration_test_map_embeddings_auto_with_options():
+def test_integration_map_embeddings_auto_with_options():
     num_embeddings = 50  # Small dataset, backend should pick UMAP if it has logic for it
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{"id": str(i)} for i in range(num_embeddings)]
@@ -740,11 +742,10 @@ def integration_test_map_embeddings_auto_with_options():
         data=data,
         is_public=True,
         projection={
-            "algorithm": "auto",
+            "model": "nomic-project-v1",
             "n_neighbors": 6,
             "min_dist": 0.02,
             "n_epochs": 22,
-            "model": "nomic-project-v1",
             "spread": 0.7,
         },
     )
@@ -754,7 +755,7 @@ def integration_test_map_embeddings_auto_with_options():
     dataset.delete()
 
 
-def integration_test_map_embeddings_legacy_dict_with_explicit_algorithm():
+def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{"id": str(i)} for i in range(num_embeddings)]
@@ -767,7 +768,7 @@ def integration_test_map_embeddings_legacy_dict_with_explicit_algorithm():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection={"algorithm": "umap", "n_neighbors": 9, "min_dist": 0.3, "n_epochs": 27},
+        projection={"model": "umap", "n_neighbors": 9, "min_dist": 0.3, "n_epochs": 27},
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -782,7 +783,7 @@ def integration_test_map_embeddings_legacy_dict_with_explicit_algorithm():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection={"algorithm": "nomic-project", "n_neighbors": 11, "model": "nomic-project-v2", "n_epochs": 28},
+        projection={"model": "nomic-project", "n_neighbors": 11, "n_epochs": 28},
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -790,7 +791,7 @@ def integration_test_map_embeddings_legacy_dict_with_explicit_algorithm():
     dataset.delete()
 
 
-def integration_test_map_embeddings_explicit_projection_options():
+def test_integration_map_embeddings_explicit_projection_options():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
     data = [{"id": str(i)} for i in range(num_embeddings)]
@@ -802,7 +803,7 @@ def integration_test_map_embeddings_explicit_projection_options():
         embeddings=embeddings,
         data=data,
         is_public=True,
-        projection=ProjectionOptions(n_neighbors=5, min_dist=0.01, n_epochs=25, algorithm="umap"),  # Explicitly UMAP
+        projection=ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25),
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -817,8 +818,11 @@ def integration_test_map_embeddings_explicit_projection_options():
         data=data,
         is_public=True,
         projection=ProjectionOptions(
-            n_neighbors=7, model="nomic-project-v1", n_epochs=20, spread=0.6, algorithm="nomic-project"
-        ),  # Explicitly Nomic
+            model="nomic-project-v1",
+            n_neighbors=7,
+            n_epochs=20,
+            spread=0.6,
+        ),
     )
     assert dataset_nomic.id is not None
     projection_nomic = dataset_nomic.maps[0]
@@ -826,7 +830,7 @@ def integration_test_map_embeddings_explicit_projection_options():
     dataset_nomic.delete()
 
 
-def integration_test_map_text_explicit_projection_options():
+def test_integration_map_text_explicit_projection_options():
     size = 50
     data = pd.DataFrame(
         {
@@ -841,7 +845,7 @@ def integration_test_map_text_explicit_projection_options():
         indexed_field="text_field",
         data=data,
         is_public=True,
-        projection=ProjectionOptions(n_neighbors=5, min_dist=0.05, n_epochs=30, algorithm="umap"),  # Explicitly UMAP
+        projection=ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.05, n_epochs=30),
     )
     assert dataset.id is not None
     projection = dataset.maps[0]
@@ -856,12 +860,11 @@ def integration_test_map_text_explicit_projection_options():
         data=data,
         is_public=True,
         projection=ProjectionOptions(
+            model="nomic-project-v2",
             n_epochs=30,
             spread=0.5,
-            model="nomic-project-v2",
             rho=0.5,
             local_neighborhood_size=32,
-            algorithm="nomic-project",  # Explicitly Nomic
         ),
     )
     assert dataset_nomic.id is not None
