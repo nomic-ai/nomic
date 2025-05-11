@@ -1385,7 +1385,9 @@ class AtlasDataset(AtlasClass):
             temp_id_values = [str(uuid.uuid4()) for _ in range(data_length)]
             # Check if original data already has the id_field, if not, it's an issue for later _add_data
             if self.id_field not in data_as_table.column_names and TEMP_ID_COLUMN != self.id_field:
-                 logger.warning(f"Input data for _add_blobs does not contain the designated id_field '{self.id_field}'. Temporary IDs will be used for blob association, but ensure '{self.id_field}' is present for the final data addition.")
+                logger.warning(
+                    f"Input data for _add_blobs does not contain the designated id_field '{self.id_field}'. Temporary IDs will be used for blob association, but ensure '{self.id_field}' is present for the final data addition."
+                )
 
             data_as_table = data_as_table.append_column(TEMP_ID_COLUMN, pa.array(temp_id_values, type=pa.string()))
         except Exception as e:
@@ -1478,7 +1480,7 @@ class AtlasDataset(AtlasClass):
             upload_pbar.close()
 
         hash_schema = pa.schema([(TEMP_ID_COLUMN, pa.string()), ("_blob_hash", pa.string())])
-        
+
         merged_data_as_table: pa.Table
         if succeeded_uploads > 0:  # Only create hash_tb if there are successful uploads
             hash_tb = pa.Table.from_pydict(
@@ -1487,10 +1489,11 @@ class AtlasDataset(AtlasClass):
             merged_data_as_table = data_as_table.join(right_table=hash_tb, keys=TEMP_ID_COLUMN, join_type="left outer")
         else:  # No successful uploads, so no hashes to merge, but keep original data structure
             # Need to ensure _blob_hash column is added with nulls, and id_field is present
-            if '_blob_hash' not in data_as_table.column_names:
-                data_as_table = data_as_table.append_column("_blob_hash", pa.nulls(data_as_table.num_rows, type=pa.string()))
+            if "_blob_hash" not in data_as_table.column_names:
+                data_as_table = data_as_table.append_column(
+                    "_blob_hash", pa.nulls(data_as_table.num_rows, type=pa.string())
+                )
             merged_data_as_table = data_as_table
-
 
         merged_data_as_table = merged_data_as_table.drop_columns([TEMP_ID_COLUMN])
 

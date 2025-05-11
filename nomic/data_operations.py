@@ -25,7 +25,7 @@ class AtlasMapDuplicates:
 
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
-        
+
         duplicate_columns = [
             (field, sidecar)
             for field, sidecar in self.projection._registered_columns
@@ -42,7 +42,10 @@ class AtlasMapDuplicates:
         self.duplicate_field = None
         self.cluster_field = None
         self._tb = None
-        self._has_unique_id_field = "unique_id_field" in self.projection.dataset.meta and self.projection.dataset.meta["unique_id_field"] is not None
+        self._has_unique_id_field = (
+            "unique_id_field" in self.projection.dataset.meta
+            and self.projection.dataset.meta["unique_id_field"] is not None
+        )
 
     def _load_duplicates(self):
         """
@@ -56,7 +59,7 @@ class AtlasMapDuplicates:
         id_field_name = "_position_index"
         if self._has_unique_id_field:
             id_field_name = self.projection.dataset.meta["unique_id_field"]
-            
+
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table if available, otherwise create synthetic IDs
             if self._has_unique_id_field:
@@ -84,10 +87,10 @@ class AtlasMapDuplicates:
             except (FileNotFoundError, pa.ArrowInvalid) as e:
                 logger.warning(f"Error loading duplicate data for key {key}: {e}")
                 continue
-                
+
         if not tbs:
             raise ValueError("No duplicate data could be loaded. Duplicate data files may be missing or corrupt.")
-            
+
         self._tb = pa.concat_tables(tbs).rename_columns([id_field_name, self.duplicate_field, self.cluster_field])
 
     def _create_synthetic_id_table(self, key, sidecar):
@@ -101,7 +104,7 @@ class AtlasMapDuplicates:
             path = path / Path(key).with_suffix(".feather")
         else:
             path = path / Path(key).with_suffix(f".{sidecar}.feather")
-            
+
         try:
             sidecar_tb = feather.read_table(path, memory_map=True)
             size = len(sidecar_tb)
@@ -118,7 +121,7 @@ class AtlasMapDuplicates:
         Downloads the feather tree for duplicates.
         """
         logger.info("Downloading duplicates")
-        
+
         # Only download datum_id if we have a unique ID field
         if self._has_unique_id_field:
             try:
@@ -126,7 +129,7 @@ class AtlasMapDuplicates:
             except ValueError as e:
                 logger.warning(f"Failed to download datum_id files: {e}. Will use synthetic IDs instead.")
                 self._has_unique_id_field = False
-                
+
         assert self._cluster_column[1] == self._duplicate_column[1], "Cluster and duplicate should be in same sidecar"
         self.projection._download_sidecar(self._duplicate_column[1], overwrite=False)
 
@@ -158,7 +161,7 @@ class AtlasMapDuplicates:
         id_field_name = "_position_index"
         if self._has_unique_id_field:
             id_field_name = self.projection.dataset.meta["unique_id_field"]
-            
+
         dupes = self.tb[id_field_name].filter(pa.compute.equal(self.tb[self.duplicate_field], "deletion candidate"))  # type: ignore
         return dupes.to_pylist()
 
@@ -166,7 +169,7 @@ class AtlasMapDuplicates:
         id_field_name = "_position_index"
         if self._has_unique_id_field:
             id_field_name = self.projection.dataset.meta["unique_id_field"]
-            
+
         repr = f"===Atlas Duplicates for ({self.projection})\n"
         duplicate_count = len(
             self.tb[id_field_name].filter(pa.compute.equal(self.tb[self.duplicate_field], "deletion candidate"))  # type: ignore
@@ -192,7 +195,9 @@ class AtlasMapTopics:
         assert len(self._topic_columns) > 0, "Topic modeling has not yet been run on this map."
         self.depth = len(self._topic_columns)
         self._tb = None
-        self._has_unique_id_field = "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None
+        self._has_unique_id_field = (
+            "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None
+        )
 
     def _load_topics(self):
         """
@@ -211,7 +216,7 @@ class AtlasMapTopics:
         id_field_name = "_position_index"
         if self._has_unique_id_field:
             id_field_name = self.dataset.meta["unique_id_field"]
-            
+
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table if available, otherwise create a synthetic index
             if self._has_unique_id_field:
@@ -225,7 +230,7 @@ class AtlasMapTopics:
             else:
                 # Create a table with a position index when no unique_id_field is available
                 tb = self._create_synthetic_id_table(key, topic_sidecar)
-                
+
             path = self.projection.tile_destination
             if topic_sidecar == "":
                 path = path / Path(key).with_suffix(".feather")
@@ -257,7 +262,7 @@ class AtlasMapTopics:
 
         if not tbs:
             raise ValueError("No topic data could be loaded. Topic data files may be missing or corrupt.")
-            
+
         renamed_columns = [id_field_name] + [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
         self._tb = pa.concat_tables(tbs).rename_columns(renamed_columns)
 
@@ -272,7 +277,7 @@ class AtlasMapTopics:
             path = path / Path(key).with_suffix(".feather")
         else:
             path = path / Path(key).with_suffix(f".{sidecar}.feather")
-            
+
         try:
             topic_tb = feather.read_table(path, memory_map=True)
             size = len(topic_tb)
@@ -289,7 +294,7 @@ class AtlasMapTopics:
         Downloads the feather tree for topics.
         """
         logger.info("Downloading topics")
-        
+
         # Only download datum_id if we have a unique ID field
         if self._has_unique_id_field:
             try:
@@ -297,7 +302,7 @@ class AtlasMapTopics:
             except ValueError as e:
                 logger.warning(f"Failed to download datum_id files: {e}. Will use synthetic IDs instead.")
                 self._has_unique_id_field = False
-                
+
         topic_sidecars = set([sidecar for _, sidecar in self._topic_columns])
         assert len(topic_sidecars) == 1, "Multiple topic sidecars found."
         self.projection._download_sidecar(topic_sidecars.pop(), overwrite=False)
@@ -399,7 +404,7 @@ class AtlasMapTopics:
         datum_id_col = "_position_index"
         if "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None:
             datum_id_col = self.dataset.meta["unique_id_field"]
-        
+
         df = self.df
 
         topic_datum_dict = df.groupby(f"topic_depth_{topic_depth}")[datum_id_col].apply(set).to_dict()
@@ -449,7 +454,7 @@ class AtlasMapTopics:
         id_field_name = "_position_index"
         if "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None:
             id_field_name = self.dataset.meta["unique_id_field"]
-        
+
         time_data = data.tb.select([id_field_name, time_field])
         merged_tb = self.tb.join(time_data, id_field_name, join_type="inner").combine_chunks()
 
@@ -568,7 +573,9 @@ class AtlasMapEmbeddings:
         self.dataset = projection.dataset
         self._tb: pa.Table = None
         self._latent = None
-        self._has_unique_id_field = "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None
+        self._has_unique_id_field = (
+            "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None
+        )
 
     @property
     def df(self):
@@ -609,13 +616,13 @@ class AtlasMapEmbeddings:
             else:
                 # Create synthetic IDs when no unique_id_field is available
                 tb = self._create_synthetic_id_table(key, coord_sidecar)
-                
+
             path = self.projection.tile_destination
             if coord_sidecar == "":
                 path = path / Path(key).with_suffix(".feather")
             else:
                 path = path / Path(key).with_suffix(f".{coord_sidecar}.feather")
-                
+
             try:
                 carfile = feather.read_table(path, memory_map=True)
                 for col in carfile.column_names:
@@ -625,13 +632,13 @@ class AtlasMapEmbeddings:
             except (FileNotFoundError, pa.ArrowInvalid) as e:
                 logger.warning(f"Error loading embedding data for key {key}: {e}")
                 continue
-                
+
         if not tbs:
             raise ValueError("No embedding data could be loaded. Embedding data files may be missing or corrupt.")
-            
+
         self._tb = pa.concat_tables(tbs)
         return self._tb
-        
+
     def _create_synthetic_id_table(self, key, sidecar):
         """
         Create a synthetic table with position indices when datum_id file isn't available
@@ -643,7 +650,7 @@ class AtlasMapEmbeddings:
             path = path / Path(key).with_suffix(".feather")
         else:
             path = path / Path(key).with_suffix(f".{sidecar}.feather")
-            
+
         try:
             coord_tb = feather.read_table(path, memory_map=True)
             size = len(coord_tb)
@@ -662,7 +669,7 @@ class AtlasMapEmbeddings:
         logger.info("Downloading projected embeddings")
         # Note that y coord should be in same sidecar
         coord_sidecar = self.projection._get_sidecar_from_field("x")
-        
+
         # Only download datum_id if we have a unique ID field
         if self._has_unique_id_field:
             try:
@@ -670,7 +677,7 @@ class AtlasMapEmbeddings:
             except ValueError as e:
                 logger.warning(f"Failed to download datum_id files: {e}. Will use synthetic IDs instead.")
                 self._has_unique_id_field = False
-                
+
         return self.projection._download_sidecar(coord_sidecar, overwrite=False)
 
     @property
@@ -836,8 +843,10 @@ class AtlasMapTags:
         self.projection = projection
         self.dataset = projection.dataset
         # Pre-fetch datum ids first upon initialization
-        self._has_unique_id_field = "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None
-        
+        self._has_unique_id_field = (
+            "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None
+        )
+
         if self._has_unique_id_field:
             try:
                 self.projection._download_sidecar("datum_id")
@@ -919,11 +928,11 @@ class AtlasMapTags:
         id_field_name = "_position_index"
         if self._has_unique_id_field:
             id_field_name = self.dataset.meta["unique_id_field"]
-            
+
         for path in tag_paths:
             tb = feather.read_table(path)
             last_coord = path.name.split(".")[0]
-            
+
             # Get ID information - either from datum_id file or create synthetic IDs
             if self._has_unique_id_field:
                 try:
@@ -1043,7 +1052,9 @@ class AtlasMapData:
                 assert field in self.dataset.dataset_fields, f"Field {field} not found in dataset fields."
             self.fields = fields
         self._tb = None
-        self._has_unique_id_field = "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None
+        self._has_unique_id_field = (
+            "unique_id_field" in self.dataset.meta and self.dataset.meta["unique_id_field"] is not None
+        )
 
     def _load_data(self, data_columns: List[Tuple[str, str]]):
         """
@@ -1071,14 +1082,14 @@ class AtlasMapData:
                 # Create synthetic IDs when no unique_id_field is available
                 first_sidecar = next(iter(sidecars_to_load)) if sidecars_to_load else ""
                 tb = self._create_synthetic_id_table(key, first_sidecar)
-                
+
             for sidecar in sidecars_to_load:
                 path = self.projection.tile_destination
                 if sidecar == "":
                     path = path / Path(key).with_suffix(".feather")
                 else:
                     path = path / Path(key).with_suffix(f".{sidecar}.feather")
-                    
+
                 try:
                     carfile = feather.read_table(path, memory_map=True)
                     for col in carfile.column_names:
@@ -1087,14 +1098,14 @@ class AtlasMapData:
                 except (FileNotFoundError, pa.ArrowInvalid) as e:
                     logger.warning(f"Error loading data for key {key}, sidecar {sidecar}: {e}")
                     continue
-                    
+
             tbs.append(tb)
 
         if not tbs:
             raise ValueError("No data could be loaded. Data files may be missing or corrupt.")
-            
+
         self._tb = pa.concat_tables(tbs)
-        
+
     def _create_synthetic_id_table(self, key, sidecar):
         """
         Create a synthetic table with position indices when datum_id file isn't available
@@ -1106,7 +1117,7 @@ class AtlasMapData:
             path = path / Path(key).with_suffix(".feather")
         else:
             path = path / Path(key).with_suffix(f".{sidecar}.feather")
-            
+
         try:
             sidecar_tb = feather.read_table(path, memory_map=True)
             size = len(sidecar_tb)
@@ -1145,12 +1156,12 @@ class AtlasMapData:
             except ValueError as e:
                 logger.warning(f"Failed to download datum_id files: {e}. Will use synthetic IDs instead.")
                 self._has_unique_id_field = False
-                
+
         # Download all required sidecars for the fields
         sidecars_to_download = set(sidecar for _, sidecar in data_columns_to_load if sidecar != "datum_id")
         for sidecar in sidecars_to_download:
             self.projection._download_sidecar(sidecar)
-            
+
         return data_columns_to_load
 
     @property
