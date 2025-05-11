@@ -308,7 +308,7 @@ class AtlasClass(object):
 
             # Check ID field length (36 characters max)
             if pa.types.is_string(data[id_field].type):
-                max_length = pa.compute.max(pa.compute.utf8_length(data[id_field])).as_py()
+                max_length = pc.max(pc.utf8_length(data[id_field])).as_py()
                 if max_length > 36:
                     raise ValueError(
                         f"The id_field contains values greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
@@ -346,10 +346,10 @@ class AtlasClass(object):
                         f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version."
                     )
                     reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
-                if pa.compute.any(pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0)):  # type: ignore
-                    mask = pa.compute.equal(pa.compute.binary_length(reformatted[field.name]), 0).combine_chunks()  # type: ignore
+                if pc.any(pc.equal(pc.binary_length(reformatted[field.name]), 0)):  # type: ignore
+                    mask = pc.equal(pc.binary_length(reformatted[field.name]), 0).combine_chunks()  # type: ignore
                     assert pa.types.is_boolean(mask.type)  # type: ignore
-                    reformatted[field.name] = pa.compute.replace_with_mask(reformatted[field.name], mask, "null")  # type: ignore
+                    reformatted[field.name] = pc.replace_with_mask(reformatted[field.name], mask, "null")  # type: ignore
         for field in data.schema:
             if not field.name in reformatted:
                 if field.name == "_embeddings":
