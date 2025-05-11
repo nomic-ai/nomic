@@ -1465,7 +1465,7 @@ class AtlasDataset(AtlasClass):
             upload_pbar.close()
 
         hash_schema = pa.schema([(TEMP_ID_COLUMN, pa.string()), ("_blob_hash", pa.string())])
-        
+
         merged_data_as_table: pa.Table
         if succeeded_uploads > 0:  # Only create hash_tb if there are successful uploads
             hash_tb = pa.Table.from_pydict(
@@ -1473,8 +1473,9 @@ class AtlasDataset(AtlasClass):
             )
             merged_data_as_table = data_as_table.join(right_table=hash_tb, keys=TEMP_ID_COLUMN, join_type="left outer")
         else:  # No successful uploads, so no hashes to merge, but keep original data structure
-            merged_data_as_table = data_as_table.add_column(data_as_table.num_rows, "_blob_hash", pa.nulls(data_as_table.num_rows, type=pa.string()))
-
+            merged_data_as_table = data_as_table.add_column(
+                data_as_table.num_rows, "_blob_hash", pa.nulls(data_as_table.num_rows, type=pa.string())
+            )
 
         merged_data_as_table = merged_data_as_table.drop_columns([TEMP_ID_COLUMN])
 
