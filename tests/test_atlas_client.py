@@ -68,7 +68,7 @@ def test_integration_map_embeddings_with_errors():
             embeddings=embeddings,
             data=data,
             identifier=name,
-                is_public=True,
+            is_public=True,
         )
 
         assert isinstance(dataset.created_timestamp, datetime)
@@ -119,7 +119,7 @@ def test_date_metadata():
         dataset = atlas.map_data(
             embeddings=embeddings,
             identifier=f"unittest-dataset-{gen_temp_identifier()}",
-                data=data,
+            data=data,
             is_public=True,
         )
         dataset.delete()
@@ -130,10 +130,7 @@ def test_topics():
     embeddings = np.random.rand(num_embeddings, 10)
     texts = ["foo", "bar", "baz", "bat"]
     dates = [datetime(2021, 1, 1), datetime(2022, 1, 1), datetime(2023, 1, 1)]
-    data = [
-        {"upload": 0.0, "text": texts[i % 4], "date": dates[i % 3]}
-        for i in range(len(embeddings))
-    ]
+    data = [{"upload": 0.0, "text": texts[i % 4], "date": dates[i % 3]} for i in range(len(embeddings))]
 
     dataset = atlas.map_data(
         embeddings=embeddings,
@@ -156,10 +153,7 @@ def test_data():
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
     texts = ["foo", "bar", "baz", "bat"]
-    data = [
-        {"upload": 0.0, "text": str(i)}
-        for i in range(len(embeddings))
-    ]
+    data = [{"upload": 0.0, "text": str(i)} for i in range(len(embeddings))]
     all_columns = data[0].keys()
 
     dataset = atlas.map_data(
@@ -747,7 +741,7 @@ def test_integration_map_images():
     # Generate random PIL images
     images = []
     for _ in range(size):
-        img = Image.new('RGB', (60, 30), color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+        img = Image.new("RGB", (60, 30), color=(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
         images.append(img)
 
     data = pd.DataFrame(
@@ -763,7 +757,7 @@ def test_integration_map_images():
         is_public=True,
     )
     assert dataset.id is not None
-    assert dataset.modality == "image" # Or check based on how map_data sets it.
+    assert dataset.modality == "image"  # Or check based on how map_data sets it.
 
     projection = dataset.maps[0]
     _wait_for_projection_completion(projection)
@@ -774,6 +768,6 @@ def test_integration_map_images():
     # Check if topics can be accessed (even if empty, should not error)
     # Depending on default topic modeling for images, this might need adjustment
     # For now, let's assume topics might be generated or accessible without error.
-    assert isinstance(projection.topics.metadata, list) # or dict, check actual type
+    assert isinstance(projection.topics.metadata, list)  # or dict, check actual type
 
     dataset.delete()
