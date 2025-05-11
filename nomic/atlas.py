@@ -214,7 +214,7 @@ def map_text(
     Args:
         data: An [N,] element iterable of dictionaries containing metadata for each embedding.
         indexed_field: The name the data field containing the text your want to map.
-        id_field: Specify a field that uniquely identifies each datapoint. This field can be up 36 characters in length. 
+        id_field: Specify a field that uniquely identifies each datapoint. This field can be up 36 characters in length.
         name: A name for your dataset. Specify in the format `organization/project` to create in a specific organization.
         description: A description for your map.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.

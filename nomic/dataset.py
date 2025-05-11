@@ -1360,14 +1360,14 @@ class AtlasDataset(AtlasClass):
             data = pa.Table.from_pylist(data)
         elif not isinstance(data, pa.Table):
             raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
-        
+
         # Compute dataset length
         data_length = len(data)
         if data_length != len(blobs):
             raise ValueError(f"Number of data points ({data_length}) must match number of blobs ({len(blobs)})")
 
-        TEMP_ID_COLUMN = "_nomic_internal_temp_id" 
-        
+        TEMP_ID_COLUMN = "_nomic_internal_temp_id"
+
         # Generate temporary IDs and add them to the data table
         try:
             temp_id_values = [str(uuid.uuid4()) for _ in range(data_length)]
@@ -1377,10 +1377,10 @@ class AtlasDataset(AtlasClass):
             raise
 
         blob_upload_endpoint = "/v1/project/data/add/blobs"
-        
+
         actual_temp_ids = data[TEMP_ID_COLUMN].to_pylist()
 
-        images = [] # List of (temp_id, image_bytes)
+        images = []  # List of (temp_id, image_bytes)
         for i in tqdm(range(data_length), desc="Processing images"):
             current_temp_id = actual_temp_ids[i]
             blob_item = blobs[i]
@@ -1388,16 +1388,24 @@ class AtlasDataset(AtlasClass):
             processed_blob_value = None
             if (isinstance(blob_item, str) or isinstance(blob_item, Path)) and os.path.exists(blob_item):
                 image = Image.open(blob_item).convert("RGB")
-                if image.height > 512 or image.width > 512: image = image.resize((512, 512))
-                buffered = BytesIO(); image.save(buffered, format="JPEG"); processed_blob_value = buffered.getvalue()
+                if image.height > 512 or image.width > 512:
+                    image = image.resize((512, 512))
+                buffered = BytesIO()
+                image.save(buffered, format="JPEG")
+                processed_blob_value = buffered.getvalue()
             elif isinstance(blob_item, bytes):
                 processed_blob_value = blob_item
             elif isinstance(blob_item, Image.Image):
-                img_pil = blob_item.convert("RGB") # Ensure it's PIL Image for methods
-                if img_pil.height > 512 or img_pil.width > 512: img_pil = img_pil.resize((512, 512))
-                buffered = BytesIO(); img_pil.save(buffered, format="JPEG"); processed_blob_value = buffered.getvalue()
+                img_pil = blob_item.convert("RGB")  # Ensure it's PIL Image for methods
+                if img_pil.height > 512 or img_pil.width > 512:
+                    img_pil = img_pil.resize((512, 512))
+                buffered = BytesIO()
+                img_pil.save(buffered, format="JPEG")
+                processed_blob_value = buffered.getvalue()
             else:
-                raise ValueError(f"Invalid blob type for item at index {i} (temp_id: {current_temp_id}). Must be a path, bytes, or PIL Image. Got: {type(blob_item)}")
+                raise ValueError(
+                    f"Invalid blob type for item at index {i} (temp_id: {current_temp_id}). Must be a path, bytes, or PIL Image. Got: {type(blob_item)}"
+                )
 
             if processed_blob_value is not None:
                 images.append((current_temp_id, processed_blob_value))
@@ -1407,22 +1415,24 @@ class AtlasDataset(AtlasClass):
 
         def send_request(batch_start_index):
             image_batch = images[batch_start_index : batch_start_index + batch_size]
-            temp_ids_in_batch = [item_id for item_id, _ in image_batch] 
+            temp_ids_in_batch = [item_id for item_id, _ in image_batch]
             blobs_for_api = [("blobs", blob_val) for _, blob_val in image_batch]
-            
+
             response = requests.post(
                 self.atlas_api_path + blob_upload_endpoint,
                 headers=self.header,
-                data={"dataset_id": self.id}, # self.id is project_id
+                data={"dataset_id": self.id},  # self.id is project_id
                 files=blobs_for_api,
             )
             if response.status_code != 200:
                 failed_ids_sample = temp_ids_in_batch[:5]
-                logger.error(f"Blob upload request failed for batch starting with temp_ids: {failed_ids_sample}. Status: {response.status_code}, Response: {response.text}")
+                logger.error(
+                    f"Blob upload request failed for batch starting with temp_ids: {failed_ids_sample}. Status: {response.status_code}, Response: {response.text}"
+                )
                 raise Exception(f"Blob upload failed: {response.text}")
             return {temp_id: blob_hash for temp_id, blob_hash in zip(temp_ids_in_batch, response.json()["hashes"])}
 
-        upload_pbar = pbar # Use passed-in pbar if available
+        upload_pbar = pbar  # Use passed-in pbar if available
         close_upload_pbar_locally = False
         if upload_pbar is None:
             upload_pbar = tqdm(total=len(images), desc="Uploading blobs to Atlas")
@@ -1431,13 +1441,13 @@ class AtlasDataset(AtlasClass):
         returned_temp_ids = []
         returned_hashes = []
         succeeded_uploads = 0
-        
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {executor.submit(send_request, i): i for i in range(0, len(images), batch_size)}
 
             for future in concurrent.futures.as_completed(futures):
                 try:
-                    response_dict = future.result() # This is {temp_id: blob_hash}
+                    response_dict = future.result()  # This is {temp_id: blob_hash}
                     for temp_id, blob_hash_val in response_dict.items():
                         returned_temp_ids.append(temp_id)
                         returned_hashes.append(blob_hash_val)
@@ -1447,21 +1457,22 @@ class AtlasDataset(AtlasClass):
                 except Exception as e:
                     logger.error(f"An error occurred during blob upload processing for a batch: {e}")
                     # Optionally, collect failed batch info here if needed for partial success
-        
+
         if close_upload_pbar_locally and upload_pbar:
             upload_pbar.close()
 
         hash_schema = pa.schema([(TEMP_ID_COLUMN, pa.string()), ("_blob_hash", pa.string())])
-        if succeeded_uploads > 0: # Only create hash_tb if there are successful uploads
-            hash_tb = pa.Table.from_pydict({TEMP_ID_COLUMN: returned_temp_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
-            merged_data = data.join(right_table=hash_tb, keys=TEMP_ID_COLUMN, join_type='left outer')
-        else: # No successful uploads, so no hashes to merge, but keep original data structure
+        if succeeded_uploads > 0:  # Only create hash_tb if there are successful uploads
+            hash_tb = pa.Table.from_pydict(
+                {TEMP_ID_COLUMN: returned_temp_ids, "_blob_hash": returned_hashes}, schema=hash_schema
+            )
+            merged_data = data.join(right_table=hash_tb, keys=TEMP_ID_COLUMN, join_type="left outer")
+        else:  # No successful uploads, so no hashes to merge, but keep original data structure
             merged_data = data.add_column(data.num_rows, "_blob_hash", pa.nulls(data.num_rows, type=pa.string()))
-
 
         merged_data = merged_data.drop_columns([TEMP_ID_COLUMN])
 
-        self._add_data(merged_data, pbar=pbar) # Pass original pbar argument
+        self._add_data(merged_data, pbar=pbar)  # Pass original pbar argument
 
     def _add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
         """
