@@ -779,6 +779,7 @@ class AtlasDataset(AtlasClass):
             dataset_id = self._create_project(
                 identifier=identifier,
                 description=description,
+                unique_id_field=unique_id_field,
                 is_public=is_public,
             )
 
@@ -801,6 +802,7 @@ class AtlasDataset(AtlasClass):
         self,
         identifier: str,
         description: Optional[str],
+        unique_id_field: Optional[str] = None,
         is_public: bool = True,
     ):
         """
@@ -812,6 +814,7 @@ class AtlasDataset(AtlasClass):
 
         * **identifier** - The identifier for the dataset.
         * **description** - A description for the dataset.
+        * **unique_id_field** - A field that uniquely identifies each data point.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
 
         **Returns:** project_id on success.
@@ -833,6 +836,7 @@ class AtlasDataset(AtlasClass):
                 "organization_id": organization_id,
                 "project_name": project_slug,
                 "description": description,
+                "unique_id_field": unique_id_field,
                 "is_public": is_public,
             },
         )
@@ -889,6 +893,11 @@ class AtlasDataset(AtlasClass):
     def id(self) -> str:
         """The ID of the dataset."""
         return self.meta["id"]
+
+    @property
+    def id_field(self) -> str:
+        """The unique_id_field of the dataset."""
+        return self.meta["unique_id_field"]
 
     @property
     def created_timestamp(self) -> datetime:
@@ -1374,6 +1383,10 @@ class AtlasDataset(AtlasClass):
         # Generate temporary IDs and add them to the data table
         try:
             temp_id_values = [str(uuid.uuid4()) for _ in range(data_length)]
+            # Check if original data already has the id_field, if not, it's an issue for later _add_data
+            if self.id_field not in data_as_table.column_names and TEMP_ID_COLUMN != self.id_field:
+                 logger.warning(f"Input data for _add_blobs does not contain the designated id_field '{self.id_field}'. Temporary IDs will be used for blob association, but ensure '{self.id_field}' is present for the final data addition.")
+
             data_as_table = data_as_table.append_column(TEMP_ID_COLUMN, pa.array(temp_id_values, type=pa.string()))
         except Exception as e:
             logger.error(f"Failed to generate or append temporary IDs: {e}")
@@ -1473,7 +1486,10 @@ class AtlasDataset(AtlasClass):
             )
             merged_data_as_table = data_as_table.join(right_table=hash_tb, keys=TEMP_ID_COLUMN, join_type="left outer")
         else:  # No successful uploads, so no hashes to merge, but keep original data structure
-            merged_data_as_table = data_as_table.add_column(data_as_table.num_rows, "_blob_hash", pa.nulls(data_as_table.num_rows, type=pa.string()))
+            # Need to ensure _blob_hash column is added with nulls, and id_field is present
+            if '_blob_hash' not in data_as_table.column_names:
+                data_as_table = data_as_table.append_column("_blob_hash", pa.nulls(data_as_table.num_rows, type=pa.string()))
+            merged_data_as_table = data_as_table
 
 
         merged_data_as_table = merged_data_as_table.drop_columns([TEMP_ID_COLUMN])
