@@ -30,8 +30,9 @@ def gen_temp_identifier() -> str:
 def test_integration_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
+    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
 
-    dataset = atlas.map_data(identifier=f"unittest-dataset-{gen_temp_identifier()}", embeddings=embeddings)
+    dataset = atlas.map_data(identifier=f"unittest-dataset-{gen_temp_identifier()}", embeddings=embeddings, data=data_payload)
     AtlasDataset(dataset.identifier).delete()
 
 
@@ -291,10 +292,12 @@ def test_weird_inputs():
 def test_integration_map_embeddings():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
+    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
 
     dataset = atlas.map_data(
         embeddings=embeddings,
         identifier=f"unittest-dataset-{gen_temp_identifier()}",
+        data=data_payload,
         is_public=True,
     )
 
@@ -407,11 +410,13 @@ def _wait_for_projection_completion(projection, timeout_seconds=600):
 def test_integration_map_embeddings_explicit_umap():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
+    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
 
     dataset_identifier = f"unittest-umap-explicit-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
         embeddings=embeddings,
+        data=data_payload,
         is_public=True,
         projection=ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25),
     )
@@ -439,11 +444,13 @@ def test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completion):
     embeddings = np.random.rand(num_embeddings, 10)
     dataset_identifier = f"unittest-umap-explicit-{gen_temp_identifier()}"
     umap_options = ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25)
+    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
 
     # Call the function that would normally call atlas.map_data
     dataset_out = atlas.map_data(
         identifier=dataset_identifier,
         embeddings=embeddings,
+        data=data_payload,
         is_public=True,
         projection=umap_options,
     )
@@ -453,6 +460,7 @@ def test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completion):
 
     assert called_kwargs["identifier"] == dataset_identifier
     assert np.array_equal(called_kwargs["embeddings"], embeddings)
+    assert called_kwargs["data"] == data_payload
     assert called_kwargs["is_public"] is True
     actual_projection_options = called_kwargs["projection"]
     assert isinstance(actual_projection_options, ProjectionOptions)
@@ -551,11 +559,13 @@ def test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
 def test_integration_map_embeddings_explicit_nomic_project():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
+    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
 
     dataset_identifier = f"unittest-nomic-explicit-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
         embeddings=embeddings,
+        data=data_payload,
         is_public=True,
         projection=ProjectionOptions(model="nomic-project-v1", n_neighbors=7, n_epochs=20, spread=0.6),
     )
@@ -578,10 +588,12 @@ def test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for_comp
     embeddings = np.random.rand(num_embeddings, 10)
     dataset_identifier = f"unittest-nomic-explicit-{gen_temp_identifier()}"
     nomic_options = ProjectionOptions(model="nomic-project-v1", n_neighbors=7, n_epochs=20, spread=0.6)
+    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
 
     dataset_out = atlas.map_data(
         identifier=dataset_identifier,
         embeddings=embeddings,
+        data=data_payload,
         is_public=True,
         projection=nomic_options,
     )
@@ -589,6 +601,7 @@ def test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for_comp
     called_args, called_kwargs = mock_map_data.call_args
     assert called_kwargs["identifier"] == dataset_identifier
     assert np.array_equal(called_kwargs["embeddings"], embeddings)
+    assert called_kwargs["data"] == data_payload
     assert called_kwargs["is_public"] is True
 
     actual_projection_options = called_kwargs["projection"]
@@ -686,11 +699,13 @@ def test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion
 def test_integration_map_embeddings_auto_with_options():
     num_embeddings = 50  # Small dataset, backend should pick UMAP if it has logic for it
     embeddings = np.random.rand(num_embeddings, 10)
+    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
 
     dataset_identifier = f"unittest-auto-opts-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
         embeddings=embeddings,
+        data=data_payload,
         is_public=True,
         projection={
             "model": "nomic-project-v1",
@@ -709,12 +724,14 @@ def test_integration_map_embeddings_auto_with_options():
 def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
+    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
 
     # Test with explicit algorithm="umap"
     dataset_identifier = f"unittest-legacy-dict-algo-umap-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
         embeddings=embeddings,
+        data=data_payload,
         is_public=True,
         projection={"model": "umap", "n_neighbors": 9, "min_dist": 0.3, "n_epochs": 27},
     )
@@ -727,6 +744,7 @@ def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     dataset = atlas.map_data(
         identifier=dataset_identifier,
         embeddings=embeddings,
+        data=data_payload,
         is_public=True,
         projection={"model": "nomic-project-v2", "n_neighbors": 11, "n_epochs": 28},
     )

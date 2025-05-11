@@ -25,7 +25,7 @@ class AtlasMapDuplicates:
 
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
-        self.id_field = self.projection.dataset.id_field
+        # self.id_field = self.projection.dataset.id_field
 
         duplicate_columns = [
             (field, sidecar)
@@ -51,6 +51,7 @@ class AtlasMapDuplicates:
         self.duplicate_field = self._duplicate_column[0].lstrip("_")
         self.cluster_field = self._cluster_column[0].lstrip("_")
         logger.info("Loading duplicates")
+        id_field_name = self.projection.dataset.meta["unique_id_field"]
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
             tb = feather.read_table(
@@ -67,7 +68,7 @@ class AtlasMapDuplicates:
             for field in (self._duplicate_column[0], self._cluster_column[0]):
                 tb = tb.append_column(field, duplicate_tb[field])
             tbs.append(tb)
-        self._tb = pa.concat_tables(tbs).rename_columns([self.id_field, self.duplicate_field, self.cluster_field])
+        self._tb = pa.concat_tables(tbs).rename_columns([id_field_name, self.duplicate_field, self.cluster_field])
 
     def _download_duplicates(self):
         """
@@ -100,17 +101,18 @@ class AtlasMapDuplicates:
 
     def deletion_candidates(self) -> List[str]:
         """
-
         Returns:
             The ids for all data points which are semantic duplicates and are candidates for being deleted from the dataset. If you remove these data points from your dataset, your dataset will be semantically deduplicated.
         """
-        dupes = self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], "deletion candidate"))  # type: ignore
+        id_field_name = self.projection.dataset.meta["unique_id_field"]
+        dupes = self.tb[id_field_name].filter(pa.compute.equal(self.tb[self.duplicate_field], "deletion candidate"))  # type: ignore
         return dupes.to_pylist()
 
     def __repr__(self) -> str:
         repr = f"===Atlas Duplicates for ({self.projection})\n"
+        id_field_name = self.projection.dataset.meta["unique_id_field"]
         duplicate_count = len(
-            self.tb[self.id_field].filter(pa.compute.equal(self.tb[self.duplicate_field], "deletion candidate"))  # type: ignore
+            self.tb[id_field_name].filter(pa.compute.equal(self.tb[self.duplicate_field], "deletion candidate"))  # type: ignore
         )
         cluster_count = len(self.tb[self.cluster_field].value_counts())
         repr += f"{duplicate_count} deletion candidates in {cluster_count} clusters\n"
@@ -125,7 +127,7 @@ class AtlasMapTopics:
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
-        self.id_field = self.projection.dataset.id_field
+        # self.id_field = self.projection.dataset.id_field
         self._metadata = None
         self._hierarchy = None
         self._topic_columns = [
@@ -149,6 +151,7 @@ class AtlasMapTopics:
         # Should just be one sidecar
         topic_sidecar = set([sidecar for _, sidecar in self._topic_columns]).pop()
         logger.info("Loading topics")
+        id_field_name = self.dataset.meta["unique_id_field"]
         for key in tqdm(self.projection._manifest["key"].to_pylist()):
             # Use datum id as root table
             tb = feather.read_table(
@@ -179,7 +182,7 @@ class AtlasMapTopics:
                     tb = tb.append_column(f"_topic_depth_1", topic_tb["_topic_depth_1"])
             tbs.append(tb)
 
-        renamed_columns = [self.id_field] + [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
+        renamed_columns = [id_field_name] + [f"topic_depth_{i}" for i in range(1, self.depth + 1)]
         self._tb = pa.concat_tables(tbs).rename_columns(renamed_columns)
 
     def _download_topics(self):
@@ -341,14 +344,15 @@ class AtlasMapTopics:
         expr = (pc.field(time_field) >= start) & (pc.field(time_field) <= end)
         merged_tb = merged_tb.filter(expr)
         topic_densities = {}
+        id_field_name = self.dataset.meta["unique_id_field"]
         for depth in range(1, self.depth + 1):
             topic_column = f"topic_depth_{depth}"
-            topic_counts = merged_tb.group_by(topic_column).aggregate([(self.id_field, "count")]).to_pandas()
+            topic_counts = merged_tb.group_by(topic_column).aggregate([(id_field_name, "count")]).to_pandas()
             for _, row in topic_counts.iterrows():
                 topic = row[topic_column]
                 if topic not in topic_densities:
                     topic_densities[topic] = 0
-                topic_densities[topic] += row[self.id_field + "_count"]
+                topic_densities[topic] += row[id_field_name + "_count"]
         return topic_densities
 
     def vector_search_topics(self, queries: np.ndarray, k: int = 32, depth: int = 3) -> Dict:
@@ -448,7 +452,7 @@ class AtlasMapEmbeddings:
 
     def __init__(self, projection: "AtlasProjection"):  # type: ignore
         self.projection = projection
-        self.id_field = self.projection.dataset.id_field
+        # self.id_field = self.projection.dataset.id_field
         self.dataset = projection.dataset
         self._tb: pa.Table = None
         self._latent = None
@@ -670,7 +674,7 @@ class AtlasMapTags:
     def __init__(self, projection: "AtlasProjection", auto_cleanup: Optional[bool] = False):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
-        self.id_field = self.projection.dataset.id_field
+        # self.id_field = self.projection.dataset.id_field
         # Pre-fetch datum ids first upon initialization
         try:
             self.projection._download_sidecar("datum_id")
@@ -748,20 +752,21 @@ class AtlasMapTags:
         """
         tag_paths = self._download_tag(tag_name, overwrite=overwrite)
         datum_ids = []
+        id_field_name = self.dataset.meta["unique_id_field"]
         for path in tag_paths:
             tb = feather.read_table(path)
             last_coord = path.name.split(".")[0]
             tile_path = path.with_name(last_coord + ".datum_id.feather")
-            tile_tb = feather.read_table(tile_path).select([self.id_field])
+            tile_tb = feather.read_table(tile_path).select([id_field_name])
 
             if "all_set" in tb.column_names:
                 if tb["all_set"][0].as_py() == True:
-                    datum_ids.extend(tile_tb[self.id_field].to_pylist())
+                    datum_ids.extend(tile_tb[id_field_name].to_pylist())
             else:
                 # filter on rows
                 try:
-                    tb = tb.append_column(self.id_field, tile_tb[self.id_field])
-                    datum_ids.extend(tb.filter(pc.field("bitmask") == True)[self.id_field].to_pylist())
+                    tb = tb.append_column(id_field_name, tile_tb[id_field_name])
+                    datum_ids.extend(tb.filter(pc.field("bitmask") == True)[id_field_name].to_pylist())
                 except Exception as e:
                     raise Exception(f"Failed to fetch datums in tag. {e}")
         return datum_ids
@@ -849,7 +854,7 @@ class AtlasMapData:
     def __init__(self, projection: "AtlasProjection", fields=None):  # type: ignore
         self.projection = projection
         self.dataset = projection.dataset
-        self.id_field = self.projection.dataset.id_field
+        # self.id_field = self.projection.dataset.id_field
         if fields is None:
             # TODO: fall back on something more reliable here
             self.fields = self.dataset.dataset_fields
