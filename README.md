@@ -59,7 +59,7 @@ With Nomic Atlas, you can:
 
 #### Example maps
 
-<a href="https://atlas.nomic.ai/map/twitter">:world_map: Map of Twitter</a> (5.4 million tweets)
+<a href="https://atlas.nomic.ai/map/twitter">:world_map: Map of X (formerly Twitter)</a> (5.4 million tweets)
 <br> <br>
 <a href="https://atlas.nomic.ai/map/stablediffusion">:world_map: Map of StableDiffusion Generations</a> (6.4 million images)
 <br> <br>
@@ -230,7 +230,7 @@ Join the discussion on our [:hut: Discord](https://discord.gg/myY5YDR8z8) to ask
 ## Community
 
 - Blog: [https://blog.nomic.ai/](https://blog.nomic.ai/)
-- Twitter: [https://twitter.com/nomic_ai](https://twitter.com/nomic_ai)
+- X (formerly Twitter): [https://x.com/nomic_ai](https://x.com/nomic_ai)
 - Nomic Website: [https://home.nomic.ai/](https://home.nomic.ai/)
 - Atlas Website: [https://atlas.nomic.ai/](https://atlas.nomic.ai/)
 - GPT4All Website: [https://gpt4all.io/index.html](https://gpt4all.io/index.html)
