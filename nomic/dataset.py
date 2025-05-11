@@ -8,7 +8,6 @@ import os
 import re
 import time
 import unicodedata
-import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
@@ -1403,25 +1402,10 @@ class AtlasDataset(AtlasClass):
             raise ValueError(f"Number of data points ({data_length}) must match number of blobs ({len(blobs)})")
 
         TEMP_ID_COLUMN = "_nomic_internal_temp_id"
-
-        # Generate temporary IDs and add them to the data table
-        try:
-            temp_id_values = [str(uuid.uuid4()) for _ in range(data_length)]
-            # Check if original data already has the id_field, if not, it's an issue for later _add_data
-            if self.id_field not in data_as_table.column_names and TEMP_ID_COLUMN != self.id_field:
-                logger.warning(
-                    f"Input data for _add_blobs does not contain the designated id_field '{self.id_field}'. Temporary IDs will be used for blob association, but ensure '{self.id_field}' is present for the final data addition."
-                )
-
-            data_as_table = data_as_table.append_column(TEMP_ID_COLUMN, pa.array(temp_id_values, type=pa.string()))
-        except Exception as e:
-            logger.error(f"Failed to generate or append temporary IDs: {e}")
-            raise
-
+        temp_id_values = [str(i) for i in range(data_length)]
+        data_as_table = data_as_table.append_column(TEMP_ID_COLUMN, pa.array(temp_id_values, type=pa.string()))
         blob_upload_endpoint = "/v1/project/data/add/blobs"
-
         actual_temp_ids = data_as_table[TEMP_ID_COLUMN].to_pylist()
-
         images = []  # List of (temp_id, image_bytes)
         for i in tqdm(range(data_length), desc="Processing images"):
             current_temp_id = actual_temp_ids[i]
