@@ -3,7 +3,6 @@ This class allows for programmatic interactions with Atlas - Nomic's neural data
 or in a Jupyter Notebook to organize and interact with your unstructured data.
 """
 
-import uuid
 from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
@@ -14,7 +13,7 @@ from PIL import Image
 from pyarrow import Table
 from tqdm import tqdm
 
-from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicProjectOptions, NomicTopicOptions
+from .data_inference import NomicDuplicatesOptions, NomicEmbedOptions, NomicTopicOptions, ProjectionOptions
 from .dataset import AtlasDataset, AtlasDataStream
 from .settings import *
 from .utils import arrow_iterator, b64int, get_random_name
@@ -29,7 +28,7 @@ def map_data(
     id_field: Optional[str] = None,
     is_public: bool = True,
     indexed_field: Optional[str] = None,
-    projection: Union[bool, Dict, NomicProjectOptions] = True,
+    projection: Optional[Union[Dict, ProjectionOptions]] = None,
     topic_model: Union[bool, Dict, NomicTopicOptions] = True,
     duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
     embedding_model: Optional[Union[str, Dict, NomicEmbedOptions]] = None,
@@ -42,10 +41,10 @@ def map_data(
         embeddings: An [N,d] numpy array containing the N embeddings to add.
         identifier: A name for your dataset that is used to generate the dataset identifier. A unique name will be chosen if not supplied.
         description: The description of your dataset
-        id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
+        id_field: Specify a field that uniquely identifies each datapoint. This field can be up 36 characters in length.
         is_public: Should the dataset be accessible outside your Nomic Atlas organization.
         indexed_field: The text field from the dataset that will be used to create embeddings, which determines the layout of the data map in Atlas. Required for text data but won't have an impact if uploading embeddings or image blobs.
-        projection: Options to adjust Nomic Project - the dimensionality algorithm organizing your dataset.
+        projection: Options for configuring the 2D projection algorithm.
         topic_model: Options to adjust Nomic Topic - the topic model organizing your dataset.
         duplicate_detection: Options to adjust Nomic Duplicates - the duplicate detection algorithm.
         embedding_model: Options to adjust the embedding model used to embed your dataset.
@@ -86,9 +85,6 @@ def map_data(
             # default to vision v1.5
             embedding_model = NomicEmbedOptions(model="nomic-embed-vision-v1.5")
 
-    if id_field is None:
-        id_field = ATLAS_DEFAULT_ID_FIELD
-
     project_name = get_random_name()
 
     dataset_name = project_name
@@ -99,38 +95,6 @@ def map_data(
         index_name = identifier
     if description:
         description = description
-
-    # no metadata was specified
-    added_id_field = False
-
-    if data is None:
-        added_id_field = True
-        if embeddings is not None:
-            data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(embeddings))]
-        elif blobs is not None:
-            data = [{ATLAS_DEFAULT_ID_FIELD: b64int(i)} for i in range(len(blobs))]
-        else:
-            raise ValueError("You must specify either data, embeddings, or blobs")
-
-    if id_field == ATLAS_DEFAULT_ID_FIELD and data is not None:
-        if isinstance(data, list) and id_field not in data[0]:
-            added_id_field = True
-            for i in range(len(data)):
-                # do not modify object the user passed in - also ensures IDs are unique if two input datums are the same *object*
-                data[i] = data[i].copy()
-                data[i][id_field] = b64int(i)
-        elif isinstance(data, DataFrame) and id_field not in data.columns:
-            data[id_field] = [b64int(i) for i in range(data.shape[0])]
-            added_id_field = True
-        elif isinstance(data, pa.Table) and not id_field in data.column_names:  # type: ignore
-            ids = pa.array([b64int(i) for i in range(len(data))])
-            data = data.append_column(id_field, ids)  # type: ignore
-            added_id_field = True
-        elif id_field not in data[0]:
-            raise ValueError("map_data data must be a list of dicts, a pandas dataframe, or a pyarrow table")
-
-    if added_id_field:
-        logger.warning("An ID field was not specified in your data so one was generated for you in insertion order.")
 
     dataset = AtlasDataset(
         identifier=dataset_name, description=description, unique_id_field=id_field, is_public=is_public
@@ -144,6 +108,8 @@ def map_data(
     # Add data by modality
     logger.info("Uploading data to Atlas.")
     try:
+        if isinstance(data, DataFrame):
+            data = data.to_dict(orient="records")
         if modality == "text":
             dataset.add_data(data=data)
         elif modality == "embedding":
@@ -166,7 +132,7 @@ def map_data(
         name=index_name,
         indexed_field=indexed_field,
         modality=modality,
-        projection=projection,
+        projection=projection,  # type: ignore[arg-type]
         topic_model=topic_model,
         duplicate_detection=duplicate_detection,
         embedding_model=embedding_model,
@@ -200,7 +166,7 @@ def map_embeddings(
     Args:
         embeddings: An [N,d] numpy array containing the batch of N embeddings to add.
         data: An [N,] element list of dictionaries containing metadata for each embedding.
-        id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
+        id_field: Specify a field that uniquely identifies each datapoint. This field can be up 36 characters in length.
         name: A name for your dataset. Specify in the format `organization/project` to create in a specific organization.
         description: A description for your map.
         is_public: Should this embedding map be public? Private maps can only be accessed by members of your organization.
@@ -248,7 +214,7 @@ def map_text(
     Args:
         data: An [N,] element iterable of dictionaries containing metadata for each embedding.
         indexed_field: The name the data field containing the text your want to map.
-        id_field: Specify your data unique id field. This field can be up 36 characters in length. If not specified, one will be created for you named `id_`.
+        id_field: Specify a field that uniquely identifies each datapoint. This field can be up 36 characters in length. 
         name: A name for your dataset. Specify in the format `organization/project` to create in a specific organization.
         description: A description for your map.
         build_topic_model: Builds a hierarchical topic model over your data to discover patterns.
