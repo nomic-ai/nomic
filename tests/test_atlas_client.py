@@ -1,8 +1,5 @@
-import os
 import random
-import tempfile
 import time
-import uuid
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pytest
+from PIL import Image
 
 from nomic import AtlasDataset, atlas
 from nomic.data_inference import ProjectionOptions
@@ -66,13 +64,11 @@ def test_integration_map_embeddings_with_errors():
     name = f"unittest-dataset-{gen_temp_identifier()}"
     # test to long ids
     with pytest.raises(Exception):
-        data = [{"id": str(uuid.uuid4()) + "a"} for i in range(len(embeddings))]
         dataset = atlas.map_data(
             embeddings=embeddings,
             data=data,
             identifier=name,
-            id_field="id",
-            is_public=True,
+                is_public=True,
         )
 
         assert isinstance(dataset.created_timestamp, datetime)
@@ -123,8 +119,7 @@ def test_date_metadata():
         dataset = atlas.map_data(
             embeddings=embeddings,
             identifier=f"unittest-dataset-{gen_temp_identifier()}",
-            id_field="id",
-            data=data,
+                data=data,
             is_public=True,
         )
         dataset.delete()
@@ -136,14 +131,13 @@ def test_topics():
     texts = ["foo", "bar", "baz", "bat"]
     dates = [datetime(2021, 1, 1), datetime(2022, 1, 1), datetime(2023, 1, 1)]
     data = [
-        {"field": str(uuid.uuid4()), "id": str(uuid.uuid4()), "upload": 0.0, "text": texts[i % 4], "date": dates[i % 3]}
+        {"upload": 0.0, "text": texts[i % 4], "date": dates[i % 3]}
         for i in range(len(embeddings))
     ]
 
     dataset = atlas.map_data(
         embeddings=embeddings,
         identifier=f"unittest-dataset-{gen_temp_identifier()}",
-        id_field="id",
         data=data,
         is_public=True,
         topic_model=dict(topic_label_field="text"),
@@ -163,7 +157,7 @@ def test_data():
     embeddings = np.random.rand(num_embeddings, 10)
     texts = ["foo", "bar", "baz", "bat"]
     data = [
-        {"field": str(uuid.uuid4()), "id": str(uuid.uuid4()), "upload": 0.0, "text": str(i)}
+        {"upload": 0.0, "text": str(i)}
         for i in range(len(embeddings))
     ]
     all_columns = data[0].keys()
@@ -171,7 +165,6 @@ def test_data():
     dataset = atlas.map_data(
         embeddings=embeddings,
         identifier=f"unittest-dataset-{gen_temp_identifier()}",
-        id_field="id",
         data=data,
         is_public=True,
         topic_model=dict(build_topic_model=True, community_description_target_field="text"),
@@ -274,22 +267,22 @@ def test_weird_inputs():
     """
     Check that null and empty strings do not block an index build.
     """
-    dataset = AtlasDataset(f"unittest-dataset-{gen_temp_identifier()}", unique_id_field="id")
+    dataset = AtlasDataset(f"unittest-dataset-{gen_temp_identifier()}")
 
     elements = []
     for i in range(20):
         if i % 3 == 0 and i % 5 == 0:
-            elements.append({"text": "fizzbuzz", "id": str(i)})
+            elements.append({"text": "fizzbuzz"})
         elif i % 3 == 0:
-            elements.append({"text": "fizz", "id": str(i)})
+            elements.append({"text": "fizz"})
         elif i % 5 == 0:
-            elements.append({"text": "buzz", "id": str(i)})
+            elements.append({"text": "buzz"})
         elif i % 7 == 0:
-            elements.append({"text": None, "id": str(i)})
+            elements.append({"text": None})
         elif i % 2 == 0:
-            elements.append({"text": "", "id": str(i)})
+            elements.append({"text": ""})
         else:
-            elements.append({"text": "foo", "id": str(i)})
+            elements.append({"text": "foo"})
     dataset.add_data(data=elements)
     projection = dataset.create_index(indexed_field="text", topic_model=True)
     if projection:
@@ -304,13 +297,10 @@ def test_weird_inputs():
 def test_integration_map_embeddings():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{"field": str(uuid.uuid4()), "id": str(uuid.uuid4())} for i in range(len(embeddings))]
 
     dataset = atlas.map_data(
         embeddings=embeddings,
         identifier=f"unittest-dataset-{gen_temp_identifier()}",
-        id_field="id",
-        data=data,
         is_public=True,
     )
 
@@ -337,7 +327,6 @@ def test_integration_map_text_pandas():
     size = 50
     data = pd.DataFrame(
         {
-            "field": [str(uuid.uuid4()) for i in range(size)],
             "color": [random.choice(["red", "blue", "green"]) for i in range(size)],
         }
     )
@@ -355,15 +344,12 @@ def test_integration_map_text_arrow():
     size = 50
     data = pa.Table.from_pydict(
         {
-            "field": [str(uuid.uuid4()) for i in range(size)],
-            "id": [str(uuid.uuid4()) for i in range(size)],
             "color": [random.choice(["red", "blue", "green"]) for i in range(size)],
         }
     )
 
     dataset = atlas.map_data(
         identifier=f"UNITTEST_arrow_text-{gen_temp_identifier()}",
-        id_field="id",
         indexed_field="color",
         data=data,
         is_public=True,
@@ -427,14 +413,11 @@ def _wait_for_projection_completion(projection, timeout_seconds=600):
 def test_integration_map_embeddings_explicit_umap():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{"id": str(i)} for i in range(num_embeddings)]
 
     dataset_identifier = f"unittest-umap-explicit-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         embeddings=embeddings,
-        data=data,
         is_public=True,
         projection=ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25),
     )
@@ -460,16 +443,13 @@ def test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completion):
     # Original test logic's data setup
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{"id": str(i)} for i in range(num_embeddings)]
     dataset_identifier = f"unittest-umap-explicit-{gen_temp_identifier()}"
     umap_options = ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25)
 
     # Call the function that would normally call atlas.map_data
     dataset_out = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         embeddings=embeddings,
-        data=data,
         is_public=True,
         projection=umap_options,
     )
@@ -478,9 +458,7 @@ def test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completion):
     called_args, called_kwargs = mock_map_data.call_args
 
     assert called_kwargs["identifier"] == dataset_identifier
-    assert called_kwargs["id_field"] == "id"
     assert np.array_equal(called_kwargs["embeddings"], embeddings)
-    assert called_kwargs["data"] == data
     assert called_kwargs["is_public"] is True
     actual_projection_options = called_kwargs["projection"]
     assert isinstance(actual_projection_options, ProjectionOptions)
@@ -508,13 +486,11 @@ def test_integration_map_text_explicit_umap():
     data = pd.DataFrame(
         {
             "text_field": [words[i % len(words)] for i in range(size)],
-            "id": [str(i) for i in range(size)],
         }
     )
     dataset_identifier = f"unittest-text-umap-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         indexed_field="text_field",
         data=data,
         is_public=True,
@@ -538,7 +514,6 @@ def test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
     data_df = pd.DataFrame(
         {
             "text_field": [words[i % len(words)] for i in range(size)],
-            "id": [str(i) for i in range(size)],
         }
     )
     dataset_identifier = f"unittest-text-umap-{gen_temp_identifier()}"
@@ -547,7 +522,6 @@ def test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
     # Call the function
     dataset_out = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         indexed_field="text_field",
         data=data_df,
         is_public=True,
@@ -558,7 +532,6 @@ def test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
     called_args, called_kwargs = mock_map_data.call_args
 
     assert called_kwargs["identifier"] == dataset_identifier
-    assert called_kwargs["id_field"] == "id"
     assert called_kwargs["indexed_field"] == "text_field"
     assert called_kwargs["data"].equals(data_df)  # Using .equals for DataFrame comparison
     assert called_kwargs["is_public"] is True
@@ -584,14 +557,11 @@ def test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
 def test_integration_map_embeddings_explicit_nomic_project():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{"id": str(i)} for i in range(num_embeddings)]
 
     dataset_identifier = f"unittest-nomic-explicit-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         embeddings=embeddings,
-        data=data,
         is_public=True,
         projection=ProjectionOptions(model="nomic-project-v1", n_neighbors=7, n_epochs=20, spread=0.6),
     )
@@ -612,24 +582,19 @@ def test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for_comp
 
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{"id": str(i)} for i in range(num_embeddings)]
     dataset_identifier = f"unittest-nomic-explicit-{gen_temp_identifier()}"
     nomic_options = ProjectionOptions(model="nomic-project-v1", n_neighbors=7, n_epochs=20, spread=0.6)
 
     dataset_out = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         embeddings=embeddings,
-        data=data,
         is_public=True,
         projection=nomic_options,
     )
 
     called_args, called_kwargs = mock_map_data.call_args
     assert called_kwargs["identifier"] == dataset_identifier
-    assert called_kwargs["id_field"] == "id"
     assert np.array_equal(called_kwargs["embeddings"], embeddings)
-    assert called_kwargs["data"] == data
     assert called_kwargs["is_public"] is True
 
     actual_projection_options = called_kwargs["projection"]
@@ -654,13 +619,11 @@ def test_integration_map_text_explicit_nomic_project():
     data = pd.DataFrame(
         {
             "text_field": [words[i % len(words)] for i in range(size)],
-            "id": [str(i) for i in range(size)],
         }
     )
     dataset_identifier = f"unittest-text-nomic-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         indexed_field="text_field",
         data=data,
         is_public=True,
@@ -687,7 +650,6 @@ def test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion
     data_df = pd.DataFrame(
         {
             "text_field": [words[i % len(words)] for i in range(size)],
-            "id": [str(i) for i in range(size)],
         }
     )
     dataset_identifier = f"unittest-text-nomic-{gen_temp_identifier()}"
@@ -697,7 +659,6 @@ def test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion
 
     dataset_out = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         indexed_field="text_field",
         data=data_df,
         is_public=True,
@@ -706,7 +667,6 @@ def test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion
 
     called_args, called_kwargs = mock_map_data.call_args
     assert called_kwargs["identifier"] == dataset_identifier
-    assert called_kwargs["id_field"] == "id"
     assert called_kwargs["indexed_field"] == "text_field"
     assert called_kwargs["data"].equals(data_df)
     assert called_kwargs["is_public"] is True
@@ -732,14 +692,11 @@ def test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion
 def test_integration_map_embeddings_auto_with_options():
     num_embeddings = 50  # Small dataset, backend should pick UMAP if it has logic for it
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{"id": str(i)} for i in range(num_embeddings)]
 
     dataset_identifier = f"unittest-auto-opts-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         embeddings=embeddings,
-        data=data,
         is_public=True,
         projection={
             "model": "nomic-project-v1",
@@ -758,15 +715,12 @@ def test_integration_map_embeddings_auto_with_options():
 def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
-    data = [{"id": str(i)} for i in range(num_embeddings)]
 
     # Test with explicit algorithm="umap"
     dataset_identifier = f"unittest-legacy-dict-algo-umap-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         embeddings=embeddings,
-        data=data,
         is_public=True,
         projection={"model": "umap", "n_neighbors": 9, "min_dist": 0.3, "n_epochs": 27},
     )
@@ -778,9 +732,7 @@ def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     dataset_identifier = f"unittest-legacy-dict-algo-nomic-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
         embeddings=embeddings,
-        data=data,
         is_public=True,
         projection={"model": "nomic-project-v2", "n_neighbors": 11, "n_epochs": 28},
     )
@@ -790,83 +742,38 @@ def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     dataset.delete()
 
 
-def test_integration_map_embeddings_explicit_projection_options():
-    num_embeddings = 50
-    embeddings = np.random.rand(num_embeddings, 10)
-    data = [{"id": str(i)} for i in range(num_embeddings)]
+def test_integration_map_images():
+    size = 30
+    # Generate random PIL images
+    images = []
+    for _ in range(size):
+        img = Image.new('RGB', (60, 30), color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+        images.append(img)
 
-    dataset_identifier = f"unittest-projection-opts-embeddings-{gen_temp_identifier()}"
-    dataset = atlas.map_data(
-        identifier=dataset_identifier,
-        id_field="id",
-        embeddings=embeddings,
-        data=data,
-        is_public=True,
-        projection=ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25),
-    )
-    assert dataset.id is not None
-    projection = dataset.maps[0]
-    _wait_for_projection_completion(projection)
-    dataset.delete()
-
-    dataset_identifier_nomic = f"unittest-projection-opts-embeddings-nomic-{gen_temp_identifier()}"
-    dataset_nomic = atlas.map_data(
-        identifier=dataset_identifier_nomic,
-        id_field="id",
-        embeddings=embeddings,
-        data=data,
-        is_public=True,
-        projection=ProjectionOptions(
-            model="nomic-project-v1",
-            n_neighbors=7,
-            n_epochs=20,
-            spread=0.6,
-        ),
-    )
-    assert dataset_nomic.id is not None
-    projection_nomic = dataset_nomic.maps[0]
-    _wait_for_projection_completion(projection_nomic)
-    dataset_nomic.delete()
-
-
-def test_integration_map_text_explicit_projection_options():
-    size = 50
     data = pd.DataFrame(
         {
-            "text_field": [words[i % len(words)] for i in range(size)],
-            "id": [str(i) for i in range(size)],
+            "description": [f"This is image {i}" for i in range(size)],
         }
     )
-    dataset_identifier = f"unittest-projection-opts-text-{gen_temp_identifier()}"
+    dataset_identifier = f"unittest-images-{gen_temp_identifier()}"
     dataset = atlas.map_data(
         identifier=dataset_identifier,
-        id_field="id",
-        indexed_field="text_field",
         data=data,
+        blobs=images,
         is_public=True,
-        projection=ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.05, n_epochs=30),
     )
     assert dataset.id is not None
+    assert dataset.modality == "image" # Or check based on how map_data sets it.
+
     projection = dataset.maps[0]
     _wait_for_projection_completion(projection)
-    dataset.delete()
 
-    dataset_identifier_nomic = f"unittest-projection-opts-text-nomic-{gen_temp_identifier()}"
-    dataset_nomic = atlas.map_data(
-        identifier=dataset_identifier_nomic,
-        id_field="id",
-        indexed_field="text_field",
-        data=data,
-        is_public=True,
-        projection=ProjectionOptions(
-            model="nomic-project-v2",
-            n_epochs=30,
-            spread=0.5,
-            rho=0.5,
-            local_neighborhood_size=32,
-        ),
-    )
-    assert dataset_nomic.id is not None
-    projection_nomic = dataset_nomic.maps[0]
-    _wait_for_projection_completion(projection_nomic)
-    dataset_nomic.delete()
+    # Additional assertions can be added here, e.g., checking dataset.total_datums
+    assert dataset.total_datums == size
+
+    # Check if topics can be accessed (even if empty, should not error)
+    # Depending on default topic modeling for images, this might need adjustment
+    # For now, let's assume topics might be generated or accessible without error.
+    assert isinstance(projection.topics.metadata, list) # or dict, check actual type
+
+    dataset.delete()

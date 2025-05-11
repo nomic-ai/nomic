@@ -8,6 +8,7 @@ import os
 import re
 import time
 import unicodedata
+import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
@@ -115,14 +116,11 @@ class AtlasClass(object):
 
         return response.json()
 
-    def _validate_map_data_inputs(self, colorable_fields, id_field, data_sample):
+    def _validate_map_data_inputs(self, colorable_fields, data_sample):
         """Validates inputs to map data calls."""
 
         if not isinstance(colorable_fields, list):
             raise ValueError("colorable_fields must be a list of fields")
-
-        if id_field in colorable_fields:
-            raise Exception(f"Cannot color by unique id field: {id_field}")
 
         for field in colorable_fields:
             if field not in data_sample:
@@ -274,8 +272,6 @@ class AtlasClass(object):
         """
         Private method. validates upload data against the dataset arrow schema, and associated other checks.
 
-        1. If unique_id_field is specified, validates that each datum has that field. If not, adds it and then notifies the user that it was added.
-
         Args:
             data: an arrow table.
             project: the atlas dataset you are validating the data for.
@@ -295,9 +291,6 @@ class AtlasClass(object):
                 msg = "Must include embeddings in embedding dataset upload."
                 raise ValueError(msg)
 
-        if project.id_field not in data.column_names:
-            raise ValueError(f"Data must contain the ID column `{project.id_field}`")
-
         seen = set()
         for col in data.column_names:
             if col.lower() in seen:
@@ -312,11 +305,6 @@ class AtlasClass(object):
         # This includes shuffling the order around if necessary,
         # filling in nulls, etc.
         reformatted = {}
-
-        if data[project.id_field].null_count > 0:
-            raise ValueError(
-                f"{project.id_field} must not contain null values, but {data[project.id_field].null_count} found."
-            )
 
         assert project.schema is not None, "Project schema not found."
 
@@ -350,27 +338,12 @@ class AtlasClass(object):
         if project.meta["insert_update_delete_lock"]:
             raise Exception("Project is currently indexing and cannot ingest new datums. Try again later.")
 
-        # The following two conditions should never occur given the above, but just in case...
-        assert project.id_field in data.column_names, f"Upload does not contain your specified id_field"
-
-        if not pa.types.is_string(data[project.id_field].type):
-            logger.warning(f"id_field is not a string. Converting to string from {data[project.id_field].type}")
-            data = data.drop([project.id_field]).append_column(
-                project.id_field, data[project.id_field].cast(pa.string())
-            )
-
         for key in data.column_names:
             if key.startswith("_"):
                 if key == "_embeddings" or key == "_blob_hash":
                     continue
                 raise ValueError("Metadata fields cannot start with _")
-        if pa.compute.max(pa.compute.utf8_length(data[project.id_field])).as_py() > 36:  # type: ignore
-            first_match = data.filter(
-                pa.compute.greater(pa.compute.utf8_length(data[project.id_field]), 36)  # type: ignore
-            ).to_pylist()[0][project.id_field]
-            raise ValueError(
-                f"The id_field {first_match} is greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
-            )
+
         return data
 
     def _get_organization(self, organization_slug=None, organization_id=None) -> Tuple[str, str]:
@@ -696,10 +669,6 @@ class AtlasProjection:
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
 
-    @property
-    def datum_id_field(self):
-        return self.dataset.meta["unique_id_field"]
-
     def _get_atoms(self, ids: List[str]) -> List[Dict]:
         """
         Retrieves atoms by id
@@ -766,7 +735,7 @@ class AtlasDataset(AtlasClass):
 
         * **identifier** - The dataset identifier in the form `dataset` or `organization/dataset`. If no organization is passed, the organization tied to the API key you logged in to Nomic with will be used.
         * **description** - A description for the dataset.
-        * **unique_id_field** - The field that uniquely identifies each data point.
+        * **unique_id_field** - A field that uniquely identifies each data point.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
         * **dataset_id** - An alternative way to load a dataset is by passing the dataset_id directly. This only works if a dataset exists.
         """
@@ -805,19 +774,11 @@ class AtlasDataset(AtlasClass):
             dataset_id = dataset["id"]
 
         if dataset_id is None:  # if there is no existing project, make a new one.
-            if unique_id_field is None:  # if not all parameters are specified, we weren't trying to make a project
-                raise ValueError(f"Dataset `{identifier}` does not exist.")
-
-            # if modality is None:
-            #     raise ValueError("You must specify a modality when creating a new dataset.")
-            #
-            # assert modality in ['text', 'embedding'], "Modality must be either `text` or `embedding`"
             assert identifier is not None
 
             dataset_id = self._create_project(
                 identifier=identifier,
                 description=description,
-                unique_id_field=unique_id_field,
                 is_public=is_public,
             )
 
@@ -840,7 +801,6 @@ class AtlasDataset(AtlasClass):
         self,
         identifier: str,
         description: Optional[str],
-        unique_id_field: str,
         is_public: bool = True,
     ):
         """
@@ -852,7 +812,6 @@ class AtlasDataset(AtlasClass):
 
         * **identifier** - The identifier for the dataset.
         * **description** - A description for the dataset.
-        * **unique_id_field** - The field that uniquely identifies each datum. If a datum does not contain this field, it will be added and assigned a random unique ID.
         * **is_public** - Should this dataset be publicly accessible for viewing (read only). If False, only members of your Nomic organization can view.
 
         **Returns:** project_id on success.
@@ -865,15 +824,6 @@ class AtlasDataset(AtlasClass):
         if "/" in identifier:
             org_name = identifier.split("/")[0]
             logger.info(f"Organization name: `{org_name}`")
-        # supported_modalities = ['text', 'embedding']
-        # if modality not in supported_modalities:
-        #     msg = 'Tried to create dataset with modality: {}, but Atlas only supports: {}'.format(
-        #         modality, supported_modalities
-        #     )
-        #     raise ValueError(msg)
-
-        if unique_id_field is None:
-            raise ValueError("You must specify a unique id field")
         if description is None:
             description = ""
         response = requests.post(
@@ -883,8 +833,6 @@ class AtlasDataset(AtlasClass):
                 "organization_id": organization_id,
                 "project_name": project_slug,
                 "description": description,
-                "unique_id_field": unique_id_field,
-                # 'modality': modality,
                 "is_public": is_public,
             },
         )
@@ -939,12 +887,8 @@ class AtlasDataset(AtlasClass):
 
     @property
     def id(self) -> str:
-        """The UUID of the dataset."""
+        """The ID of the dataset."""
         return self.meta["id"]
-
-    @property
-    def id_field(self) -> str:
-        return self.meta["unique_id_field"]
 
     @property
     def created_timestamp(self) -> datetime:
@@ -1147,7 +1091,7 @@ class AtlasDataset(AtlasClass):
         colorable_fields = []
 
         for field in self.dataset_fields:
-            if field not in [self.id_field, indexed_field] and not field.startswith("_"):
+            if field not in [indexed_field] and not field.startswith("_"):
                 colorable_fields.append(field)
 
         build_template = {}
@@ -1417,91 +1361,118 @@ class AtlasDataset(AtlasClass):
         elif not isinstance(data, pa.Table):
             raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
 
+        # Compute dataset length
+        data_length = len(data)
+        if data_length != len(blobs):
+            raise ValueError(f"Number of data points ({data_length}) must match number of blobs ({len(blobs)})")
+
+        TEMP_ID_COLUMN = "_nomic_internal_temp_id"
+
+        # Generate temporary IDs and add them to the data table
+        try:
+            temp_id_values = [str(uuid.uuid4()) for _ in range(data_length)]
+            data = data.append_column(TEMP_ID_COLUMN, pa.array(temp_id_values, type=pa.string()))
+        except Exception as e:
+            logger.error(f"Failed to generate or append temporary IDs: {e}")
+            raise
+
         blob_upload_endpoint = "/v1/project/data/add/blobs"
 
-        # uploda batch of blobs
-        # return hash of blob
-        # add hash to data as _blob_hash
-        # set indexed_field to _blob_hash
-        # call _add_data
+        actual_temp_ids = data[TEMP_ID_COLUMN].to_pylist()
 
-        # Cast self id field to string for merged data lower down on function
-        data = data.set_column(  # type: ignore
-            data.schema.get_field_index(self.id_field), self.id_field, pc.cast(data[self.id_field], pa.string())  # type: ignore
-        )
+        images = []  # List of (temp_id, image_bytes)
+        for i in tqdm(range(data_length), desc="Processing images"):
+            current_temp_id = actual_temp_ids[i]
+            blob_item = blobs[i]
 
-        ids = data[self.id_field].to_pylist()  # type: ignore
-        if not isinstance(ids[0], str):
-            ids = [str(uuid) for uuid in ids]
-
-        # TODO: add support for other modalities
-        images = []
-        for uuid, blob in tqdm(zip(ids, blobs), total=len(ids), desc="Loading images"):
-            if (isinstance(blob, str) or isinstance(blob, Path)) and os.path.exists(blob):
-                # Auto resize to max 512x512
-                image = Image.open(blob)
-                image = image.convert("RGB")
+            processed_blob_value = None
+            if (isinstance(blob_item, str) or isinstance(blob_item, Path)) and os.path.exists(blob_item):
+                image = Image.open(blob_item).convert("RGB")
                 if image.height > 512 or image.width > 512:
                     image = image.resize((512, 512))
                 buffered = BytesIO()
                 image.save(buffered, format="JPEG")
-                images.append((uuid, buffered.getvalue()))
-            elif isinstance(blob, bytes):
-                images.append((uuid, blob))
-            elif isinstance(blob, Image.Image):
-                blob = blob.convert("RGB")  # type: ignore
-                if blob.height > 512 or blob.width > 512:
-                    blob = blob.resize((512, 512))
+                processed_blob_value = buffered.getvalue()
+            elif isinstance(blob_item, bytes):
+                processed_blob_value = blob_item
+            elif isinstance(blob_item, Image.Image):
+                img_pil = blob_item.convert("RGB")  # Ensure it's PIL Image for methods
+                if img_pil.height > 512 or img_pil.width > 512:
+                    img_pil = img_pil.resize((512, 512))
                 buffered = BytesIO()
-                blob.save(buffered, format="JPEG")
-                images.append((uuid, buffered.getvalue()))
+                img_pil.save(buffered, format="JPEG")
+                processed_blob_value = buffered.getvalue()
             else:
-                raise ValueError(f"Invalid blob type for {uuid}. Must be a path to an image, bytes, or PIL Image.")
+                raise ValueError(
+                    f"Invalid blob type for item at index {i} (temp_id: {current_temp_id}). Must be a path, bytes, or PIL Image. Got: {type(blob_item)}"
+                )
+
+            if processed_blob_value is not None:
+                images.append((current_temp_id, processed_blob_value))
 
         batch_size = 40
         num_workers = 10
 
-        def send_request(i):
-            image_batch = images[i : i + batch_size]
-            ids = [uuid for uuid, _ in image_batch]
-            blobs = [("blobs", blob) for _, blob in image_batch]
+        def send_request(batch_start_index):
+            image_batch = images[batch_start_index : batch_start_index + batch_size]
+            temp_ids_in_batch = [item_id for item_id, _ in image_batch]
+            blobs_for_api = [("blobs", blob_val) for _, blob_val in image_batch]
+
             response = requests.post(
                 self.atlas_api_path + blob_upload_endpoint,
                 headers=self.header,
-                data={"dataset_id": self.id},
-                files=blobs,
+                data={"dataset_id": self.id},  # self.id is project_id
+                files=blobs_for_api,
             )
             if response.status_code != 200:
-                raise Exception(response.text)
-            return {uuid: blob_hash for uuid, blob_hash in zip(ids, response.json()["hashes"])}
+                failed_ids_sample = temp_ids_in_batch[:5]
+                logger.error(
+                    f"Blob upload request failed for batch starting with temp_ids: {failed_ids_sample}. Status: {response.status_code}, Response: {response.text}"
+                )
+                raise Exception(f"Blob upload failed: {response.text}")
+            return {temp_id: blob_hash for temp_id, blob_hash in zip(temp_ids_in_batch, response.json()["hashes"])}
 
-        # if this method is being called internally, we pass a global progress bar
-        if pbar is None:
-            pbar = tqdm(total=len(data), desc="Uploading blobs to Atlas")
+        upload_pbar = pbar  # Use passed-in pbar if available
+        close_upload_pbar_locally = False
+        if upload_pbar is None:
+            upload_pbar = tqdm(total=len(images), desc="Uploading blobs to Atlas")
+            close_upload_pbar_locally = True
 
-        hash_schema = pa.schema([(self.id_field, pa.string()), ("_blob_hash", pa.string())])
-        returned_ids = []
+        returned_temp_ids = []
         returned_hashes = []
+        succeeded_uploads = 0
 
-        succeeded = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(send_request, i): i for i in range(0, len(data), batch_size)}
+            futures = {executor.submit(send_request, i): i for i in range(0, len(images), batch_size)}
 
             for future in concurrent.futures.as_completed(futures):
-                response = future.result()
-                # add hash to data as _blob_hash
-                for uuid, blob_hash in response.items():
-                    returned_ids.append(uuid)
-                    returned_hashes.append(blob_hash)
+                try:
+                    response_dict = future.result()  # This is {temp_id: blob_hash}
+                    for temp_id, blob_hash_val in response_dict.items():
+                        returned_temp_ids.append(temp_id)
+                        returned_hashes.append(blob_hash_val)
+                    succeeded_uploads += len(response_dict)
+                    if upload_pbar:
+                        upload_pbar.update(len(response_dict))
+                except Exception as e:
+                    logger.error(f"An error occurred during blob upload processing for a batch: {e}")
+                    # Optionally, collect failed batch info here if needed for partial success
 
-                # A successful upload.
-                succeeded += len(response)
-                pbar.update(len(response))
+        if close_upload_pbar_locally and upload_pbar:
+            upload_pbar.close()
 
-        hash_tb = pa.Table.from_pydict({self.id_field: returned_ids, "_blob_hash": returned_hashes}, schema=hash_schema)
-        merged_data = data.join(right_table=hash_tb, keys=self.id_field)  # type: ignore
+        hash_schema = pa.schema([(TEMP_ID_COLUMN, pa.string()), ("_blob_hash", pa.string())])
+        if succeeded_uploads > 0:  # Only create hash_tb if there are successful uploads
+            hash_tb = pa.Table.from_pydict(
+                {TEMP_ID_COLUMN: returned_temp_ids, "_blob_hash": returned_hashes}, schema=hash_schema
+            )
+            merged_data = data.join(right_table=hash_tb, keys=TEMP_ID_COLUMN, join_type="left outer")
+        else:  # No successful uploads, so no hashes to merge, but keep original data structure
+            merged_data = data.add_column(data.num_rows, "_blob_hash", pa.nulls(data.num_rows, type=pa.string()))
 
-        self._add_data(merged_data, pbar=pbar)
+        merged_data = merged_data.drop_columns([TEMP_ID_COLUMN])
+
+        self._add_data(merged_data, pbar=pbar)  # Pass original pbar argument
 
     def _add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
         """
