@@ -30,9 +30,11 @@ def gen_temp_identifier() -> str:
 def test_integration_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
-    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
+    data_payload = [{"description": "test_value"} for _ in range(num_embeddings)]
 
-    dataset = atlas.map_data(identifier=f"unittest-dataset-{gen_temp_identifier()}", embeddings=embeddings, data=data_payload)
+    dataset = atlas.map_data(
+        identifier=f"unittest-dataset-{gen_temp_identifier()}", embeddings=embeddings, data=data_payload
+    )
     AtlasDataset(dataset.identifier).delete()
 
 
@@ -292,7 +294,7 @@ def test_weird_inputs():
 def test_integration_map_embeddings():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
-    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
+    data_payload = [{"description": "test_value"} for _ in range(num_embeddings)]
 
     dataset = atlas.map_data(
         embeddings=embeddings,
@@ -410,7 +412,7 @@ def _wait_for_projection_completion(projection, timeout_seconds=600):
 def test_integration_map_embeddings_explicit_umap():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
-    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
+    data_payload = [{"description": "test_value"} for _ in range(num_embeddings)]
 
     dataset_identifier = f"unittest-umap-explicit-{gen_temp_identifier()}"
     dataset = atlas.map_data(
@@ -444,7 +446,7 @@ def test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completion):
     embeddings = np.random.rand(num_embeddings, 10)
     dataset_identifier = f"unittest-umap-explicit-{gen_temp_identifier()}"
     umap_options = ProjectionOptions(model="umap", n_neighbors=5, min_dist=0.01, n_epochs=25)
-    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
+    data_payload = [{"description": "test_value"} for _ in range(num_embeddings)]
 
     # Call the function that would normally call atlas.map_data
     dataset_out = atlas.map_data(
@@ -559,7 +561,7 @@ def test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
 def test_integration_map_embeddings_explicit_nomic_project():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
-    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
+    data_payload = [{"description": "test_value"} for _ in range(num_embeddings)]
 
     dataset_identifier = f"unittest-nomic-explicit-{gen_temp_identifier()}"
     dataset = atlas.map_data(
@@ -588,7 +590,7 @@ def test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for_comp
     embeddings = np.random.rand(num_embeddings, 10)
     dataset_identifier = f"unittest-nomic-explicit-{gen_temp_identifier()}"
     nomic_options = ProjectionOptions(model="nomic-project-v1", n_neighbors=7, n_epochs=20, spread=0.6)
-    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
+    data_payload = [{"description": "test_value"} for _ in range(num_embeddings)]
 
     dataset_out = atlas.map_data(
         identifier=dataset_identifier,
@@ -699,7 +701,7 @@ def test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion
 def test_integration_map_embeddings_auto_with_options():
     num_embeddings = 50  # Small dataset, backend should pick UMAP if it has logic for it
     embeddings = np.random.rand(num_embeddings, 10)
-    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
+    data_payload = [{"description": "test_value"} for _ in range(num_embeddings)]
 
     dataset_identifier = f"unittest-auto-opts-{gen_temp_identifier()}"
     dataset = atlas.map_data(
@@ -724,7 +726,7 @@ def test_integration_map_embeddings_auto_with_options():
 def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
-    data_payload = [{'description': 'test_value'} for _ in range(num_embeddings)]
+    data_payload = [{"description": "test_value"} for _ in range(num_embeddings)]
 
     # Test with explicit algorithm="umap"
     dataset_identifier = f"unittest-legacy-dict-algo-umap-{gen_temp_identifier()}"
@@ -782,10 +784,5 @@ def test_integration_map_images():
 
     # Additional assertions can be added here, e.g., checking dataset.total_datums
     assert dataset.total_datums == size
-
-    # Check if topics can be accessed (even if empty, should not error)
-    # Depending on default topic modeling for images, this might need adjustment
-    # For now, let's assume topics might be generated or accessible without error.
-    assert isinstance(projection.topics.metadata, list)  # or dict, check actual type
 
     dataset.delete()

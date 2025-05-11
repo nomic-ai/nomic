@@ -277,7 +277,7 @@ class AtlasClass(object):
             project: the atlas dataset you are validating the data for.
 
         Returns:
-
+            Validated pyarrow table.
         """
         if not isinstance(data, pa.Table):
             raise Exception("Invalid data type for upload: {}".format(type(data)))
@@ -290,6 +290,30 @@ class AtlasClass(object):
             if "_embeddings" not in data.column_names:
                 msg = "Must include embeddings in embedding dataset upload."
                 raise ValueError(msg)
+
+        # Check and validate ID field if specified
+        if "unique_id_field" in project.meta and project.meta["unique_id_field"] is not None:
+            id_field = project.meta["unique_id_field"]
+
+            # Check if ID field exists in data
+            if id_field not in data.column_names:
+                raise ValueError(
+                    f"Data must contain the ID column `{id_field}` as specified in dataset's unique_id_field"
+                )
+
+            # Check for null values in ID field
+            if data[id_field].null_count > 0:
+                raise ValueError(
+                    f"As your unique id field, {id_field} must not contain null values, but {data[id_field].null_count} found."
+                )
+
+            # Check ID field length (36 characters max)
+            if pa.types.is_string(data[id_field].type):
+                max_length = pa.compute.max(pa.compute.utf8_length(data[id_field])).as_py()
+                if max_length > 36:
+                    raise ValueError(
+                        f"The id_field contains values greater than 36 characters. Atlas does not support id_fields longer than 36 characters."
+                    )
 
         seen = set()
         for col in data.column_names:
