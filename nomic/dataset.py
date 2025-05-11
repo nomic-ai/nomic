@@ -1354,15 +1354,18 @@ class AtlasDataset(AtlasClass):
         Uploads blobs to the server and associates them with the data.
         Blobs must reference objects stored locally
         """
+        data_as_table: pa.Table
         if isinstance(data, DataFrame):
-            data = pa.Table.from_pandas(data)
+            data_as_table = pa.Table.from_pandas(data)
         elif isinstance(data, list):
-            data = pa.Table.from_pylist(data)
-        elif not isinstance(data, pa.Table):
+            data_as_table = pa.Table.from_pylist(data)
+        elif isinstance(data, pa.Table):
+            data_as_table = data
+        else:
             raise ValueError("Data must be a pandas DataFrame, list of dictionaries, or a pyarrow Table.")
 
         # Compute dataset length
-        data_length = len(data)
+        data_length = len(data_as_table)
         if data_length != len(blobs):
             raise ValueError(f"Number of data points ({data_length}) must match number of blobs ({len(blobs)})")
 
@@ -1371,14 +1374,14 @@ class AtlasDataset(AtlasClass):
         # Generate temporary IDs and add them to the data table
         try:
             temp_id_values = [str(uuid.uuid4()) for _ in range(data_length)]
-            data = data.append_column(TEMP_ID_COLUMN, pa.array(temp_id_values, type=pa.string()))
+            data_as_table = data_as_table.append_column(TEMP_ID_COLUMN, pa.array(temp_id_values, type=pa.string()))
         except Exception as e:
             logger.error(f"Failed to generate or append temporary IDs: {e}")
             raise
 
         blob_upload_endpoint = "/v1/project/data/add/blobs"
 
-        actual_temp_ids = data[TEMP_ID_COLUMN].to_pylist()
+        actual_temp_ids = data_as_table[TEMP_ID_COLUMN].to_pylist()
 
         images = []  # List of (temp_id, image_bytes)
         for i in tqdm(range(data_length), desc="Processing images"):
@@ -1462,17 +1465,20 @@ class AtlasDataset(AtlasClass):
             upload_pbar.close()
 
         hash_schema = pa.schema([(TEMP_ID_COLUMN, pa.string()), ("_blob_hash", pa.string())])
+        
+        merged_data_as_table: pa.Table
         if succeeded_uploads > 0:  # Only create hash_tb if there are successful uploads
             hash_tb = pa.Table.from_pydict(
                 {TEMP_ID_COLUMN: returned_temp_ids, "_blob_hash": returned_hashes}, schema=hash_schema
             )
-            merged_data = data.join(right_table=hash_tb, keys=TEMP_ID_COLUMN, join_type="left outer")
+            merged_data_as_table = data_as_table.join(right_table=hash_tb, keys=TEMP_ID_COLUMN, join_type="left outer")
         else:  # No successful uploads, so no hashes to merge, but keep original data structure
-            merged_data = data.add_column(data.num_rows, "_blob_hash", pa.nulls(data.num_rows, type=pa.string()))
+            merged_data_as_table = data_as_table.add_column(data_as_table.num_rows, "_blob_hash", pa.nulls(data_as_table.num_rows, type=pa.string()))
 
-        merged_data = merged_data.drop_columns([TEMP_ID_COLUMN])
 
-        self._add_data(merged_data, pbar=pbar)  # Pass original pbar argument
+        merged_data_as_table = merged_data_as_table.drop_columns([TEMP_ID_COLUMN])
+
+        self._add_data(merged_data_as_table, pbar=pbar)  # Pass original pbar argument
 
     def _add_text(self, data=Union[DataFrame, List[Dict], pa.Table], pbar=None):
         """
