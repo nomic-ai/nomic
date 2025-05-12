@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.1](https://github.com/nomic-ai/nomic/compare/v3.5.0...v3.5.1) (2025-05-12)
+
+
+### Bug Fixes
+
+* unique id optional ([#385](https://github.com/nomic-ai/nomic/issues/385)) ([2bed1fc](https://github.com/nomic-ai/nomic/commit/2bed1fcfff972fc900f38a78f7ace35e3327fba7))
+
 ## [3.5.0](https://github.com/nomic-ai/nomic/compare/v3.4.1...v3.5.0) (2025-05-09)
 
 
