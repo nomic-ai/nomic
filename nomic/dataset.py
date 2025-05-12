@@ -349,7 +349,7 @@ class AtlasClass(object):
                         f"Replacing {data[field.name].null_count} null values for field {field.name} with string 'null'. This behavior will change in a future version."
                     )
                     reformatted[field.name] = pc.fill_null(reformatted[field.name], "null")
-                
+
                 # Check for empty strings and replace with "null"
                 # Separate the operations for better type checking
                 binary_length_values = pc.binary_length(reformatted[field.name])  # type: ignore
