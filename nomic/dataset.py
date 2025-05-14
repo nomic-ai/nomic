@@ -700,32 +700,6 @@ class AtlasProjection:
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
 
-    def _get_atoms(self, ids: List[str]) -> List[Dict]:
-        """
-        Retrieves atoms by id
-
-        Args:
-            ids: list of atom ids
-
-        Returns:
-            A dictionary containing the resulting atoms, keyed by atom id.
-
-        """
-
-        if not isinstance(ids, list):
-            raise ValueError("You must specify a list of ids when getting data.")
-
-        response = requests.post(
-            self.dataset.atlas_api_path + "/v1/project/atoms/get",
-            headers=self.dataset.header,
-            json={"project_id": self.dataset.id, "index_id": self.atlas_index_id, "atom_ids": ids},
-        )
-
-        if response.status_code == 200:
-            return response.json()["atoms"]
-        else:
-            raise Exception(response.text)
-
 
 class AtlasDataStream(AtlasClass):
     def __init__(self, name: Optional[str] = "contrastors"):
