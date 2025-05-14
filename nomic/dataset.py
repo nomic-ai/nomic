@@ -700,6 +700,7 @@ class AtlasProjection:
     def tile_destination(self):
         return Path("~/.nomic/cache", self.id).expanduser()
 
+
 class AtlasDataStream(AtlasClass):
     def __init__(self, name: Optional[str] = "contrastors"):
         super().__init__()
