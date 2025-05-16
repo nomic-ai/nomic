@@ -130,5 +130,6 @@ class NomicEmbedOptions(BaseModel):
         "nomic-embed-vision-v1",
         "nomic-embed-text-v1.5",
         "nomic-embed-vision-v1.5",
+        "nomic-embed-text-v2",
         "gte-multilingual-base",
     ] = "nomic-embed-text-v1.5"
