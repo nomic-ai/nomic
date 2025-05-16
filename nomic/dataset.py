@@ -1566,12 +1566,8 @@ class AtlasDataset(AtlasClass):
             None
         """
 
-        # Exactly 2 upload workers at a time.
-
         num_workers = 2
-
         # Each worker currently is too slow beyond a shard_size of 10000
-
         # The heuristic here is: Never let shards be more than 10,000 items,
         # OR more than 16MB uncompressed. Whichever is smaller.
 
