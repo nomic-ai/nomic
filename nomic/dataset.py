@@ -1419,7 +1419,7 @@ class AtlasDataset(AtlasClass):
                 images.append((current_temp_id, processed_blob_value))
 
         batch_size = 40
-        num_workers = 10
+        num_workers = 2
 
         def send_request(batch_start_index):
             image_batch = images[batch_start_index : batch_start_index + batch_size]
@@ -1566,9 +1566,9 @@ class AtlasDataset(AtlasClass):
             None
         """
 
-        # Exactly 10 upload workers at a time.
+        # Exactly 2 upload workers at a time.
 
-        num_workers = 10
+        num_workers = 2
 
         # Each worker currently is too slow beyond a shard_size of 10000
 
@@ -1687,7 +1687,7 @@ class AtlasDataset(AtlasClass):
             else:
                 logger.info("Upload succeeded.")
 
-    def update_maps(self, data: List[Dict], embeddings: Optional[np.ndarray] = None, num_workers: int = 10):
+    def update_maps(self, data: List[Dict], embeddings: Optional[np.ndarray] = None, num_workers: int = 2):
         """
         Utility method to update a project's maps by adding the given data.
 
