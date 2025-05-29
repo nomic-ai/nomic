@@ -26,7 +26,7 @@ except ImportError:
 
 atlas_class: Optional[AtlasClass] = None
 
-MAX_TEXT_REQUEST_SIZE = 50
+MAX_TEXT_REQUEST_SIZE = 10
 MAX_IMAGE_REQUEST_SIZE = 512
 MIN_EMBEDDING_DIMENSIONALITY = 64
 
