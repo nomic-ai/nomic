@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.3](https://github.com/nomic-ai/nomic/compare/v3.5.2...v3.5.3) (2025-05-30)
+
+
+### Bug Fixes
+
+* reduce text-embedding api max request batch size to 10 ([#392](https://github.com/nomic-ai/nomic/issues/392)) ([8487355](https://github.com/nomic-ai/nomic/commit/8487355623119f79566278606cc1063ef0aef720))
+
 ## [3.5.2](https://github.com/nomic-ai/nomic/compare/v3.5.1...v3.5.2) (2025-05-16)
 
 
