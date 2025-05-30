@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.2](https://github.com/nomic-ai/nomic/compare/v3.5.1...v3.5.2) (2025-05-16)
+
+
+### Bug Fixes
+
+* reduce upload workers to 2 ([#390](https://github.com/nomic-ai/nomic/issues/390)) ([a040d3d](https://github.com/nomic-ai/nomic/commit/a040d3d85245c34eaa1ed7f80c9ebedaed9c9b5a))
+
 ## [3.5.1](https://github.com/nomic-ai/nomic/compare/v3.5.0...v3.5.1) (2025-05-12)
 
 
