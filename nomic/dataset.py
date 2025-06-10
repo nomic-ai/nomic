@@ -1028,7 +1028,6 @@ class AtlasDataset(AtlasClass):
         self,
         name: Optional[str] = None,
         indexed_field: Optional[str] = None,
-        modality: Optional[str] = None,
         projection: Union[Dict, ProjectionOptions, None] = None,
         topic_model: Union[bool, Dict, NomicTopicOptions] = True,
         duplicate_detection: Union[bool, Dict, NomicDuplicatesOptions] = True,
@@ -1094,13 +1093,19 @@ class AtlasDataset(AtlasClass):
         else:
             embedding_model = NomicEmbedOptions()
 
-        if modality is None:
-            modality = self.meta["modality"]
 
-        if modality == "image":
-            if indexed_field is not None and indexed_field != "_blob_hash":
-                logger.warning("Ignoring user-provided indexed_field for image datasets. Using _blob_hash.")
-            indexed_field = "_blob_hash"
+        if indexed_field is not None:
+            if indexed_field not in self.dataset_fields:
+                raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
+        else:
+            # TODO: let user choose if both present
+            possible_indexed_fields = ['_embeddings', '_blob_hash']
+            for field in possible_indexed_fields:
+                if field in self.dataset_fields:
+                    indexed_field = field
+                    break
+            if indexed_field is None:
+                raise Exception(f"Could not find a valid indexed field in the dataset schema. Valid options are: {self.dataset_fields}")
 
         colorable_fields = []
 
@@ -1109,7 +1114,7 @@ class AtlasDataset(AtlasClass):
                 colorable_fields.append(field)
 
         build_template = {}
-        if modality == "embedding":
+        if indexed_field == "_embeddings":
             if (not topic_model_was_false) and topic_model.topic_label_field is None:
                 logger.warning(
                     "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
@@ -1143,7 +1148,7 @@ class AtlasDataset(AtlasClass):
                 ),
             }
 
-        elif modality == "text" or modality == "image":
+        else:
             reuse_embedding_from_index_id = None
             indices = self.indices
             if reuse_embeddings_from_index is not None:
@@ -1156,13 +1161,8 @@ class AtlasDataset(AtlasClass):
                         f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}"
                     )
 
-            if indexed_field is None and modality == "text":
-                raise Exception("You did not specify a field to index. Specify an 'indexed_field'.")
 
-            if indexed_field not in self.dataset_fields:
-                raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
-
-            if modality == "image":
+            if indexed_field == "_blob_hash":
                 if topic_model.topic_label_field is None:
                     print(
                         "You did not specify the `topic_label_field` option in your topic_model, your dataset will not contain auto-labeled topics."
@@ -1386,13 +1386,9 @@ class AtlasDataset(AtlasClass):
         TEMP_ID_COLUMN = "_nomic_internal_temp_id"
         temp_id_values = [str(i) for i in range(data_length)]
         data_as_table = data_as_table.append_column(TEMP_ID_COLUMN, pa.array(temp_id_values, type=pa.string()))
-        blob_upload_endpoint = "/v1/project/data/add/blobs"
         actual_temp_ids = data_as_table[TEMP_ID_COLUMN].to_pylist()
-        images = []  # List of (temp_id, image_bytes)
-        for i in tqdm(range(data_length), desc="Processing images"):
-            current_temp_id = actual_temp_ids[i]
-            blob_item = blobs[i]
 
+        def process_and_upload_image(blob_item, temp_id):
             processed_blob_value = None
             if (isinstance(blob_item, str) or isinstance(blob_item, Path)) and os.path.exists(blob_item):
                 image = Image.open(blob_item).convert("RGB")
@@ -1412,59 +1408,95 @@ class AtlasDataset(AtlasClass):
                 processed_blob_value = buffered.getvalue()
             else:
                 raise ValueError(
-                    f"Invalid blob type for item at index {i} (temp_id: {current_temp_id}). Must be a path, bytes, or PIL Image. Got: {type(blob_item)}"
+                    f"Invalid blob type for item at index {temp_id}. Must be a path, bytes, or PIL Image. Got: {type(blob_item)}"
                 )
 
-            if processed_blob_value is not None:
-                images.append((current_temp_id, processed_blob_value))
+            if processed_blob_value is None:
+                return None
 
-        batch_size = 40
-        num_workers = 2
-
-        def send_request(batch_start_index):
-            image_batch = images[batch_start_index : batch_start_index + batch_size]
-            temp_ids_in_batch = [item_id for item_id, _ in image_batch]
-            blobs_for_api = [("blobs", blob_val) for _, blob_val in image_batch]
-
-            response = requests.post(
-                self.atlas_api_path + blob_upload_endpoint,
+            # Start multipart upload for this image
+            image_size = len(processed_blob_value)
+            start_response = requests.post(
+                self.atlas_api_path + f"/v1/project/{self.id}/data/upload/start",
+                json={"file_type": "jpeg", "file_size": image_size, "part_size": image_size},
                 headers=self.header,
-                data={"dataset_id": self.id},  # self.id is project_id
-                files=blobs_for_api,
             )
-            if response.status_code != 200:
-                failed_ids_sample = temp_ids_in_batch[:5]
-                logger.error(
-                    f"Blob upload request failed for batch starting with temp_ids: {failed_ids_sample}. Status: {response.status_code}, Response: {response.text}"
-                )
-                raise Exception(f"Blob upload failed: {response.text}")
-            return {temp_id: blob_hash for temp_id, blob_hash in zip(temp_ids_in_batch, response.json()["hashes"])}
 
-        upload_pbar = pbar  # Use passed-in pbar if available
+            if start_response.status_code != 201:
+                raise Exception(f"Failed to start multipart upload for image {temp_id}: {start_response.text}")
+
+            start_data = start_response.json()
+            part_urls = start_data['part_urls']
+            upload_id = start_data['upload_id']
+            object_id = start_data['object_id']
+
+            def upload_part(part_info):
+                part_number = int(part_info['part_number'])
+                url = part_info['url']
+
+                part_response = requests.put(url, data=processed_blob_value)
+                if part_response.status_code != 200:
+                    raise Exception(f"Part upload failed: {part_response.text}")
+                return {'part_number': part_number, 'etag': part_response.headers.get('ETag', ''), 'url': url}
+
+            part_results = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                futures = {executor.submit(upload_part, part_url) for part_url in part_urls}
+
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        result = future.result()
+                        part_results.append(result)
+                    except Exception as e:
+                        logger.error(f"Failed to upload part for image {temp_id}: {str(e)}")
+                        raise
+
+            # Complete the multipart upload
+            complete_response = requests.post(
+                self.atlas_api_path + f"/v1/project/{self.id}/data/upload/complete",
+                json={
+                    "upload_id": upload_id,
+                    "object_id": object_id,
+                    "part_etags": part_results,
+                    "file_type": "jpeg",
+                },
+                headers=self.header,
+            )
+
+            if complete_response.status_code != 201:
+                raise Exception(f"Failed to complete multipart upload for image {temp_id}: {complete_response.text}")
+
+            return complete_response.json()['metadata']['blob_hash']
+
+        # Process and upload images in parallel
+        upload_pbar = pbar
         close_upload_pbar_locally = False
         if upload_pbar is None:
-            upload_pbar = tqdm(total=len(images), desc="Uploading blobs to Atlas")
+            upload_pbar = tqdm(total=len(blobs), desc="Uploading blobs to Atlas")
             close_upload_pbar_locally = True
 
         returned_temp_ids = []
         returned_hashes = []
         succeeded_uploads = 0
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(send_request, i): i for i in range(0, len(images), batch_size)}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = {
+                executor.submit(process_and_upload_image, blob, temp_id): temp_id 
+                for blob, temp_id in zip(blobs, actual_temp_ids)
+            }
 
             for future in concurrent.futures.as_completed(futures):
                 try:
-                    response_dict = future.result()  # This is {temp_id: blob_hash}
-                    for temp_id, blob_hash_val in response_dict.items():
+                    temp_id = futures[future]
+                    blob_hash = future.result()
+                    if blob_hash is not None:
                         returned_temp_ids.append(temp_id)
-                        returned_hashes.append(blob_hash_val)
-                    succeeded_uploads += len(response_dict)
+                        returned_hashes.append(blob_hash)
+                        succeeded_uploads += 1
                     if upload_pbar:
-                        upload_pbar.update(len(response_dict))
+                        upload_pbar.update(1)
                 except Exception as e:
-                    logger.error(f"An error occurred during blob upload processing for a batch: {e}")
-                    # Optionally, collect failed batch info here if needed for partial success
+                    logger.error(f"An error occurred during blob upload processing: {e}")
 
         if close_upload_pbar_locally and upload_pbar:
             upload_pbar.close()
@@ -1557,7 +1589,7 @@ class AtlasDataset(AtlasClass):
         pbar=None,
     ):
         """
-        Low level interface to upload an Arrow Table. Users should generally call 'add_text' or 'add_embeddings.'
+        Low level interface to upload an Arrow Table using multipart upload. Users should generally call 'add_text' or 'add_embeddings.'
 
         Args:
             data: A pyarrow Table that will be cast to the dataset schema.
@@ -1565,118 +1597,114 @@ class AtlasDataset(AtlasClass):
         Returns:
             None
         """
-
-        num_workers = 2
-        # Each worker currently is too slow beyond a shard_size of 10000
-        # The heuristic here is: Never let shards be more than 10,000 items,
-        # OR more than 16MB uncompressed. Whichever is smaller.
-
-        bytesize = data.nbytes
-        nrow = len(data)
-
-        shard_size = 5_000
-        n_chunks = int(np.ceil(nrow / shard_size))
-        # Chunk into 16MB pieces. These will probably compress down a bit.
-        if bytesize / n_chunks > 16_000_000:
-            shard_size = int(np.ceil(nrow / (bytesize / 16_000_000)))
-
         data = self._validate_and_correct_arrow_upload(
             data=data,
             project=self,
         )
 
-        upload_endpoint = "/v1/project/data/add/arrow"
+        # add num_rows to the metadata table
+        metadata = data.schema.metadata or {}
+        metadata[b'num_rows'] = str(data.num_rows).encode('utf-8')
+        new_schema = data.schema.with_metadata(metadata)
+        data = data.cast(new_schema)
 
-        # Actually do the upload
-        def send_request(i):
-            data_shard = data.slice(i, shard_size)
-            with io.BytesIO() as buffer:
-                data_shard = data_shard.replace_schema_metadata({"project_id": self.id})
-                feather.write_feather(data_shard, buffer, compression="zstd", compression_level=6)
-                buffer.seek(0)
+        # Prepare the Feather file in memory
+        feather_bytes = io.BytesIO()
+        with pa.ipc.new_file(feather_bytes, data.schema) as writer:
+            writer.write_table(data)
+        feather_bytes.seek(0)
+        feather_data = feather_bytes.getbuffer()
 
-                response = requests.post(
-                    self.atlas_api_path + upload_endpoint,
-                    headers=self.header,
-                    data=buffer,
-                )
-                return response
+        # Start multipart upload
+        start_response = requests.post(
+            self.atlas_api_path + f"/v1/project/{self.id}/data/upload/start",
+            json={"file_type": "feather", "file_size": len(feather_data)},
+            headers=self.header,
+        )
+        
+        if start_response.status_code != 201:
+            raise Exception(f"Failed to start multipart upload: {start_response.text}")
+
+        start_data = start_response.json()
+        part_urls = start_data['part_urls']
+        upload_id = start_data['upload_id']
+        object_id = start_data['object_id']
+
+        # Upload parts in parallel
+        part_size = 16 * 1024 * 1024  # 16MB parts
+        num_workers = 5
+        failed = 0
+        failed_reqs = 0
+        errors_504 = 0
+        part_results = []
+
+        def upload_part(part_info):
+            part_number = int(part_info['part_number'])
+            url = part_info['url']
+
+            start = (part_number - 1) * part_size
+            end = min(start + part_size, len(feather_data))
+            part_data = feather_data[start:end]
+
+            try:
+                part_response = requests.put(url, data=part_data)
+                if part_response.status_code != 200:
+                    raise Exception(f"Part upload failed: {part_response.text}")
+                return {'part_number': part_number, 'etag': part_response.headers.get('ETag', ''), 'url': url}
+            except Exception as e:
+                logger.error(f"Failed to upload part {part_number}: {str(e)}")
+                raise
 
         # if this method is being called internally, we pass a global progress bar
         close_pbar = False
         if pbar is None:
             close_pbar = True
-            pbar = tqdm(total=int(len(data)) // shard_size)
-        failed = 0
-        failed_reqs = 0
-        succeeded = 0
-        errors_504 = 0
+            pbar = tqdm(total=len(part_urls))
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(send_request, i): i for i in range(0, len(data), shard_size)}
+            futures = {executor.submit(upload_part, part_url): part_url for part_url in part_urls}
 
             while futures:
-                # check for status of the futures which are currently working
                 done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
-                # process any completed futures
+                
                 for future in done:
-                    response = future.result()
-                    if response.status_code != 200:
-                        try:
-                            logger.error(f"Shard upload failed: {response.text}")
-                            if "more datums exceeds your organization limit" in response.json():
-                                return False
-                            if "Project transaction lock is held" in response.json():
-                                raise Exception(
-                                    "Project is currently indexing and cannot ingest new datums. Try again later."
-                                )
-                            if "Insert failed due to ID conflict" in response.json():
-                                continue
-                        except (requests.JSONDecodeError, json.decoder.JSONDecodeError):
-                            if response.status_code == 413:
-                                # Possibly split in two and retry?
-                                logger.error("Shard upload failed: you are sending meta-data that is too large.")
-                                pbar.update(1)
-                                response.close()
-                                failed += shard_size
-                            elif response.status_code == 504:
-                                errors_504 += shard_size
-                                start_point = futures[future]
-                                logger.debug(
-                                    f"{self.identifier}: Connection failed for records {start_point}-{start_point + shard_size}, retrying."
-                                )
-                                failure_fraction = errors_504 / (failed + succeeded + errors_504)
-                                if failure_fraction > 0.5 and errors_504 > shard_size * 3:
-                                    raise RuntimeError(
-                                        f"{self.identifier}: Atlas is under high load and cannot ingest datums at this time. Please try again later."
-                                    )
-                                new_submission = executor.submit(send_request, start_point)
-                                futures[new_submission] = start_point
-                                response.close()
-                            else:
-                                logger.error(f"{self.identifier}: Shard upload failed: {response}")
-                                failed += shard_size
-                                pbar.update(1)
-                                response.close()
-                            failed_reqs += 1
-                            if failed_reqs > 10:
-                                raise RuntimeError(
-                                    f"{self.identifier}: Too many upload requests have failed at this time. Please try again later."
-                                )
-                    else:
-                        # A successful upload.
-                        succeeded += shard_size
+                    try:
+                        result = future.result()
+                        part_results.append(result)
                         pbar.update(1)
-                        response.close()
-
-                    # remove the now completed future
+                    except Exception as e:
+                        failed_reqs += 1
+                        if failed_reqs > 10:
+                            raise RuntimeError(
+                                f"{self.identifier}: Too many upload requests have failed at this time. Please try again later."
+                            )
+                        # Retry the failed part
+                        part_url = futures[future]
+                        new_future = executor.submit(upload_part, part_url)
+                        futures[new_future] = part_url
+                    
                     del futures[future]
 
-        # close the progress bar if this method was called with no external progresbar
         if close_pbar:
             pbar.close()
 
+        # Complete the multipart upload
+        complete_response = requests.post(
+            self.atlas_api_path + f"/v1/project/{self.id}/data/upload/complete",
+            json={
+                "upload_id": upload_id,
+                "object_id": object_id,
+                "part_etags": part_results,
+                "file_type": "feather",
+            },
+            headers=self.header,
+        )
+
+        if complete_response.status_code != 201:
+            raise Exception(f"Failed to complete multipart upload: {complete_response.text}")
+
         if failed:
-            logger.warning(f"Failed to upload {failed} datums")
+            logger.warning(f"Failed to upload {failed} parts")
         if close_pbar:
             if failed:
                 logger.warning("Upload partially succeeded.")
