@@ -131,7 +131,6 @@ def map_data(
     dataset.create_index(
         name=index_name,
         indexed_field=indexed_field,
-        modality=modality,
         projection=projection,  # type: ignore[arg-type]
         topic_model=topic_model,
         duplicate_detection=duplicate_detection,
