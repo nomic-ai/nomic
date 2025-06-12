@@ -1479,7 +1479,7 @@ class AtlasDataset(AtlasClass):
         returned_hashes = []
         succeeded_uploads = 0
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
                 executor.submit(process_and_upload_image, blob, temp_id): temp_id 
                 for blob, temp_id in zip(blobs, actual_temp_ids)
