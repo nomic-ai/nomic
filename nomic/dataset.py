@@ -1093,19 +1093,20 @@ class AtlasDataset(AtlasClass):
         else:
             embedding_model = NomicEmbedOptions()
 
-
         if indexed_field is not None:
             if indexed_field not in self.dataset_fields:
                 raise Exception(f"Indexing on {indexed_field} not allowed. Valid options are: {self.dataset_fields}")
         else:
             # TODO: let user choose if both present
-            possible_indexed_fields = ['_embeddings', '_blob_hash']
+            possible_indexed_fields = ["_embeddings", "_blob_hash"]
             for field in possible_indexed_fields:
                 if field in self.dataset_fields:
                     indexed_field = field
                     break
             if indexed_field is None:
-                raise Exception(f"Could not find a valid indexed field in the dataset schema. Valid options are: {self.dataset_fields}")
+                raise Exception(
+                    f"Could not find a valid indexed field in the dataset schema. Valid options are: {self.dataset_fields}"
+                )
 
         colorable_fields = []
 
@@ -1160,7 +1161,6 @@ class AtlasDataset(AtlasClass):
                     raise Exception(
                         f"Could not find the index '{reuse_embeddings_from_index}' to re-use from. Possible options are {[index.name for index in indices]}"
                     )
-
 
             if indexed_field == "_blob_hash":
                 if topic_model.topic_label_field is None:
@@ -1426,18 +1426,18 @@ class AtlasDataset(AtlasClass):
                 raise Exception(f"Failed to start multipart upload for image {temp_id}: {start_response.text}")
 
             start_data = start_response.json()
-            part_urls = start_data['part_urls']
-            upload_id = start_data['upload_id']
-            object_id = start_data['object_id']
+            part_urls = start_data["part_urls"]
+            upload_id = start_data["upload_id"]
+            object_id = start_data["object_id"]
 
             def upload_part(part_info):
-                part_number = int(part_info['part_number'])
-                url = part_info['url']
+                part_number = int(part_info["part_number"])
+                url = part_info["url"]
 
                 part_response = requests.put(url, data=processed_blob_value)
                 if part_response.status_code != 200:
                     raise Exception(f"Part upload failed: {part_response.text}")
-                return {'part_number': part_number, 'etag': part_response.headers.get('ETag', ''), 'url': url}
+                return {"part_number": part_number, "etag": part_response.headers.get("ETag", ""), "url": url}
 
             part_results = []
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -1466,7 +1466,7 @@ class AtlasDataset(AtlasClass):
             if complete_response.status_code != 201:
                 raise Exception(f"Failed to complete multipart upload for image {temp_id}: {complete_response.text}")
 
-            return complete_response.json()['metadata']['blob_hash']
+            return complete_response.json()["metadata"]["blob_hash"]
 
         # Process and upload images in parallel
         upload_pbar = pbar
@@ -1481,7 +1481,7 @@ class AtlasDataset(AtlasClass):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = {
-                executor.submit(process_and_upload_image, blob, temp_id): temp_id 
+                executor.submit(process_and_upload_image, blob, temp_id): temp_id
                 for blob, temp_id in zip(blobs, actual_temp_ids)
             }
 
@@ -1604,7 +1604,7 @@ class AtlasDataset(AtlasClass):
 
         # add num_rows to the metadata table
         metadata = data.schema.metadata or {}
-        metadata[b'num_rows'] = str(data.num_rows).encode('utf-8')
+        metadata[b"num_rows"] = str(data.num_rows).encode("utf-8")
         new_schema = data.schema.with_metadata(metadata)
         data = data.cast(new_schema)
 
@@ -1621,14 +1621,14 @@ class AtlasDataset(AtlasClass):
             json={"file_type": "feather", "file_size": len(feather_data)},
             headers=self.header,
         )
-        
+
         if start_response.status_code != 201:
             raise Exception(f"Failed to start multipart upload: {start_response.text}")
 
         start_data = start_response.json()
-        part_urls = start_data['part_urls']
-        upload_id = start_data['upload_id']
-        object_id = start_data['object_id']
+        part_urls = start_data["part_urls"]
+        upload_id = start_data["upload_id"]
+        object_id = start_data["object_id"]
 
         # Upload parts in parallel
         part_size = 16 * 1024 * 1024  # 16MB parts
@@ -1639,8 +1639,8 @@ class AtlasDataset(AtlasClass):
         part_results = []
 
         def upload_part(part_info):
-            part_number = int(part_info['part_number'])
-            url = part_info['url']
+            part_number = int(part_info["part_number"])
+            url = part_info["url"]
 
             start = (part_number - 1) * part_size
             end = min(start + part_size, len(feather_data))
@@ -1650,7 +1650,7 @@ class AtlasDataset(AtlasClass):
                 part_response = requests.put(url, data=part_data)
                 if part_response.status_code != 200:
                     raise Exception(f"Part upload failed: {part_response.text}")
-                return {'part_number': part_number, 'etag': part_response.headers.get('ETag', ''), 'url': url}
+                return {"part_number": part_number, "etag": part_response.headers.get("ETag", ""), "url": url}
             except Exception as e:
                 logger.error(f"Failed to upload part {part_number}: {str(e)}")
                 raise
@@ -1666,7 +1666,7 @@ class AtlasDataset(AtlasClass):
 
             while futures:
                 done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
-                
+
                 for future in done:
                     try:
                         result = future.result()
@@ -1682,7 +1682,7 @@ class AtlasDataset(AtlasClass):
                         part_url = futures[future]
                         new_future = executor.submit(upload_part, part_url)
                         futures[new_future] = part_url
-                    
+
                     del futures[future]
 
         if close_pbar:
