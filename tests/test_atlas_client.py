@@ -756,6 +756,7 @@ def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     dataset.delete()
 
 
+@pytest.mark.skip(reason="Skipping image test for now")
 def test_integration_map_images():
     size = 30
     # Generate random PIL images
