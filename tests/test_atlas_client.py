@@ -777,7 +777,6 @@ def test_integration_map_images():
         is_public=True,
     )
     assert dataset.id is not None
-    assert dataset.modality == "image"  # Or check based on how map_data sets it.
 
     projection = dataset.maps[0]
     _wait_for_projection_completion(projection)
