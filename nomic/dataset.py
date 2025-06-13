@@ -1414,7 +1414,6 @@ class AtlasDataset(AtlasClass):
             if processed_blob_value is None:
                 return None
 
-            # Start multipart upload for this image
             image_size = len(processed_blob_value)
             start_response = requests.post(
                 self.atlas_api_path + f"/v1/project/{self.id}/data/upload/start",
@@ -1451,7 +1450,6 @@ class AtlasDataset(AtlasClass):
                         logger.error(f"Failed to upload part for image {temp_id}: {str(e)}")
                         raise
 
-            # Complete the multipart upload
             complete_response = requests.post(
                 self.atlas_api_path + f"/v1/project/{self.id}/data/upload/complete",
                 json={
@@ -1468,7 +1466,6 @@ class AtlasDataset(AtlasClass):
 
             return complete_response.json()["metadata"]["blob_hash"]
 
-        # Process and upload images in parallel
         upload_pbar = pbar
         close_upload_pbar_locally = False
         if upload_pbar is None:
@@ -1608,14 +1605,12 @@ class AtlasDataset(AtlasClass):
         new_schema = data.schema.with_metadata(metadata)
         data = data.cast(new_schema)
 
-        # Prepare the Feather file in memory
         feather_bytes = io.BytesIO()
         with pa.ipc.new_file(feather_bytes, data.schema) as writer:
             writer.write_table(data)
         feather_bytes.seek(0)
         feather_data = feather_bytes.getbuffer()
 
-        # Start multipart upload
         start_response = requests.post(
             self.atlas_api_path + f"/v1/project/{self.id}/data/upload/start",
             json={"file_type": "feather", "file_size": len(feather_data)},
@@ -1630,12 +1625,10 @@ class AtlasDataset(AtlasClass):
         upload_id = start_data["upload_id"]
         object_id = start_data["object_id"]
 
-        # Upload parts in parallel
         part_size = 16 * 1024 * 1024  # 16MB parts
         num_workers = 5
         failed = 0
         failed_reqs = 0
-        errors_504 = 0
         part_results = []
 
         def upload_part(part_info):
@@ -1688,7 +1681,6 @@ class AtlasDataset(AtlasClass):
         if close_pbar:
             pbar.close()
 
-        # Complete the multipart upload
         complete_response = requests.post(
             self.atlas_api_path + f"/v1/project/{self.id}/data/upload/complete",
             json={
