@@ -18,7 +18,7 @@ logger.setLevel(logging.INFO)
 
 def _get_sagemaker_role():
     try:
-        return sagemaker.get_execution_role()
+        return sagemaker.get_execution_role() # type: ignore
     except ValueError:
         raise ValueError("Unable to fetch sagemaker execution role. Please provide a role.")
 
@@ -76,11 +76,11 @@ def batch_transform_text(
         role = _get_sagemaker_role()
 
     sm_client = boto3.client("sagemaker", region_name=region_name)
-    sm_session = sagemaker.Session(
+    sm_session = sagemaker.Session( # type: ignore
         boto_session=boto3.Session(region_name=region_name),
         sagemaker_client=sm_client,
     )
-    model = sagemaker.ModelPackage(
+    model = sagemaker.ModelPackage( # type: ignore
         name=arn.split("/")[-1],
         role=role,
         model_data=None,
@@ -295,11 +295,11 @@ def batch_transform_image(
         role = _get_sagemaker_role()
 
     sm_client = boto3.client("sagemaker", region_name=region_name)
-    sm_session = sagemaker.Session(
+    sm_session = sagemaker.Session( # type: ignore
         boto_session=boto3.Session(region_name=region_name),
         sagemaker_client=sm_client,
     )
-    model = sagemaker.ModelPackage(
+    model = sagemaker.ModelPackage( # type: ignore
         name=arn.split("/")[-1],
         role=role,
         model_data=None,
