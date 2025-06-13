@@ -911,6 +911,8 @@ class AtlasDataset(AtlasClass):
     @property
     def total_datums(self) -> int:
         """The total number of data points in the dataset."""
+        # have to fetch cause total datums might not be updated at dataset creation
+        self._latest_dataset_state()
         return self.meta["total_datums_in_project"]
 
     @property
