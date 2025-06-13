@@ -333,6 +333,7 @@ def test_integration_map_text_pandas():
     dataset = atlas.map_data(
         identifier=f"UNITTEST_pandas_text-{gen_temp_identifier()}", indexed_field="color", data=data, is_public=True
     )
+    _wait_for_projection_completion(dataset.maps[0])
 
     assert dataset.total_datums == 50
 
@@ -353,7 +354,7 @@ def test_integration_map_text_arrow():
         data=data,
         is_public=True,
     )
-
+    _wait_for_projection_completion(dataset.maps[0])
     assert dataset.total_datums == 50
 
     dataset.delete()
