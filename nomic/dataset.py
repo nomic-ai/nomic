@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -97,6 +97,30 @@ class AtlasClass(object):
             raise ValueError(
                 "Could not find an authorization token. Run `nomic login` to authorize this client with the Nomic API."
             )
+
+    def post(self, endpoint: str, json: Optional[Dict[str, Any]] = None):
+        response = requests.post(
+            self.atlas_api_path + endpoint,
+            headers=self.header,
+            json=json,
+        )
+        return response
+
+    def get(self, endpoint: str):
+        response = requests.get(
+            self.atlas_api_path + endpoint,
+            headers=self.header,
+        )
+        return response
+
+    def put(self, endpoint: str, *, data = None, json = None):
+        response = requests.put(
+            self.atlas_api_path + endpoint,
+            headers=self.header,
+            data=data,
+            json=json,
+        )
+        return response
 
     @property
     def credentials(self):
