@@ -1,7 +1,6 @@
-import pytest
 from pathlib import Path
 
-from nomic.documents import parse, upload_file, extract
+from nomic import NomicClient
 
 
 def test_parse_document_integration():
@@ -12,8 +11,9 @@ def test_parse_document_integration():
     assert pdf_path.exists(), f"Test PDF file not found at {pdf_path}"
     
     # Parse the document using the real API
-    nomic_url = upload_file(pdf_path)
-    result = parse(nomic_url)
+    client = NomicClient()
+    file = client.upload_file(pdf_path)
+    result = client.parse(file)
     
     # Verify we got a result
     assert result is not None
@@ -34,7 +34,8 @@ def test_extract_document_integration():
     assert pdf_path.exists(), f"Test PDF file not found at {pdf_path}"
     
     # Parse the document using the real API
-    nomic_url = upload_file(pdf_path)
+    client = NomicClient()
+    file = client.upload_file(pdf_path)
     schema = {
         "type": "array",
         "items": {
@@ -47,5 +48,5 @@ def test_extract_document_integration():
         },
     }
    
-    result = extract([nomic_url], schema)
+    result = client.extract([file], schema)
     assert result is not None
