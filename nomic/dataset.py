@@ -113,7 +113,7 @@ class AtlasClass(object):
         )
         return response
 
-    def put(self, endpoint: str, *, data = None, json = None):
+    def put(self, endpoint: str, *, data=None, json=None):
         response = requests.put(
             self.atlas_api_path + endpoint,
             headers=self.header,
