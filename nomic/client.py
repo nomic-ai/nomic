@@ -84,7 +84,7 @@ class NomicClient:
         return UploadedFile(url=nomic_url)
 
     @staticmethod
-    def _wait_for_task_completion(task_id: str) -> str:
+    def _wait_for_task_completion(task_id: str) -> "dict[str, Any]":
         """
         Takes a nomic-formatted url, waits for it to be parsed,
         and returns the url of the parsed document.
@@ -101,7 +101,7 @@ class NomicClient:
             response.raise_for_status()
             value = response.json()
             if value["status"] == "COMPLETED":
-                return value["result_url"]
+                return value
             if value["status"] == "FAILED":
                 raise Exception(f"Task failed: {value['error']}")
             time.sleep(1)
@@ -131,12 +131,18 @@ class NomicClient:
         resp = response.json()
         task_id = resp["task_id"]
 
-        completed_url = self._wait_for_task_completion(task_id)
-        completed_response = requests.get(completed_url)
+        resp = self._wait_for_task_completion(task_id)
+        completed_response = requests.get(resp["result_url"])
         completed_response.raise_for_status()
-        return completed_response.json()
 
-    def extract(self, files: "list[UploadedFile]", schema: "dict[str, Any]") -> Any:
+        result = resp.pop("result", {})
+        result.pop("result_url", None)
+        result["result"] = completed_response.json()
+        result["result"].pop("status", None)
+        result["result"].pop("error", None)
+        return result
+
+    def extract(self, files: "UploadedFile | list[UploadedFile] | tuple[UploadedFile, ...]", schema: "dict[str, Any]") -> Any:
         """
         Extracts structured data from documents.
 
@@ -176,6 +182,9 @@ class NomicClient:
         """
         jsonschema.Draft7Validator.check_schema(schema)
 
+        if not isinstance(files, (list, tuple)):
+            files = [files]
+
         client = _get_client()
 
         response = client._post(
@@ -184,7 +193,13 @@ class NomicClient:
         resp = response.json()
         task_id = resp["task_id"]
 
-        completed_url = self._wait_for_task_completion(task_id)
-        completed_response = requests.get(completed_url)
+        resp = self._wait_for_task_completion(task_id)
+        completed_response = requests.get(resp["result_url"])
         completed_response.raise_for_status()
-        return completed_response.json()
+
+        result = resp.pop("result", {})
+        result.pop("result_url", None)
+        result["result"] = completed_response.json()
+        result["result"].pop("status", None)
+        result["result"].pop("error", None)
+        return result

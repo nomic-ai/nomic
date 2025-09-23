@@ -48,5 +48,5 @@ def test_extract_document_integration():
         },
     }
    
-    result = client.extract([file], schema)
+    result = client.extract(file, schema)
     assert result is not None
