@@ -8,11 +8,12 @@ import os
 import re
 import time
 import unicodedata
+from collections.abc import Iterable, Mapping
 from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -36,6 +37,13 @@ from .data_inference import (
 from .data_operations import AtlasMapData, AtlasMapDuplicates, AtlasMapEmbeddings, AtlasMapTags, AtlasMapTopics
 from .settings import *
 from .utils import assert_valid_project_id, download_feather
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
+_Data: "TypeAlias" = (
+    "Iterable[bytes] | str | bytes | SupportsRead[str | bytes] | list[tuple[Any, Any]] | tuple[tuple[Any, Any], ...] | Mapping[Any, Any]"
+)
 
 
 class AtlasUser:
@@ -97,30 +105,6 @@ class AtlasClass(object):
             raise ValueError(
                 "Could not find an authorization token. Run `nomic login` to authorize this client with the Nomic API."
             )
-
-    def post(self, endpoint: str, json: Optional[Dict[str, Any]] = None):
-        response = requests.post(
-            self.atlas_api_path + endpoint,
-            headers=self.header,
-            json=json,
-        )
-        return response
-
-    def get(self, endpoint: str):
-        response = requests.get(
-            self.atlas_api_path + endpoint,
-            headers=self.header,
-        )
-        return response
-
-    def put(self, endpoint: str, *, data=None, json=None):
-        response = requests.put(
-            self.atlas_api_path + endpoint,
-            headers=self.header,
-            data=data,
-            json=json,
-        )
-        return response
 
     @property
     def credentials(self):
@@ -433,6 +417,30 @@ class AtlasClass(object):
                 )
 
         return organization_slug, organization_id
+
+    def _post(self, endpoint: str, *, json: "Any | None" = None) -> requests.Response:
+        response = requests.post(
+            self.atlas_api_path + endpoint,
+            headers=self.header,
+            json=json,
+        )
+        return response
+
+    def _get(self, endpoint: str) -> requests.Response:
+        response = requests.get(
+            self.atlas_api_path + endpoint,
+            headers=self.header,
+        )
+        return response
+
+    def _put(self, endpoint: str, *, data: _Data | None = None, json: "Any | None" = None) -> requests.Response:
+        response = requests.put(
+            self.atlas_api_path + endpoint,
+            headers=self.header,
+            data=data,
+            json=json,
+        )
+        return response
 
 
 class AtlasIndex:
