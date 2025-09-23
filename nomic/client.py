@@ -32,7 +32,7 @@ class NomicClient:
         Uploads a file to the Nomic Platform.
 
         Args:
-            pdf: The path to the PDF file to upload.
+            path: The path to the PDF file to upload.
 
         Returns:
             The response from the Nomic API.
@@ -137,17 +137,20 @@ class NomicClient:
 
         result = resp.pop("result", {})
         result.pop("result_url", None)
+        result.pop("result", None)
         result["result"] = completed_response.json()
         result["result"].pop("status", None)
         result["result"].pop("error", None)
         return result
 
-    def extract(self, files: "UploadedFile | list[UploadedFile] | tuple[UploadedFile, ...]", schema: "dict[str, Any]") -> Any:
+    def extract(
+        self, files: "UploadedFile | list[UploadedFile] | tuple[UploadedFile, ...]", schema: "dict[str, Any]"
+    ) -> Any:
         """
         Extracts structured data from documents.
 
         Args:
-            file_urls: List of Nomic URLs of documents to extract from.
+            files: List of uploaded files to extract from.
             schema: A JSON schema defining the structure of data to extract.
 
         Returns:
@@ -199,6 +202,7 @@ class NomicClient:
 
         result = resp.pop("result", {})
         result.pop("result_url", None)
+        result.pop("result", None)
         result["result"] = completed_response.json()
         result["result"].pop("status", None)
         result["result"].pop("error", None)

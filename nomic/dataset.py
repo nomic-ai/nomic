@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, Tuple, TypeVar, Union
 
 import numpy as np
 import pandas as pd
@@ -40,6 +40,13 @@ from .utils import assert_valid_project_id, download_feather
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
+
+T_co = TypeVar("T_co", covariant=True)
+
+
+class SupportsRead(Protocol[T_co]):
+    def read(self, length: int = ..., /) -> T_co: ...
+
 
 _Data: "TypeAlias" = (
     "Iterable[bytes] | str | bytes | SupportsRead[str | bytes] | list[tuple[Any, Any]] | tuple[tuple[Any, Any], ...] | Mapping[Any, Any]"
@@ -433,7 +440,7 @@ class AtlasClass(object):
         )
         return response
 
-    def _put(self, endpoint: str, *, data: _Data | None = None, json: "Any | None" = None) -> requests.Response:
+    def _put(self, endpoint: str, *, data: "_Data | None" = None, json: "Any | None" = None) -> requests.Response:
         response = requests.put(
             self.atlas_api_path + endpoint,
             headers=self.header,
