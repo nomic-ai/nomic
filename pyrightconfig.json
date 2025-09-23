@@ -16,4 +16,6 @@
   
     "defineConstant": {
     },
+
+    "reportPrivateImportUsage": "none"
 }
