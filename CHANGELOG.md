@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.6.0](https://github.com/nomic-ai/nomic/compare/v3.5.3...v3.6.0) (2025-09-23)
+
+### Features
+* Nomic Platform support for enterprise ([#396](https://github.com/nomic-ai/nomic/pull/396))
+
 ## [3.5.3](https://github.com/nomic-ai/nomic/compare/v3.5.2...v3.5.3) (2025-05-30)
 
 

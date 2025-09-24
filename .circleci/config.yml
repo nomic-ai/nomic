@@ -37,6 +37,7 @@ commands:
       - run:
           name: Run Unit Tests
           command: make test | cat
+          no_output_timeout: 30m
 
 jobs:
   build_test:

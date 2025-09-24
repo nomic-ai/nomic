@@ -23,7 +23,7 @@ with open("README.md") as f:
 
 setup(
     name="nomic",
-    version="3.5.3",
+    version="3.6.0",
     url="https://github.com/nomic-ai/nomic",
     description=description,
     long_description=long_description,
@@ -35,15 +35,17 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3",
     ],
+    requires_python='>=3.8',
     install_requires=[
         "click",
         "jsonlines",
+        "jsonschema>=4.23.0,<5",
         "loguru",
         "rich",
         "requests",
         "numpy",
         "pandas",
-        "pydantic",
+        "pydantic>=2,<3",
         "tqdm",
         "pyarrow",
         "pillow",
