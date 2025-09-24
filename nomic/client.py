@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from collections.abc import Sequence
@@ -12,16 +13,26 @@ import requests
 
 from nomic.dataset import AtlasClass
 
+__all__ = [
+    "NomicClient",
+    "PlatformTask",
+    "TaskFailed",
+    "TaskPending",
+    "UploadedFile",
+]
+
+MAX_FAILRESP_LENGTH = 1_000  # chars
+
 T = TypeVar("T")
 
-_client: "AtlasClass | None" = None
+client: "AtlasClass | None" = None
 
 
-def _get_client():
-    global _client
-    if _client is None:
-        _client = AtlasClass()
-    return _client
+def get_client():
+    global client
+    if client is None:
+        client = AtlasClass()
+    return client
 
 
 @dataclass(frozen=True)
@@ -29,7 +40,7 @@ class UploadedFile:
     url: str
 
 
-class _Sentinel(Enum):
+class Sentinel(Enum):
     Nothing = auto()
 
 
@@ -50,11 +61,11 @@ class PlatformTask(Generic[T]):
     """
 
     _id: str
-    _result: "T | _Sentinel"
+    _result: "T | Sentinel"
 
     def __init__(self, id: str):
         self._id = id
-        self._result = _Sentinel.Nothing
+        self._result = Sentinel.Nothing
 
     @property
     def id(self) -> str:
@@ -75,13 +86,13 @@ class PlatformTask(Generic[T]):
             TaskPending: If the task is not complete and block is True.
             TaskFailed: If the task fails.
         """
-        if self._result is not _Sentinel.Nothing:
+        if self._result is not Sentinel.Nothing:
             return self._result
-        client = _get_client()
+        client = get_client()
         start_time = time.time()
         while True:
             response = client._get(f"/v1/status/{self._id}")
-            response.raise_for_status()
+            raise_for_status_with_body(response)
             status_resp = response.json()
             if status_resp["status"] == "COMPLETED":
                 break
@@ -98,7 +109,7 @@ class PlatformTask(Generic[T]):
             time.sleep(sleeptime)
 
         completed_response = requests.get(status_resp["result_url"])
-        completed_response.raise_for_status()
+        raise_for_status_with_body(completed_response)
 
         result = status_resp.pop("result", {})
         result.pop("result_url", None)
@@ -123,7 +134,7 @@ class NomicClient:
         Returns:
             An UploadedFile object representing the uploaded file.
         """
-        client = _get_client()
+        client = get_client()
 
         path = Path(path)
 
@@ -154,7 +165,7 @@ class NomicClient:
                 "/v1/upload",
                 json=dict(files=[{"id": path.name, "size": path.stat().st_size, "content_type": content_type}]),
             )
-            response.raise_for_status()
+            raise_for_status_with_body(response)
 
             values = response.json()
 
@@ -166,7 +177,7 @@ class NomicClient:
             # upload the file to the designated pre-signed url
             resp = requests.put(upload_url, data=pdf_file, headers={"x-amz-server-side-encryption": "AES256"})
 
-        resp.raise_for_status()
+        raise_for_status_with_body(resp)
         return UploadedFile(url=nomic_url)
 
     @overload
@@ -206,10 +217,10 @@ class NomicClient:
             print(result)
             ```
         """
-        client = _get_client()
+        client = get_client()
 
         response = client._post("/v1/parse", json={"file_url": self._file_to_url(file)})
-        response.raise_for_status()
+        raise_for_status_with_body(response)
         task = PlatformTask(response.json()["task_id"])
         if block:
             return task.get()
@@ -294,12 +305,12 @@ class NomicClient:
         if isinstance(files, (str, UploadedFile)):
             files = [files]
 
-        client = _get_client()
+        client = get_client()
 
         response = client._post(
             "/v1/extract", json={"file_urls": list(map(self._file_to_url, files)), "extraction_schema": schema}
         )
-        response.raise_for_status()
+        raise_for_status_with_body(response)
         task = PlatformTask(response.json()["task_id"])
         if block:
             return task.get()
@@ -319,3 +330,59 @@ class NomicClient:
         if not parsed.scheme:
             raise ValueError(f"Invalid URL: {file!r}")
         raise ValueError(f"Unsupported scheme {parsed.scheme!r} for URL {file!r}")
+
+
+def raise_for_status_with_body(resp: requests.Response) -> None:
+    """
+    Raises HTTPError if the response is not successful.
+
+    Like Response.raise_for_status, but includes the (truncated) response body in the
+    exception message for improved diagnostics.
+
+    Args:
+        resp: The response to check
+
+    Raises:
+        requests.HTTPError: If the response is not successful
+    """
+    http_error_msg = ""
+    if isinstance(resp.reason, bytes):
+        # We attempt to decode utf-8 first because some servers
+        # choose to localize their reason strings. If the string
+        # isn't utf-8, we fall back to iso-8859-1 for all other
+        # encodings. (See PR #3538)
+        try:
+            reason = resp.reason.decode("utf-8")
+        except UnicodeDecodeError:
+            reason = resp.reason.decode("iso-8859-1")
+    else:
+        reason = resp.reason
+
+    if 400 <= resp.status_code < 500:
+        http_error_msg = f"{resp.status_code} Client Error: {reason} for url: {resp.url}"
+
+    elif 500 <= resp.status_code < 600:
+        http_error_msg = f"{resp.status_code} Server Error: {reason} for url: {resp.url}"
+
+    if http_error_msg:
+        if (ctype := resp.headers.get("content-type")) is not None:
+            http_error_msg += f"\nContent-Type: {ctype}"
+        http_error_msg += f"\nBody: {format_body(resp)}"
+        raise requests.HTTPError(http_error_msg, response=resp)
+
+
+def format_body(resp: requests.Response) -> str:
+    text = None
+    if (ctype := resp.headers.get("content-type")) and "application/json" in ctype.lower():
+        try:
+            data = resp.json()
+            text = json.dumps(data, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+    if text is None:
+        text = resp.text
+
+    limit = MAX_FAILRESP_LENGTH
+    if len(text) > limit:
+        return text[:limit] + f"\n… [truncated {len(text) - limit} chars]"
+    return text
