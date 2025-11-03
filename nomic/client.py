@@ -13,12 +13,34 @@ import requests
 
 from nomic.dataset import AtlasClass
 
+from .client_models import (
+    ChunkerType,
+    ChunkOptions,
+    ContentExtractionMode,
+    ExtractOptions,
+    ExtractRequest,
+    FigureSummaryOptions,
+    OcrLanguage,
+    ParseOptions,
+    ParseRequest,
+    TableSummaryOptions,
+)
+
 __all__ = [
     "NomicClient",
     "PlatformTask",
     "TaskFailed",
     "TaskPending",
     "UploadedFile",
+    # Client models
+    "ChunkOptions",
+    "ChunkerType",
+    "ContentExtractionMode",
+    "ExtractOptions",
+    "FigureSummaryOptions",
+    "OcrLanguage",
+    "ParseOptions",
+    "TableSummaryOptions",
 ]
 
 MAX_FAILRESP_LENGTH = 1_000  # chars
@@ -181,18 +203,23 @@ class NomicClient:
         return UploadedFile(url=nomic_url)
 
     @overload
-    def parse(self, file: "str | UploadedFile", *, block: Literal[True] = ...) -> "dict[str, Any]": ...
+    def parse(
+        self, file: "str | UploadedFile", *, options: "ParseOptions | None" = ..., block: Literal[True] = ...
+    ) -> "dict[str, Any]": ...
     @overload
-    def parse(self, file: "str | UploadedFile", *, block: Literal[False]) -> PlatformTask["dict[str, Any]"]: ...
+    def parse(
+        self, file: "str | UploadedFile", *, options: "ParseOptions | None" = ..., block: Literal[False]
+    ) -> PlatformTask["dict[str, Any]"]: ...
     @overload
-    def parse(self, file: "str | UploadedFile", *, block: bool) -> Any: ...
+    def parse(self, file: "str | UploadedFile", *, options: "ParseOptions | None" = ..., block: bool) -> Any: ...
 
-    def parse(self, file: "str | UploadedFile", *, block: bool = True) -> Any:
+    def parse(self, file: "str | UploadedFile", *, options: "ParseOptions | None" = None, block: bool = True) -> Any:
         """
         Parses a document into a structured JSON representation.
 
         Args:
             file: The file to parse. Can be a string URL or an UploadedFile object.
+            options: Optional ParseOptions to customize parsing behavior (OCR settings, chunking, etc.).
             block: Whether to block until the task is complete.
 
         Returns:
@@ -207,19 +234,23 @@ class NomicClient:
             Complete end-to-end workflow with upload and parsing:
 
             ```python
-            from nomic.documents import upload_file, parse
+            from nomic.client import NomicClient
 
             # Upload a PDF file
-            file = upload_file("my_document.pdf")
+            client = NomicClient()
+            file = client.upload_file("my_document.pdf")
 
             # Parse the document
-            result = parse(file)
+            result = client.parse(file)
             print(result)
             ```
         """
         client = get_client()
 
-        response = client._post("/v1/parse", json={"file_url": self._file_to_url(file)})
+        request = ParseRequest(file_url=self._file_to_url(file), options=options)
+        payload = request.model_dump(mode="json", exclude_none=True)
+
+        response = client._post("/v1/parse", json=payload)
         raise_for_status_with_body(response)
         task = PlatformTask(response.json()["task_id"])
         if block:
@@ -232,6 +263,7 @@ class NomicClient:
         files: "str | UploadedFile | Sequence[str | UploadedFile]",
         schema: "dict[str, Any]",
         *,
+        options: "ExtractOptions | None" = ...,
         block: Literal[True] = ...,
     ) -> Any: ...
     @overload
@@ -240,6 +272,7 @@ class NomicClient:
         files: "str | UploadedFile | Sequence[str | UploadedFile]",
         schema: "dict[str, Any]",
         *,
+        options: "ExtractOptions | None" = ...,
         block: Literal[False],
     ) -> PlatformTask[Any]: ...
     @overload
@@ -248,6 +281,7 @@ class NomicClient:
         files: "str | UploadedFile | Sequence[str | UploadedFile]",
         schema: "dict[str, Any]",
         *,
+        options: "ExtractOptions | None" = ...,
         block: bool,
     ) -> Any: ...
 
@@ -256,6 +290,7 @@ class NomicClient:
         files: "str | UploadedFile | Sequence[str | UploadedFile]",
         schema: "dict[str, Any]",
         *,
+        options: "ExtractOptions | None" = None,
         block: bool = True,
     ) -> Any:
         """
@@ -264,6 +299,7 @@ class NomicClient:
         Args:
             files: List of uploaded files to extract from.
             schema: A JSON schema defining the structure of data to extract.
+            options: Optional ExtractOptions to customize extraction behavior (system prompt, etc.).
             block: Whether to block until the task is complete.
 
         Returns:
@@ -278,10 +314,11 @@ class NomicClient:
             Complete end-to-end workflow with upload and extraction:
 
             ```python
-            from nomic.documents import upload_file, extract
+            from nomic.client import NomicClient
 
             # Upload a PDF file
-            file = upload_file("my_document.pdf")
+            client = NomicClient()
+            file = client.upload_file("my_document.pdf")
 
             # Define extraction schema
             schema = {
@@ -296,7 +333,7 @@ class NomicClient:
             }
 
             # Extract structured data
-            result = extract(file, schema)
+            result = client.extract(file, schema)
             print(result)
             ```
         """
@@ -307,9 +344,14 @@ class NomicClient:
 
         client = get_client()
 
-        response = client._post(
-            "/v1/extract", json={"file_urls": list(map(self._file_to_url, files)), "extraction_schema": schema}
+        request = ExtractRequest(
+            file_urls=list(map(self._file_to_url, files)),
+            extraction_schema=schema,
+            system_prompt=options.system_prompt if options is not None else None,
         )
+        payload = request.model_dump(mode="json", exclude_none=True)
+
+        response = client._post("/v1/extract", json=payload)
         raise_for_status_with_body(response)
         task = PlatformTask(response.json()["task_id"])
         if block:
