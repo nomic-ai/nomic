@@ -247,8 +247,12 @@ class NomicClient:
         """
         client = get_client()
 
-        request = ParseRequest(file_url=self._file_to_url(file), options=options)
-        payload = request.model_dump(mode="json", exclude_none=True)
+        file_url = self._file_to_url(file)
+        if options is not None:
+            request = ParseRequest(file_url=file_url, options=options)
+        else:
+            request = ParseRequest(file_url=file_url)
+        payload = request.model_dump(mode="json", exclude_unset=True)
 
         response = client._post("/v1/parse", json=payload)
         raise_for_status_with_body(response)
@@ -349,7 +353,7 @@ class NomicClient:
             extraction_schema=schema,
             system_prompt=options.system_prompt if options is not None else None,
         )
-        payload = request.model_dump(mode="json", exclude_none=True)
+        payload = request.model_dump(mode="json", exclude_unset=True)
 
         response = client._post("/v1/extract", json=payload)
         raise_for_status_with_body(response)

@@ -10,13 +10,10 @@ commands:
             curl -LsSf https://astral.sh/uv/install.sh | sh
             export PATH="$HOME/.local/bin:$PATH"
             uv python install 3.10
-            uv venv --python 3.10
-            printf 'source %s/.venv/bin/activate\n' "$PWD" >> $BASH_ENV
+            PYTHON_PATH=$(dirname $(uv python find 3.10))
+            printf "export PATH='%s':\$PATH\n" "$PYTHON_PATH" >> $BASH_ENV
             source $BASH_ENV
             python --version
-      - run:
-          name: Install AWS CLI
-          command: pip install -U awscli
 
   build:
     steps:

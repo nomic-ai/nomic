@@ -124,8 +124,8 @@ class ParseRequest(BaseModel):
     """Request model for parsing a document."""
 
     file_url: str = Field(description="File URL to process")
-    options: ParseOptions | None = Field(
-        default=None,
+    options: ParseOptions = Field(
+        default_factory=ParseOptions,
         description="Options to customize document parsing",
     )
 
