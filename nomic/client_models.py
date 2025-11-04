@@ -7,8 +7,6 @@ from pydantic import BaseModel, Field
 __all__ = [
     "ContentExtractionMode",
     "OcrLanguage",
-    "ChunkerType",
-    "ChunkOptions",
     "TableSummaryOptions",
     "FigureSummaryOptions",
     "ParseOptions",
@@ -34,38 +32,6 @@ class OcrLanguage(str, Enum):
     Chinese_Japanese_English = "zh_ja_en"
 
 
-class ChunkerType(str, Enum):
-    """Type of chunker to use for document splitting."""
-
-    Hybrid = "hybrid"
-    Hierarchical = "hierarchical"
-
-
-class ChunkOptions(BaseModel):
-    """Options that control how the document is split into chunks."""
-
-    chunker: ChunkerType = Field(
-        default=ChunkerType.Hybrid,
-        description="Whether to use a hybrid or hierarchical chunker",
-    )
-    max_tokens: int = Field(
-        default=2048,
-        description="For hybrid chunker: Max number of tokens per chunk",
-    )
-    soft_min_tokens: int | None = Field(
-        default=None,
-        description="For hybrid chunker: If set, merge chunks with the same top-level heading if they are less than this many tokens. Implies merge_peers=True.",
-    )
-    merge_peers: bool = Field(
-        default=True,
-        description="For hybrid chunker: Whether to merge undersized chunks sharing same relevant metadata",
-    )
-    split_pdfs_by_page: bool = Field(
-        default=True,
-        description="For PDFs: If set, 1 page = 1 chunk and other options are ignored. For DOCX: This option is ignored",
-    )
-
-
 class TableSummaryOptions(BaseModel):
     """Options for generating table summaries."""
 
@@ -85,7 +51,7 @@ class FigureSummaryOptions(BaseModel):
 
 
 class ParseOptions(BaseModel):
-    """Options to customize document parsing and chunking."""
+    """Options to customize document parsing."""
 
     content_extraction_mode: ContentExtractionMode = Field(
         default=ContentExtractionMode.Hybrid,
@@ -94,10 +60,6 @@ class ParseOptions(BaseModel):
     ocr_language: OcrLanguage = Field(
         default=OcrLanguage.English,
         description="Language selection for OCR",
-    )
-    chunking: ChunkOptions | None = Field(
-        default=None,
-        description="Options that control how the document is split into chunks",
     )
     table_summary: TableSummaryOptions | None = Field(
         default=None,
