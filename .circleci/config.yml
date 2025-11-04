@@ -5,11 +5,15 @@ commands:
     steps:
       - checkout
       - run:
-          name: Install python3 and pip3
-          command: sudo apt-get update && sudo apt-get -y install python3 python3-pip
-      - run:
-          name: Install AWS CLI
-          command: sudo pip3 install awscli --upgrade
+          name: Install uv and Python 3.10
+          command: |
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.local/bin:$PATH"
+            uv python install 3.10
+            PYTHON_PATH=$(dirname $(uv python find 3.10))
+            printf "export PATH='%s':\$PATH\n" "$PYTHON_PATH" >> $BASH_ENV
+            source $BASH_ENV
+            python --version
 
   build:
     steps:
@@ -42,7 +46,7 @@ commands:
 jobs:
   build_test:
     machine:
-      image: ubuntu-2204:2024.01.2
+      image: ubuntu-2204:current
     resource_class: large
     steps:
       - prep
@@ -58,7 +62,7 @@ jobs:
 
   build_deploy_pypi:
     docker:
-      - image: circleci/python:3.8
+      - image: circleci/python:3.10
     steps:
       - checkout
       - run:
