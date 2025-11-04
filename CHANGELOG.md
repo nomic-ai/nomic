@@ -1,9 +1,17 @@
 # Changelog
 
+## [3.7.0](https://github.com/nomic-ai/nomic/compare/v3.6.0...v3.7.0) (2025-11-03)
+
+
+### Features
+
+* add document options, drop py38 and py39 ([#398](https://github.com/nomic-ai/nomic/issues/398)) ([8517e44](https://github.com/nomic-ai/nomic/commit/8517e44a1c4ee9a52b66d008fdfeccb7ab0b214a))
+
 ## [3.6.0](https://github.com/nomic-ai/nomic/compare/v3.5.3...v3.6.0) (2025-09-23)
 
 ### Features
-* Nomic Platform support for enterprise ([#396](https://github.com/nomic-ai/nomic/pull/396))
+
+* Nomic Platform support for enterprise ([#396](https://github.com/nomic-ai/nomic/issues/396))
 
 ## [3.5.3](https://github.com/nomic-ai/nomic/compare/v3.5.2...v3.5.3) (2025-05-30)
 
