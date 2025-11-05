@@ -14,8 +14,6 @@ import requests
 from nomic.dataset import AtlasClass
 
 from .client_models import (
-    ChunkerType,
-    ChunkOptions,
     ContentExtractionMode,
     ExtractOptions,
     ExtractRequest,
@@ -33,8 +31,6 @@ __all__ = [
     "TaskPending",
     "UploadedFile",
     # Client models
-    "ChunkOptions",
-    "ChunkerType",
     "ContentExtractionMode",
     "ExtractOptions",
     "FigureSummaryOptions",
@@ -219,7 +215,7 @@ class NomicClient:
 
         Args:
             file: The file to parse. Can be a string URL or an UploadedFile object.
-            options: Optional ParseOptions to customize parsing behavior (OCR settings, chunking, etc.).
+            options: Optional ParseOptions to customize parsing behavior (OCR settings, etc.).
             block: Whether to block until the task is complete.
 
         Returns:
