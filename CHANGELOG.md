@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.8.0](https://github.com/nomic-ai/nomic/compare/v3.7.0...v3.8.0) (2025-11-05)
+
+
+### Features
+
+* add py.typed marker for PEP 561 compliance ([#400](https://github.com/nomic-ai/nomic/issues/400)) ([762aeee](https://github.com/nomic-ai/nomic/commit/762aeee45bc68f7a58a2e9ab7583bd6c1c9650cf))
+
+
+### Bug Fixes
+
+* remove chunking options ([#401](https://github.com/nomic-ai/nomic/issues/401))
+([550f645](https://github.com/nomic-ai/nomic/commit/550f645be6a93ed8d3f447e7d0e915e35e992de0))
+
 ## [3.7.0](https://github.com/nomic-ai/nomic/compare/v3.6.0...v3.7.0) (2025-11-03)
 
 
@@ -8,6 +21,7 @@
 * add document options, drop py38 and py39 ([#398](https://github.com/nomic-ai/nomic/issues/398)) ([8517e44](https://github.com/nomic-ai/nomic/commit/8517e44a1c4ee9a52b66d008fdfeccb7ab0b214a))
 
 ## [3.6.0](https://github.com/nomic-ai/nomic/compare/v3.5.3...v3.6.0) (2025-09-23)
+
 
 ### Features
 
