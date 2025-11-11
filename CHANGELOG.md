@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.9.0](https://github.com/nomic-ai/nomic/compare/v3.8.0...v3.9.0) (2025-11-11)
+
+
+### Features
+
+* document client: more filetypes ([#404](https://github.com/nomic-ai/nomic/issues/404)) ([4d4afe4](https://github.com/nomic-ai/nomic/commit/4d4afe495da06ae48b21a632513e8722b1d2befc))
+* build and publish a wheel ([#402](https://github.com/nomic-ai/nomic/issues/402)) ([f3e4207](https://github.com/nomic-ai/nomic/commit/f3e4207a64335ce5cd61d169aa2af43b686bea9a))
+
 ## [3.8.0](https://github.com/nomic-ai/nomic/compare/v3.7.0...v3.8.0) (2025-11-05)
 
 
