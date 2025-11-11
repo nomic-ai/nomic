@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar, overload
 from urllib.parse import urlparse
 
+import filetype
 import jsonschema
 import requests
 
@@ -139,6 +140,45 @@ class PlatformTask(Generic[T]):
         return result
 
 
+def _detect_content_type(path: Path) -> str:
+    """
+    Detect the MIME type of a file following docling's approach.
+
+    Uses filetype library for content-based detection, with special handling
+    for Office Open XML formats (which are ZIP archives).
+
+    Args:
+        path: Path to the file to detect.
+
+    Returns:
+        MIME type string.
+
+    Raises:
+        ValueError: If the file type is not supported or cannot be detected.
+    """
+    # Detect MIME type from file content
+    content_type = filetype.guess_mime(path)
+
+    if content_type is None:
+        raise ValueError(f"Could not detect file type for {path.name}")
+
+    # Office Open XML formats (docx, pptx, xlsx) are detected as application/zip
+    # because they're ZIP archives. Use extension to get the specific type.
+    if content_type.lower() == "application/zip":
+        file_ext = path.suffix.lower()
+        mime_root = "application/vnd.openxmlformats-officedocument"
+        if file_ext == ".docx":
+            content_type = mime_root + ".wordprocessingml.document"
+        elif file_ext == ".pptx":
+            content_type = mime_root + ".presentationml.presentation"
+        elif file_ext == ".xlsx":
+            content_type = mime_root + ".spreadsheetml.sheet"
+        else:
+            raise ValueError(f"Unsupported ZIP-based file type: {file_ext}")
+
+    return content_type
+
+
 class NomicClient:
     """Client for the Nomic Platform API."""
 
@@ -147,38 +187,18 @@ class NomicClient:
         Uploads a file to the Nomic Platform.
 
         Args:
-            path: The path to the PDF file to upload.
+            path: The path to the file to upload (supports PDF, Office documents, and images).
 
         Returns:
             An UploadedFile object representing the uploaded file.
         """
         client = get_client()
-
         path = Path(path)
 
-        with path.open("rb") as pdf_file:
-            file_type = path.suffix.lower()
-            if file_type == ".pdf":
-                content_type = "application/pdf"
-            # elif file_type == ".docx":
-            #   content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            # elif file_type == ".doc":
-            #   content_type = "application/msword"
-            # elif file_type == ".txt":
-            #   content_type = "text/plain"
-            # elif file_type == ".pptx":
-            #   content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            # elif file_type == ".ppt":
-            #   content_type = "application/vnd.ms-powerpoint"
-            # elif file_type == ".csv":
-            #   content_type = "text/csv"
-            # elif file_type == ".xlsx":
-            #   content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            # elif file_type == ".xls":
-            #   content_type = "application/vnd.ms-excel"
-            else:
-                raise ValueError(f"Unsupported file type: {file_type}")
+        # Detect content type from file
+        content_type = _detect_content_type(path)
 
+        with path.open("rb") as pdf_file:
             response = client._post(
                 "/v1/upload",
                 json=dict(files=[{"id": path.name, "size": path.stat().st_size, "content_type": content_type}]),

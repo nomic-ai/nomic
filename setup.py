@@ -38,6 +38,7 @@ setup(
     requires_python='>=3.10',
     install_requires=[
         "click",
+        "filetype>=1.2.0,<2",
         "jsonlines",
         "jsonschema>=4.23.0,<5",
         "loguru",
