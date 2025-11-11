@@ -21,13 +21,13 @@ isort:
 	source env/bin/activate; isort nomic
 
 pyright:
-	source env/bin/activate; pyright nomic/ -p . 
+	source env/bin/activate; pyright nomic/ -p .
 
 documentation:
 	source env/bin/activate; rm -rf /.site && mkdocs build
 
 pypi:
-	source env/bin/activate; python setup.py sdist; twine upload dist/*; rm -rf dist/
+	source env/bin/activate; python -m build; twine upload dist/*; rm -rf dist/
 
 lint: black isort pyright
 	@echo "Lint checks passed!"

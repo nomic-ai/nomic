@@ -71,8 +71,8 @@ jobs:
             if [[ $(git log -1 --pretty=%B) == "chore(main): release"* ]]; then
               sudo apt-get update
               sudo apt-get install build-essential
-              pip install setuptools twine
-              python setup.py sdist
+              pip install build twine
+              python -m build
               twine upload dist/* --username __token__ --password $PYPI_CRED
             else
               echo "Skipping PyPI deployment as this is not a release commit"
@@ -143,7 +143,7 @@ workflows:
       - build_test_deploy:
           filters:
             branches:
-              only: 
+              only:
                 - main
                 - prod
       - build_deploy_pypi:
