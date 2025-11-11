@@ -9,3 +9,8 @@ skip = ["env", "ci_venv"]
 ignore_whitespace = false
 atomic = true
 line_length = 120
+
+[tool.pytest.ini_options]
+markers = [
+    "atlas: marks tests that require building Atlas maps",
+]

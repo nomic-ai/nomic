@@ -40,7 +40,7 @@ commands:
           command: source env/bin/activate && nomic login staging $NOMIC_API_KEY
       - run:
           name: Run Unit Tests
-          command: make test | cat
+          command: make test_ci | cat
           no_output_timeout: 30m
 
 jobs:

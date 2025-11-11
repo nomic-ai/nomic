@@ -37,6 +37,9 @@ pretty: isort black
 test:
 	source env/bin/activate; pytest -s tests
 
+test_ci:
+	source env/bin/activate; pytest -s tests -m "not atlas"
+
 clean:
 	rm -rf {.pytest_cache,env,nomic.egg-info}
 	find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf

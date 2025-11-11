@@ -27,6 +27,7 @@ def gen_temp_identifier() -> str:
     return f"{now}-{rand}"
 
 
+@pytest.mark.atlas
 def test_integration_map_idless_embeddings():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 512)
@@ -38,6 +39,7 @@ def test_integration_map_idless_embeddings():
     AtlasDataset(dataset.identifier).delete()
 
 
+@pytest.mark.atlas
 def test_integration_map_embeddings_with_errors():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
@@ -82,6 +84,7 @@ def test_integration_map_embeddings_with_errors():
         pass
 
 
+@pytest.mark.atlas
 def test_integration_map_text_errors():
     # no indexed field
     name = f"unittest-dataset-{gen_temp_identifier()}"
@@ -100,6 +103,7 @@ def test_integration_map_text_errors():
         pass
 
 
+@pytest.mark.atlas
 def test_date_metadata():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
@@ -128,6 +132,7 @@ def test_date_metadata():
         dataset.delete()
 
 
+@pytest.mark.atlas
 def test_topics():
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
@@ -152,6 +157,7 @@ def test_topics():
     dataset.delete()
 
 
+@pytest.mark.atlas
 def test_data():
     num_embeddings = 100
     embeddings = np.random.rand(num_embeddings, 10)
@@ -238,6 +244,7 @@ words = [
 ]
 
 
+@pytest.mark.atlas
 def test_flawed_ids():
     """
     Check that null and empty strings do not block an index build.
@@ -260,6 +267,7 @@ def test_flawed_ids():
     p.delete()
 
 
+@pytest.mark.atlas
 def test_weird_inputs():
     """
     Check that null and empty strings do not block an index build.
@@ -291,6 +299,7 @@ def test_weird_inputs():
     dataset.delete()
 
 
+@pytest.mark.atlas
 def test_integration_map_embeddings():
     num_embeddings = 20
     embeddings = np.random.rand(num_embeddings, 10)
@@ -322,6 +331,7 @@ def test_integration_map_embeddings():
     dataset.delete()
 
 
+@pytest.mark.atlas
 def test_integration_map_text_pandas():
     size = 50
     data = pd.DataFrame(
@@ -339,6 +349,7 @@ def test_integration_map_text_pandas():
     dataset.delete()
 
 
+@pytest.mark.atlas
 def test_integration_map_text_arrow():
     size = 50
     data = pa.Table.from_pydict(
@@ -409,6 +420,7 @@ def _wait_for_projection_completion(projection, timeout_seconds=600):
             time.sleep(10)
 
 
+@pytest.mark.atlas
 def test_integration_map_embeddings_explicit_umap():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
@@ -485,6 +497,7 @@ def test_map_embeddings_explicit_umap(mock_map_data, mock_wait_for_completion):
     mock_dataset.delete.assert_called_once()
 
 
+@pytest.mark.atlas
 def test_integration_map_text_explicit_umap():
     size = 50
     data = pd.DataFrame(
@@ -558,6 +571,7 @@ def test_map_text_explicit_umap(mock_map_data, mock_wait_for_completion):
     mock_dataset.delete.assert_called_once()
 
 
+@pytest.mark.atlas
 def test_integration_map_embeddings_explicit_nomic_project():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
@@ -623,6 +637,7 @@ def test_map_embeddings_explicit_nomic_project(mock_map_data, mock_wait_for_comp
     mock_dataset.delete.assert_called_once()
 
 
+@pytest.mark.atlas
 def test_integration_map_text_explicit_nomic_project():
     size = 50
     data = pd.DataFrame(
@@ -698,6 +713,7 @@ def test_map_text_explicit_nomic_project(mock_map_data, mock_wait_for_completion
     mock_dataset.delete.assert_called_once()
 
 
+@pytest.mark.atlas
 def test_integration_map_embeddings_auto_with_options():
     num_embeddings = 50  # Small dataset, backend should pick UMAP if it has logic for it
     embeddings = np.random.rand(num_embeddings, 10)
@@ -723,6 +739,7 @@ def test_integration_map_embeddings_auto_with_options():
     dataset.delete()
 
 
+@pytest.mark.atlas
 def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     num_embeddings = 50
     embeddings = np.random.rand(num_embeddings, 10)
@@ -756,6 +773,7 @@ def test_integration_map_embeddings_legacy_dict_with_explicit_algorithm():
     dataset.delete()
 
 
+@pytest.mark.atlas
 @pytest.mark.skip(reason="Test is failing")
 def test_integration_map_images():
     size = 30
