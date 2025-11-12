@@ -104,7 +104,7 @@ nouns = [
     "fisher",
     "jaynes",
     "bernoulli",
-    "alembert",
+    "diderot",
     "gibbs",
     "pareto",
     "levy",
